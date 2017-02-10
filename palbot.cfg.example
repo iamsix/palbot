@@ -1,0 +1,23 @@
+[discord]
+nick = palbot
+botadmins = bob,frank,joe
+token = abc123
+
+[APIkeys]
+wolframapikey = abc123
+fmlapikey = abc123
+lastfmapikey = abc123
+twitterconsumerkey = abc123
+twitterconsumersecret = abc123
+gsearchapi = abc123
+gsearchcx = abc123
+shorturlkey = abc123
+forecastio_apikey = abc123
+wunderAPIkey = abc123
+untappd_clientid=1abc123
+untappd_clientsecret=abc123
+
+
+[misc]
+error_log = error_log
+event_log = event_log
