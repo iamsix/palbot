@@ -3,6 +3,8 @@ nick = palbot
 botadmins = bob,frank,joe
 token = abc123
 
+[alerts]
+
 [APIkeys]
 wolframapikey = abc123
 fmlapikey = abc123

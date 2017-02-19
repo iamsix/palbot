@@ -10,13 +10,13 @@ except ImportError:
 
 def set_wwokey(line, nick, self, c):
     self.botconfig["APIkeys"]["wwoAPIkey"] = line[7:]
-    with open('genmaybot.cfg', 'w') as configfile:
+    with open('palbot.cfg', 'w') as configfile:
         self.botconfig.write(configfile)
 set_wwokey.admincommand = "wwokey"
 
 def set_fiokey(line, nick, self, c):
     self.botconfig["APIkeys"]["forecastIO_APIkey"] = line[14:]
-    with open('genmaybot.cfg', 'w') as configfile:
+    with open('palbot.cfg', 'w') as configfile:
         self.botconfig.write(configfile)
 set_fiokey.admincommand = "forecastiokey"
 

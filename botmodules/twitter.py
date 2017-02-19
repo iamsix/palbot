@@ -18,7 +18,7 @@ def __init__(self):
     response = urllib.request.urlopen(req)
     response = json.loads(response.read().decode('utf-8'))
     read_timeline.holyshitbearstoken = response['access_token']
-    print(read_timeline.holyshitbearstoken)
+    # print(read_timeline.holyshitbearstoken)
     read_timeline.self = self
   except Exception as inst:
       print(inst)
@@ -39,10 +39,10 @@ def read_timeline (user):
     return text, updated, ago
 
 def latest_breaking(self, e):
-    text, updated, ago = read_timeline('breakingnews')
+    text, updated, ago = read_timeline('realdonaldtrump')
     e.output =  "%s (%s minutes ago) " % (text, ago)
     return e
-latest_breaking.command = "!breaking"
+latest_breaking.command = "!trump"
 latest_breaking.helptext = "Usage: !breaking\nShows the latest breaking news alert"
 
 def latest_tweet(self, e):
@@ -51,18 +51,18 @@ def latest_tweet(self, e):
     return e
 latest_tweet.command = "!lasttweet"
 
-def breaking_alert():
+def trump_alert():
     #returns a new breaking news only if it hasn't returned it before
       try:
-        description, updated, ago = read_timeline('breakingnews')
+        description, updated, ago = read_timeline('realdonaldtrump')
 
-        if not breaking_alert.lastcheck:
-            breaking_alert.lastcheck = updated
-        if updated > breaking_alert.lastcheck:
-            breaking_alert.lastcheck = updated
+        if not trump_alert.lastcheck:
+            trump_alert.lastcheck = updated
+        if updated > trump_alert.lastcheck:
+            trump_alert.lastcheck = updated
             return description
       except Exception as inst:
           print("breakinglert: " + str(inst))
           pass
-breaking_alert.lastcheck = ""
-breaking_alert.alert = True
+trump_alert.lastcheck = ""
+trump_alert.alert = True

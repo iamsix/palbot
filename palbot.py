@@ -6,7 +6,8 @@ import logging, logging.handlers
 import configparser
 import re
 
-logging.basicConfig(filename='debug.log',level=logging.DEBUG)
+FORMAT = "[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s"
+logging.basicConfig(filename='debug.log',level=logging.DEBUG, format=FORMAT)
 logger = logging.getLogger("py3")
 client = discord.Client()
 client.logger = logger
@@ -46,6 +47,19 @@ async def on_message(message):
         e.output = re.sub(urlregex, "<\g<0>>",  e.output)
         await client.send_message(message.channel, e.output)
 
+
+async def bot_alerts():
+    await client.wait_until_ready()
+    for alert in client.botalerts:
+        if alert.__name__ in client.alertsubs:
+            out = alert()
+            if out and not client.is_closed:
+                for chid in client.alertsubs[alert.__name__]:
+                    channel = discord.Object(id=chid)
+                    await client.send_message(channel, out)
+    await asyncio.sleep(60)
+
+
 def loadmodules():
     tools_spec = importlib.util.spec_from_file_location("tools", "./botmodules/tools.py")
     client.tools = importlib.util.module_from_spec(tools_spec)
@@ -60,6 +74,7 @@ def loadmodules():
     client.bangcommands = {}
     client.admincommands = {}
     client.lineparsers = []
+    client.botalerts = []
 
     filenames = []
     for fn in os.listdir('./botmodules'):
@@ -86,6 +101,8 @@ def loadmodules():
                 elif hasattr(func, 'admincommand'):
                     command = str(func.admincommand)
                     client.admincommands[command] = func
+                elif hasattr(func, 'alert'):
+                    client.botalerts.append(func)
                 elif hasattr(func, 'lineparser'):
                     if func.lineparser:
                         client.lineparsers.append(func)
@@ -95,13 +112,17 @@ def loadmodules():
                 client.bangcommands.keys())
         else:
             commands = "No command modules loaded!"
+
+        if client.botalerts:
+            botalerts = 'Loaded alerts: %s' % ', '.join(
+                (command.__name__ for command in client.botalerts))
         if client.lineparsers:
             lineparsers = 'Loaded line parsers: %s' % ', '.join(
                 (command.__name__ for command in client.lineparsers))
         if client.admincommands:
             admincommands = 'Loaded admin commands: %s' % list(
                 client.admincommands.keys())
-    out = commands + "\n" + lineparsers + "\n" + admincommands
+    out = commands + "\n" + botalerts + "\n" + lineparsers + "\n" + admincommands
     logger.info(out)
     return out
 
@@ -119,6 +140,14 @@ def load_config():
     client.botadmins = config["discord"]["botadmins"].split(",")
 
     logger.info("Bot admins: {}".format(client.botadmins))
+
+
+    #alert subscriptions testing
+    client.alertsubs = {}
+    if config.has_section("alerts"):
+        for alert in config["alerts"]:
+            client.alertsubs[alert] = set(config["alerts"][alert].split(","))
+ 
     #self.error_log = simpleLogger(config['misc']['error_log'])
     #self.event_log = simpleLogger(config['misc']['event_log'])
 
@@ -137,4 +166,5 @@ client.loadmodules = loadmodules
 client.load_config = load_config
 load_config()
 loadmodules()
+client.loop.create_task(bot_alerts())
 client.run(client.botconfig['discord']['token'])

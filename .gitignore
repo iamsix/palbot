@@ -49,3 +49,5 @@ Temporary Items
 # bot stuff
 *.sqlite
 palbot.cfg
+debug.log
+__pycache__

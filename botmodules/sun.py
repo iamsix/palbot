@@ -10,7 +10,7 @@ except ImportError:
 
 def set_wunderkey(line, nick, self, c):
     self.botconfig["APIkeys"]["wunderAPIkey"] = line[10:]
-    with open('genmaybot.cfg', 'w') as configfile:
+    with open('palbot.cfg', 'w') as configfile:
         self.botconfig.write(configfile)
 set_wunderkey.admincommand = "wunderkey"
 

@@ -13,19 +13,19 @@ def __init__(self):
 
 def set_googleapi(line, nick, self, c):
     bot_object.botconfig["APIkeys"]["gsearchapi"] = line[11:]
-    with open('genmaybot.cfg', 'w') as configfile:
+    with open('palbot.cfg', 'w') as configfile:
         self.botconfig.write(configfile)
 set_googleapi.admincommand = "gsearchapi"
 
 def set_googlecx(line, nick, self, c):
     bot_object.botconfig["APIkeys"]["gsearchcx"] = line[10:]
-    with open('genmaybot.cfg', 'w') as configfile:
+    with open('palbot.cfg', 'w') as configfile:
         self.botconfig.write(configfile)
 set_googlecx.admincommand = "gsearchcx"
 
 def set_shorturlkey(line, nick, self, c):
     bot_object.botconfig["APIkeys"]["shorturlkey"] = line[12:]
-    with open('genmaybot.cfg', 'w') as configfile:
+    with open('palbot.cfg', 'w') as configfile:
         self.botconfig.write(configfile)
 set_shorturlkey.admincommand = "shorturlkey"
 
