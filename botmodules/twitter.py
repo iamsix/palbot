@@ -51,18 +51,20 @@ def latest_tweet(self, e):
     return e
 latest_tweet.command = "!lasttweet"
 
-def trump_alert():
+def trump_alert(self):
     #returns a new breaking news only if it hasn't returned it before
       try:
         description, updated, ago = read_timeline('realdonaldtrump')
 
         if not trump_alert.lastcheck:
+            self.logger.debug("First run empty, setting lastcheck to {}".format(updated))
             trump_alert.lastcheck = updated
         if updated > trump_alert.lastcheck:
+            self.logger.debug("should be doing a tweet now")
             trump_alert.lastcheck = updated
             return description
       except Exception as inst:
-          print("breakinglert: " + str(inst))
+          self.logger.exception(str(inst))
           pass
 trump_alert.lastcheck = ""
 trump_alert.alert = True

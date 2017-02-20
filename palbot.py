@@ -49,15 +49,20 @@ async def on_message(message):
 
 
 async def bot_alerts():
-    await client.wait_until_ready()
-    for alert in client.botalerts:
-        if alert.__name__ in client.alertsubs:
-            out = alert()
-            if out and not client.is_closed:
-                for chid in client.alertsubs[alert.__name__]:
-                    channel = discord.Object(id=chid)
-                    await client.send_message(channel, out)
-    await asyncio.sleep(60)
+    while not client.is_closed:
+        logger.debug("Loop of alerts")
+        await client.wait_until_ready()
+        for alert in client.botalerts:
+        #logger.debug("alert.name: {} in client.alertsubs: {}".format(alert.__name__, client.alertsubs))
+            if alert.__name__ in client.alertsubs:
+                out = alert(client)
+                logger.debug("potential alert: {}".format(out))
+                if out and not client.is_closed:
+                    for chid in client.alertsubs[alert.__name__]:
+                        channel = discord.Object(id=chid)
+                        await client.send_message(channel, out)
+                        logger.debug("channel: {} - Alert {}".format(channel, out))
+        await asyncio.sleep(60)
 
 
 def loadmodules():

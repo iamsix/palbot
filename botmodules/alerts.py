@@ -1,8 +1,6 @@
 
 def sub_alert(self, e):
     if e.input in [n.__name__ for n in self.botalerts]:
-        #self.botconfig["alerts"][e.input].add(e.source.id)
-        # print(e.source.id)
         if e.input in self.alertsubs:
             self.alertsubs[e.input].add(e.source.id)
         else:
@@ -15,3 +13,7 @@ def sub_alert(self, e):
     else:
         e.output = "No such alert"
 sub_alert.command = "!subscribe"
+
+def unsub_alert(self, e):
+    e.output = "Currently not supported"
+unsub_alert.command = "!unsubscribe"

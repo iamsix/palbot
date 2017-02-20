@@ -5,7 +5,7 @@ This is effectively a discord version of [iamsix/genmaybot](https://github.com/i
 
 In its current version it's still basically a standard IRC bot that works on discord - it needs some modification to work with discord-specific features.
 
-It requires Python 3.5+ due to asyncio
+It requires Python 3.5+ due to asyncio  
 It makes use of [discord.py](https://github.com/Rapptz/discord.py)
 
 You will need to set some config options (especially the token) using the example config.
