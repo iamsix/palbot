@@ -15,5 +15,10 @@ def sub_alert(self, e):
 sub_alert.command = "!subscribe"
 
 def unsub_alert(self, e):
-    e.output = "Currently not supported"
+    if e.input in self.alertsubs:
+        for sub in self.alertsubs:
+            sub.discard(e.source.id)
+        e.output = "{} has been unsubscribed from {}".format(e.source.name, e.input)
+    else:
+        e.output = "No such alert"
 unsub_alert.command = "!unsubscribe"

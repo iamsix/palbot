@@ -53,7 +53,6 @@ async def bot_alerts():
         logger.debug("Loop of alerts")
         await client.wait_until_ready()
         for alert in client.botalerts:
-        #logger.debug("alert.name: {} in client.alertsubs: {}".format(alert.__name__, client.alertsubs))
             if alert.__name__ in client.alertsubs:
                 out = alert(client)
                 logger.debug("potential alert: {}".format(out))
@@ -112,21 +111,21 @@ def loadmodules():
                     if func.lineparser:
                         client.lineparsers.append(func)
 
-        if client.bangcommands:
-            commands = 'Loaded command modules: %s' % list(
-                client.bangcommands.keys())
-        else:
-            commands = "No command modules loaded!"
+    if client.bangcommands:
+        commands = 'Loaded command modules: %s' % list(
+            client.bangcommands.keys())
+    else:
+        commands = "No command modules loaded!"
 
-        if client.botalerts:
-            botalerts = 'Loaded alerts: %s' % ', '.join(
-                (command.__name__ for command in client.botalerts))
-        if client.lineparsers:
-            lineparsers = 'Loaded line parsers: %s' % ', '.join(
-                (command.__name__ for command in client.lineparsers))
-        if client.admincommands:
-            admincommands = 'Loaded admin commands: %s' % list(
-                client.admincommands.keys())
+    if client.botalerts:
+        botalerts = 'Loaded alerts: %s' % ', '.join(
+            (command.__name__ for command in client.botalerts))
+    if client.lineparsers:
+        lineparsers = 'Loaded line parsers: %s' % ', '.join(
+            (command.__name__ for command in client.lineparsers))
+    if client.admincommands:
+        admincommands = 'Loaded admin commands: %s' % list(
+            client.admincommands.keys())
     out = commands + "\n" + botalerts + "\n" + lineparsers + "\n" + admincommands
     logger.info(out)
     return out
