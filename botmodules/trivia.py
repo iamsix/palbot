@@ -119,8 +119,8 @@ def ask_question():
     trivia.gameon = True
     trivia.qtimestamp = time.time()
     #trivia.bot.botSay(trivia.e)
-    trivia.bot.send_message(trivia.e.source, trivia.e.output)
-    
+    asyncio.ensure_future(trivia.bot.send_message(trivia.e.source, trivia.e.output))
+    trivia.e.output = "" 
     trivia.hintsgiven = 0
     if trivia.autohint:
          trivia.timer = trivia.bot.loop.call_later(round(trivia.qtime / 2), first_hint)
