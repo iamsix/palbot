@@ -37,6 +37,10 @@ def play_trivia(self, e):
     e.output = "Trivia started! Use !strivia to stop"
     trivia.questions_asked = 0
     # used for saving
+    try:
+        trivia.questionlimit = int(e.input)
+    except:
+        trivia.questionlimit = 10
     trivia.points = {}
     conn = sqlite3.connect("triviascores.sqlite")
     c = conn.cursor()
@@ -54,7 +58,7 @@ def play_trivia(self, e):
     trivia.bot.send_message(trivia.e.source, trivia.e.output)
     ask_question()
 
-play_trivia.command = "!trivia"
+play_trivia.command = "!triviaround"
 play_trivia.helptext = """
 Usage: !trivia
 Starts a 'round' of trivia - it will keep asking questions until you stop it."""
@@ -80,7 +84,7 @@ trivia.value = 0
 trivia.bot = None
 trivia.e = None
 trivia.qtimestamp = None
-
+trivia.questionlimit = 10
 
 def ask_question():
     conn = sqlite3.connect("clues.db")
@@ -166,7 +170,6 @@ def trivia_q(self, e):
         return e
 
     trivia.questions_asked = 0
-
     trivia.session = 0
     dateid = "{}-{}".format(time.strftime("%Y-%m-%d"), trivia.session)
     load_scores(dateid)
@@ -175,7 +178,7 @@ def trivia_q(self, e):
     trivia.e = e
     ask_question()
     trivia.stoptrivia = True
-trivia_q.command = "!triviaq"
+trivia_q.command = "!trivia"
 trivia_q.helptext = """
 Usage: !triviaq
 Asks a single question.
@@ -327,6 +330,8 @@ def failed_answer():
     e.output = "FAIL! no one guessed the answer: **{}**".format(trivia.answer)
 #    trivia.bot.botSay(e)
     asyncio.ensure_future(trivia.bot.send_message(trivia.e.source, trivia.e.output))
+    if trivia.questions_asked >= trivia.questionlimit:
+        trivia.stoptrivia = True
     if not trivia.stoptrivia:
         trivia.delaytimer = trivia.bot.loop.call_later(trivia.qdelay, ask_question)
 
@@ -403,14 +408,15 @@ you now only have 15 seconds remaining, because you forfeited the remaining 14 s
 
 
 def answer_grabber(self, e):
-    if e.source.name != "trivia":
+    if e.source.name != "trivia" or e.nick == e.botnick:
         return e
     # There's no need to continuously compute levenshtein ratio of everything or !hint
     if trivia.gameon and e.input.lower() != "!hint":
         guess = unidecode(e.input.lower().strip())
         cleananswer = unidecode(trivia.answer.lower())
         ratio = Levenshtein.ratio(guess, cleananswer)
-        trivia.bot.logger.info((e.input + " " + str(ratio)))  # Show the ratio of the guess for tuning
+        # Show the ratio of the guess for tuning
+        trivia.bot.logger.info("{}: {} - {:10.4f}%".format(e.nick,e.input,ratio * 100))
 
         if ratio >= 0.90:
             tmr = "{:.2f}".format(time.time() - trivia.qtimestamp)
@@ -436,6 +442,10 @@ def answer_grabber(self, e):
                                                                                               trivia.answer)
 #            self.botSay(e)
             trivia.bot.send_message(trivia.e.source, trivia.e.output)
+            
+            if trivia.questions_asked >= trivia.questionlimit:
+               trivia.stoptrivia = True
+
 
             if trivia.stoptrivia:
                 trivia.gameon = False
@@ -450,8 +460,6 @@ def trivia_help(self, e):
     if e.source.name != "trivia":
         e.output = "You can only do that in #trivia"
         return e
-    # PM it to them
-    e.source = e.nick
     e.output = """
     Trivia Commands: !trivia - starts trivia. !strivia - Stops trivia. !triviaq - Ask a Single question
     !hint - Show a hint. !score - Show the current score.  !autohint on/off - toggles the auto-hint system

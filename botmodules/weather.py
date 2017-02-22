@@ -79,7 +79,7 @@ def google_geocode(self, address):
 
         
     except:
-        self.logger.exception("Failed to geocode location using Google API:")
+        self.logger.exception("Failed to geocode location: {} - using Google API:".format(address))
 
         return
     

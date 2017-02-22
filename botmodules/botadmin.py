@@ -1,5 +1,6 @@
 import time, sys, traceback
 import threading
+import logging
 
 #test commit
 def manual_spamban(line, nick, self, c):
@@ -12,6 +13,24 @@ def manual_spamban(line, nick, self, c):
         self.spam[user]['first'] = time.time()
         self.spam[user]['limit'] = bantime
 manual_spamban.admincommand = "spamban"
+
+
+def log_level(line, nick, self, c):
+    level = line[9:].upper()
+    ll = logging.DEBUG
+    if level == "DEBUG":
+        ll = logging.DEBUG
+    elif level == "INFO":
+        ll = logging.INFO
+    elif level == "WARNING":
+        ll = logging.WARNING
+    elif level == "ERROR":
+        ll = logging.ERROR
+    elif level == "CRITICAL":
+        ll = logging.CRTITICAL
+    logging.getLogger().setLevel(ll)
+log_level.admincommand = "loglevel"
+
 
 def kill_bot(line, nick, self, c):
     print("got die command from " + nick)
