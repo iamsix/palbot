@@ -1,14 +1,11 @@
 aiohttp==1.0.5
-appdirs==1.4.0
 async-timeout==1.1.0
 beautifulsoup4==4.4.1
 chardet==2.3.0
-discord.py==0.16.3
+discord.py~=0.16
 inflect==0.2.5
-jaraco.apt==1.0
 jaraco.classes==1.2
 jaraco.collections==1.1
-jaraco.context==1.3
 jaraco.functools==1.6
 jaraco.itertools==1.5.1
 jaraco.logging==1.2
@@ -17,7 +14,6 @@ jaraco.timing==1.1.5
 more-itertools==2.2
 multidict==2.1.4
 packaging==16.8
-pushbullet.py==0.8.1
 pyparsing==2.1.10
 python-Levenshtein==0.12.0
 python-magic==0.4.10

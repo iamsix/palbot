@@ -31,8 +31,9 @@ async def on_message(message):
     if command in client.bangcommands:
         client.bangcommands[command](client, e)
 
-    # TODO fix this to use discord IDs
-    elif command in client.admincommands and nick in client.botadmins and message.channel.is_private:
+    elif command in client.admincommands and\
+             str(message.author) in client.botadmins and\
+             message.channel.is_private:
         e.output = client.admincommands[command](message.content,
                                                  nick,
                                                  client,
@@ -55,6 +56,7 @@ async def bot_alerts():
         for alert in client.botalerts:
             if alert.__name__ in client.alertsubs:
                 out = alert(client)
+                out = re.sub(urlregex, "<\g<0>>",  out)
                 logger.debug("potential alert: {}".format(out))
                 if out and not client.is_closed:
                     for chid in client.alertsubs[alert.__name__]:

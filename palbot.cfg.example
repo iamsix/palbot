@@ -1,6 +1,6 @@
 [discord]
 nick = palbot
-botadmins = bob,frank,joe
+botadmins = bob#12354,frank#43555
 token = abc123
 
 [alerts]
