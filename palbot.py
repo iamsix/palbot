@@ -56,9 +56,9 @@ async def bot_alerts():
         for alert in client.botalerts:
             if alert.__name__ in client.alertsubs:
                 out = alert(client)
-                out = re.sub(urlregex, "<\g<0>>",  out)
                 logger.debug("potential alert: {}".format(out))
                 if out and not client.is_closed:
+                    out = re.sub(urlregex, "<\g<0>>", out)
                     for chid in client.alertsubs[alert.__name__]:
                         channel = discord.Object(id=chid)
                         await client.send_message(channel, out)

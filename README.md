@@ -9,3 +9,5 @@ It requires Python 3.5+ due to asyncio
 It makes use of [discord.py](https://github.com/Rapptz/discord.py)
 
 You will need to set some config options (especially the token) using the example config.
+
+To obtain the clues.db for trivia please use [jeopardy-parser](https://github.com/whymarrh/jeopardy-parser)
