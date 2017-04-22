@@ -28,6 +28,7 @@ async def on_message(message):
     nick = message.author.name
     e = botEvent(message.channel, nick, str(message.author), args, message)
     e.botnick = client.user.name
+    e.allowembed = False
     if command in client.bangcommands:
         client.bangcommands[command](client, e)
 
@@ -45,7 +46,8 @@ async def on_message(message):
 
     if e.output:
         #for now we supress embed for ALL links
-        e.output = re.sub(urlregex, "<\g<0>>",  e.output)
+        if not e.allowembed:
+            e.output = re.sub(urlregex, "<\g<0>>",  e.output)
         await client.send_message(message.channel, e.output)
 
 

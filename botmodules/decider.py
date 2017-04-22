@@ -10,5 +10,7 @@ def decider(self, e):
             e.output = e.nick + ": " + result.group(1)
         else:
             e.output = e.nick + ": " + result.group(2)
+        if result.group(1) == result.group(2):
+            e.output = "when the illusion of choice is presented choosing is meaningless"
     return e
 decider.lineparser = True

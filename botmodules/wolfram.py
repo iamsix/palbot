@@ -16,17 +16,17 @@ def get_wolfram(self, e):
     
     if location == "" and user:
         location = user.get_location(e.nick)
-        if location=="":
-            get_wolfram.waitfor_callback=True
-            user.get_geoIP_location(self, e, "", "", "", get_wolfram)
+#        if location=="":
+#            get_wolfram.waitfor_callback=True
+#            user.get_geoIP_location(self, e, "", "", "", get_wolfram)
             
-            return
+#            return
             
     location = urllib.parse.quote(location)
             
     socket.setdefaulttimeout(30)
     url = "http://api.wolframalpha.com/v2/query?appid=%s&format=plaintext&input=%s&location=%s" % (self.botconfig["APIkeys"]["wolframAPIkey"], urllib.parse.quote(e.input), location)
-
+    self.logger.debug("URL is {}".format(url))
     req = urllib.request.urlopen(url).read()
     dom = xml.dom.minidom.parseString(req)
 

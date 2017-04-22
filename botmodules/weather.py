@@ -211,8 +211,8 @@ def forecast_io(self,e, location=""):
 
 
     if not country: #If we're in the US, use Fahrenheit, otherwise Celsius    
-        output = "{} / {} / {}°F{} / Humidity: {}% / Wind: {} at {} mph / Cloud Cover: {}% / High: {}°F Low: {}°F / Outlook: {}"
-        e.output = output.format(address, current_summary, temp,
+        output = "{} / {} / {}°F ({}°C){} / Humidity: {}% / Wind: {} at {} mph / Cloud Cover: {}% / High: {}°F Low: {}°F / Outlook: {}"
+        e.output = output.format(address, current_summary, temp, temp_c,
                           feels_like, humidity,
                           wind_direction, wind_speed,
                           cloud_cover, max_temp, min_temp, outlook)
@@ -226,8 +226,8 @@ def forecast_io(self,e, location=""):
             except:
                 pass
 
-        output = "{} / {} / {}°C{} / Humidity: {}% / Wind: {} at {} km/h / Cloud Cover: {}% / High: {}°C Low: {}°C / Outlook: {}"
-        e.output = output.format(address, current_summary, temp_c,
+        output = "{} / {} / {}°C ({}°F){} / Humidity: {}% / Wind: {} at {} km/h / Cloud Cover: {}% / High: {}°C Low: {}°C / Outlook: {}"
+        e.output = output.format(address, current_summary, temp_c, temp,
                           feels_like, humidity, wind_direction,
                           wind_speed_kmh, cloud_cover, max_temp_c,
                           min_temp_c, outlook)
