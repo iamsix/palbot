@@ -3,12 +3,11 @@ import urllib.request
 import urllib.parse
 import json
 
-
+CARD_REGEX = "\[([^\(]*?)(?:\((.*?)\))?\]"
 def card_scraper (self, e):
-    if e.source.name != "mtg_nerds":
+    if e.source.name != "mtg_nerds" or self.user == e.message.author:
         return
 
-    CARD_REGEX = "\[([^\(]*?)(?:\((.*?)\))?\]"
     cards = re.findall(CARD_REGEX, e.input)
 
     for card, cset in cards:
@@ -19,7 +18,9 @@ card_scraper.lineparser = True
 
 def mtg_cmd (self, e):
     e.input = "[{}]".format(e.input)
-    card_scraper(self, e)
+    card, cset = re.findall(CARD_REGEX, e.input)[0]
+    e.output = get_card(card, cset)
+    e.allowembed = True
     return e
 mtg_cmd.command = "!mtg"        
 
@@ -42,7 +43,7 @@ def get_card (card, cset=""):
 
         cards = json.loads(data)['cards']
         if not cards:
-            return "No card found for [{}]\n".format(card)
+            return "No card found for: {}\n".format(urllib.parse.unquote(card))
 
         data = None
         image = "No image found"
@@ -60,17 +61,19 @@ def get_card (card, cset=""):
                                              image)
 
 
-class test:
-    pass
-test.source = test
-test.source.name = "mtg_nerds"
-test.input = "check out the [hinder (chk)] to [tunnel vision] combo"
-test.output = ""
-card_scraper(None, test)
-print("card scraper test:")
-print(test.output)
-print("----")
-test.output = ""
-test.input = "hinder (chk)"
-mtg_cmd(None, test)
-print(test.output)
+#class test:
+#    pass
+#test.source = test
+#test.message = test
+#test.message.author = "x"
+#test.source.name = "mtg_nerds"
+#test.input = "check out the [hinder (chk)] to [tunnel vision] combo"
+#test.output = ""
+#card_scraper(None, test)
+#print("card scraper test:")
+#print(test.output)
+#print("----")
+#test.output = ""
+#test.input = "annihilator"
+#mtg_cmd(None, test)
+#print(test.output)
