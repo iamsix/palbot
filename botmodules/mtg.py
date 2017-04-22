@@ -18,15 +18,8 @@ def card_scraper (self, e):
 card_scraper.lineparser = True
 
 def mtg_cmd (self, e):
-    card = e.input.strip()
-    cset = ""
-    cres = re.search("\s\(([A-z]+)\)", e.input)
-    if cres:
-        cset = cres.group(1).strip()
-        card = card.replace(cres.group(0), "").strip()
-
-    e.output = get_card(card, cset)
-    e.allowembed = True
+    e.input = "[{}]".format(e.input)
+    card_scraper(self, e)
     return e
 mtg_cmd.command = "!mtg"        
 
@@ -77,6 +70,7 @@ card_scraper(None, test)
 print("card scraper test:")
 print(test.output)
 print("----")
+test.output = ""
 test.input = "hinder (chk)"
 mtg_cmd(None, test)
 print(test.output)
