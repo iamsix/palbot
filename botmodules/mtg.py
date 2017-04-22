@@ -4,20 +4,20 @@ import urllib.parse
 import json
 
 
-def card_scraper (self, e, test=False):
+def card_scraper (self, e):
     if e.source.name != "mtg_nerds":
         return
-    CARDREGEX = "\[([^\(]*?)(?:\((.*?)\))?\]"
-    cards = re.findall(CARDREGEX, e.input)
 
-    for card, set in cards:
+    CARD_REGEX = "\[([^\(]*?)(?:\((.*?)\))?\]"
+    cards = re.findall(CARD_REGEX, e.input)
+
+    for card, cset in cards:
         card = urllib.parse.quote(card.strip())
-        set = urllib.parse.quote(set.strip())
+        cset = urllib.parse.quote(cset.strip())
 
-        if set:
-            url = "http://api.magicthegathering.io/v1/cards?name={}&set={}".format(card, set)
-        else:
-            url = "http://api.magicthegathering.io/v1/cards?name={}".format(card)
+        url = "http://api.magicthegathering.io/v1/cards?name={}".format(card)
+        if cset:
+            url += "&set={}".format(cset)
 
         try:
             opener = urllib.request.build_opener()
@@ -53,10 +53,11 @@ def card_scraper (self, e, test=False):
     return e
 card_scraper.lineparser = True
 
-class e:
+class test:
     pass
-e.source = e
-e.source.name = "mtg_nerds"
-e.input = "check out the [hinder (chk)] to [tunnel vision] combo"
-e.output = ""
-card_scraper(None, e, True)
+test.source = test
+test.source.name = "mtg_nerds"
+test.input = "check out the [hinder (chk)] to [tunnel vision] combo"
+test.output = ""
+card_scraper(None, test)
+
