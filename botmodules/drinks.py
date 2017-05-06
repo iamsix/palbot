@@ -10,12 +10,9 @@ def drinks(self, e):
     response = urllib.request.urlopen(url).read()
     response = json.loads(response.decode())
 
-   # print(response)
     drink = response["drinks"][0]
 
-    print(drink)
-
-    #this API is a bit odd that it doesn't make these a list  to iterate them
+    #this API is a bit odd that it doesn't make these a list to iterate them
     #it just lists 1 through 15 each time...
     ingredients = ""
     for ingr in range(1,15):
@@ -39,10 +36,11 @@ Instructions: {}"""
 drinks.command = "!drink"
 
 
-class drinktest:
-     pass
+class drinkTest(object):
+     input = "vodka martini"
+     output = ""
 
-drinktest.input = "vodka martini"
-drinktest.output = ""
-drinks(None, drinktest)
-print(drinktest.output)
+if __name__ == "__main__":
+    drinktest = drinkTest()
+    drinks(None, drinktest)
+    print(drinktest.output)
