@@ -3,10 +3,11 @@ import urllib.parse
 import json
 
 def drinks(self, e):
-    pass
-    url = "http://www.thecocktaildb.com/api/json/v1/1/search.php?s={}"
-    url = url.format(urllib.parse.quote(e.input))
-
+    if e.input:
+        url = "http://www.thecocktaildb.com/api/json/v1/1/search.php?s={}"
+        url = url.format(urllib.parse.quote(e.input))
+    else:
+        url = "http://www.thecocktaildb.com/api/json/v1/1/random.php"
     response = urllib.request.urlopen(url).read()
     response = json.loads(response.decode())
 
