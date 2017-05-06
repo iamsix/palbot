@@ -22,11 +22,8 @@ def drinks(self, e):
             measure = drink["strMeasure{}".format(ingr)]
             measure = measure.replace("\n", "").strip()
             ingredients += "{} {}\n".format(measure, ingredient)
-    ingredients = ingredients[:-1]
 
-    output = """**{}** - {} - {}
-{}
-Instructions: {}"""
+    output = "**{}** - {} - {}\n{}Instructions: {}"
 
     e.output = output.format(drink["strDrink"], drink["strCategory"], 
                              drink["strGlass"],
