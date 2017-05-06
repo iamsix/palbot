@@ -461,7 +461,9 @@ def trivia_help(self, e):
         e.output = "You can only do that in #trivia"
         return e
     e.output = """
-    Trivia Commands: !trivia - starts trivia. !strivia - Stops trivia. !triviaq - Ask a Single question
+    Trivia Commands: 
+    !triviaround - starts a round of trivia, by default 10 questions. !strivia - Stops a trivia round. - optionally !triviaround # for # of questions
+    !trivia - Ask a Single question
     !hint - Show a hint. !score - Show the current score.  !autohint on/off - toggles the auto-hint system
     !qtime [sec] time to answer. !qdelay [sec] time between questions. !tq - Reprints the current question
     For more info PM the bot with !help <command> such as: !help !trivia"""

@@ -27,15 +27,14 @@ def drinks(self, e):
             ingredients += "{} {}\n".format(measure, ingredient)
     ingredients = ingredients[:-1]
 
-    output = """**{}** - {}
+    output = """**{}** - {} - {}
 {}
-Instructions: {}
-Glass: {}"""
+Instructions: {}"""
 
     e.output = output.format(drink["strDrink"], drink["strCategory"], 
+                             drink["strGlass"],
                              ingredients,
-                             drink["strInstructions"],
-                             drink["strGlass"])
+                             drink["strInstructions"])
 
 drinks.command = "!drink"
 
