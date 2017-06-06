@@ -31,7 +31,7 @@ def get_urbandictionary(self, e):
     if page.find(id='not_defined_yet') is not None:
         return None
 
-    first_word = page.findAll('a', attrs={"class": "word"})[number].string
+    first_word = page.findAll('a', attrs={"class": "word"})[number].get_text()
 
     first_word = first_word.replace("\n", "")
 

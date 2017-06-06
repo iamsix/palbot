@@ -55,11 +55,11 @@ def read_wiki_page(self, url):
         page = page.findAll('p')
 
         if str(page[0])[0:9] == '<p><span ':
-            page = str(page[1].extract())
+            page = page[1].extract().get_text()
         elif self.tools['remove_html_tags'](str(page[0])).strip() == '':
-            page = str(page[1].extract())
+            page = page[1].extract().get_text()
         else:
-            page = str(page[0].extract())
+            page = page[0].extract().get_text()
 
     title = self.tools['remove_html_tags'](page)
     title = re.sub(r'\[.*?\]', '', title)
