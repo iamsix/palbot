@@ -6,6 +6,8 @@ def sub_alert(self, e):
         else:
             self.alertsubs[e.input] = set(e.source.id)
         #print( self.alertsubs[e.input])
+        #prevent a blank item in the set
+        self.alertsubs[e.input].discard("")
         self.botconfig['alerts'][e.input] = ",".join(self.alertsubs[e.input])
         with open('palbot.cfg', 'w') as configfile:
             self.botconfig.write(configfile)
@@ -16,6 +18,8 @@ sub_alert.command = "!subscribe"
 
 def unsub_alert(self, e):
     if e.input in self.alertsubs:
+        #prevent a blank item in the set
+        self.alertsubs[e.input].discard("")
         self.alertsubs[e.input].discard(e.source.id)
         e.output = "{} has been unsubscribed from {}".format(e.source.name, e.input)
         self.botconfig['alerts'][e.input] = ",".join(self.alertsubs[e.input])

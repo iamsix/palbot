@@ -8,9 +8,22 @@ get_cat.command = "!cats"
 
 def get_jeffers(self, e):
     e.output = "http://i.imgur.com/kalVBHv.jpg"
+    e.allowembed = True
     return e
 get_jeffers.command = "!jeffers"
 
+
+def get_logicfiction(self, e):
+    e.output = "https://cdn.discordapp.com/attachments/124572142485504002/347148872709046272/l.jpg"
+    e.allowembed = True
+    return e
+get_logicfiction.command = "!logicfiction"
+
+
+def get_mixomatosys(self, e):
+    e.output ="i'm not sure hwat you're point is"
+    return e
+get_mixomatosys.command = "!mixy"
 
 def get_dvq(self, e):
     e.output = "http://i.imgur.com/1lq54.jpg"

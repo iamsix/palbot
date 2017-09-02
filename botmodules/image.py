@@ -3,7 +3,7 @@ import json
 
 def image_search(self, e):
     searchterm = urllib.parse.quote(e.input)
-    key = self.botconfig["APIkeys"]["gsearchapi"]
+    key = self.botconfig["APIkeys"]["ischapi"]
     cx = self.botconfig["APIkeys"]["gsearchcx"]
     url = 'https://www.googleapis.com/customsearch/v1?key={}&cx={}&q={}&searchType=image'
     url = url.format(key, cx, searchterm)

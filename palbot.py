@@ -66,6 +66,7 @@ async def bot_alerts():
                         await client.send_message(channel, out)
                         logger.debug("channel: {} - Alert {}".format(channel, out))
         await asyncio.sleep(60)
+    logger.error("apparently the client is closed so I'm killing the alert loop?")
 
 
 def loadmodules():
@@ -155,7 +156,9 @@ def load_config():
     if config.has_section("alerts"):
         for alert in config["alerts"]:
             client.alertsubs[alert] = set(config["alerts"][alert].split(","))
- 
+            client.alertsubs[alert].discard("")
+
+    logger.info("channel alerts: {}".format(client.alertsubs)) 
     #self.error_log = simpleLogger(config['misc']['error_log'])
     #self.event_log = simpleLogger(config['misc']['event_log'])
 
