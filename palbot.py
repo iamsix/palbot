@@ -5,12 +5,15 @@ import os
 import logging, logging.handlers
 import configparser
 import re
+from collections import deque
+
 
 FORMAT = "[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s"
 logging.basicConfig(filename='debug.log',level=logging.DEBUG, format=FORMAT)
 logger = logging.getLogger("py3")
 client = discord.Client()
 client.logger = logger
+client.lastresponses= deque(((0,0), (0,0)), maxlen=10)
 
 urlregex = re.compile(r"(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>])*\))+(?:\(([^\s()<>])*\)|[^\s`!()\[\]{};:'\".,<>?«»“”‘’]))")
 
@@ -48,7 +51,15 @@ async def on_message(message):
         #for now we supress embed for ALL links
         if not e.allowembed:
             e.output = re.sub(urlregex, "<\g<0>>",  e.output)
-        await client.send_message(message.channel, e.output)
+        respid = await client.send_message(message.channel, e.output)
+        client.lastresponses.append((message.id, respid))
+
+
+@client.event
+async def on_message_delete(message):
+    for responseto, response in client.lastresponses:
+        if message.id == responseto:
+            await client.delete_message(response)
 
 
 async def bot_alerts():
