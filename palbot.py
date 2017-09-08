@@ -11,7 +11,8 @@ from collections import deque
 FORMAT = "[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s"
 logging.basicConfig(filename='debug.log',level=logging.DEBUG, format=FORMAT)
 client = discord.Client()
-client.logger = logging.getLogger("py3")
+logger = logging.getLogger("py3")
+client.logger = logger
 client.lastresponses= deque(((0,0), (0,0)), maxlen=10)
 
 urlregex = re.compile(r"(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>])*\))+(?:\(([^\s()<>])*\)|[^\s`!()\[\]{};:'\".,<>?«»“”‘’]))")
