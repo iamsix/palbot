@@ -1,7 +1,6 @@
 import json
 import urllib.request
 import datetime
-from datetime import timedelta
 import pytz
 
 ET = pytz.timezone("US/Eastern")
@@ -24,8 +23,8 @@ def get_nhl_games(self, e):
             # game is scheduled in future
             starttime = datetime.datetime.strptime(game['gameDate'], "%Y-%m-%dT%H:%M:%SZ")
             starttime = starttime.replace(tzinfo=pytz.utc).astimezone(tz=ET)
-
             starttime = starttime.strftime('%I:%M%p').lstrip('0').replace(':00', '')
+
             gametxt = "{} @ {} ({} ET)".format(game['teams']['away']['team']['teamName'],
         	                                   game['teams']['home']['team']['teamName'],
         	                                   starttime)
@@ -45,7 +44,6 @@ def get_nhl_games(self, e):
                 
             gametxt = "{} - {} ({})".format(away, home, status)
             
-                      
         games.append(gametxt)
         
     e.output = " | ".join(games)
