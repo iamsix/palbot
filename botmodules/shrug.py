@@ -9,7 +9,7 @@ FACES = [" ͡° ͜ʖ ͡°", " ͡° ʖ̯ ͡°", " ͠° ͟ʖ ͡°", " ͡ᵔ ͜ʖ �
          "ツ", " ´ д ` ", "︶︿︶", " ˘ ､ ˘ ", " ˘_˘ ", " ᐛ ", "・_・", "⇀_⇀", "￢_￢" ]
 SHRUG = "¯\\\\\_({})\_/¯"
 
-def shrugs(self, e):
+async def shrugs(self, e):
     if "shrug" in e.input.lower():
         e.output = SHRUG.format(FACES[random.randint(0, len(FACES) - 1)])
        

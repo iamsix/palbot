@@ -1,5 +1,5 @@
 import re, random
-def decider(self, e):
+async def decider(self, e):
     if "red dot" in e.input.lower():  
         self.irccontext.mode(e.source, '+b {}'.format(e.hostmask))
         self.irccontext.kick(e.source, e.nick, "Congratulations! You found the word of the day, courtesy of red dot!")

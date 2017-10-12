@@ -4,7 +4,7 @@ import urllib.parse
 import json
 
 CARD_REGEX = "\[([^\(]*?)(?:\((.*?)\))?\]"
-def card_scraper (self, e):
+async def card_scraper (self, e):
     if e.source.name != "mtg_nerds" or self.user == e.message.author:
         return
 

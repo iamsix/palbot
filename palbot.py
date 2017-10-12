@@ -26,7 +26,7 @@ async def on_ready():
 
 @client.event
 async def on_message(message):
-    e = process_message(message)
+    e = await process_message(message)
 
     if e.output:
         if not e.allowembed:
@@ -55,7 +55,7 @@ async def on_message_edit(before, after):
                 await client.delete_message(response)
             
             
-def process_message(message):
+async def process_message(message):
     command = message.content.split(" ")[0].lower()
     args = message.content[len(command) + 1:].strip()
     nick = message.author.name
@@ -76,7 +76,7 @@ def process_message(message):
     #lineparsers should be modified to append if necessary instead of clobber
     e.input = message.content
     for command in client.lineparsers:
-        command(client, e)
+        await command(client, e)
     return e
 
 async def bot_alerts():
@@ -207,3 +207,5 @@ load_config()
 loadmodules()
 client.loop.create_task(bot_alerts())
 client.run(client.botconfig['discord']['token'])
+print("Discord client has stopped running, so the  bot is exiting")
+

@@ -407,7 +407,7 @@ you now only have 15 seconds remaining, because you forfeited the remaining 14 s
 """
 
 
-def answer_grabber(self, e):
+async def answer_grabber(self, e):
     if e.source.name != "trivia" or e.nick == e.botnick:
         return e
     # There's no need to continuously compute levenshtein ratio of everything or !hint
@@ -470,3 +470,4 @@ def trivia_help(self, e):
 
     return e
 trivia_help.command = "!triviahelp"
+
