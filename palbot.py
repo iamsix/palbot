@@ -46,7 +46,7 @@ async def on_message_delete(message):
 async def on_message_edit(before, after):
     for responseto, response in client.lastresponses:
         if before.id == responseto:
-            e = process_message(after)
+            e = await process_message(after)
             if e.output:
                 if not e.allowembed:
                     e.output = re.sub(urlregex, "<\g<0>>",  e.output)
