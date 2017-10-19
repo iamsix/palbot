@@ -15,7 +15,7 @@ def get_urbandictionary(self, e):
     else:
        number = 0
 
-    url = "http://www.urbandictionary.com/define.php?term=%s" % urllib.parse.quote(searchterm)
+    url = "https://www.urbandictionary.com/define.php?term=%s" % urllib.parse.quote(searchterm)
 
     if searchterm == "wotd":
         e.output = get_urbandictionary_wotd(self)
