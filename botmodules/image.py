@@ -19,7 +19,6 @@ def image_search(self, e):
 
     results_json = json.loads(response.read().decode('utf-8'))
     results = results_json['items']
-#    print(results)
 
     e.output = results[0]['link']
     e.allowembed = True

@@ -28,7 +28,8 @@ def get_aqi(self, e):
     data = urllib.request.urlopen(url).read().decode()
     data = json.loads(data)
     if data['status'] != "ok":
-        print(data)
+        self.logger.debug("AQI Lookup failed:")
+        self.logger.debug(data)
         return
     data = data['data']
     

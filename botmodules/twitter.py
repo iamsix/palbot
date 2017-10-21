@@ -21,7 +21,7 @@ def __init__(self):
     # print(read_timeline.holyshitbearstoken)
     read_timeline.self = self
   except Exception as inst:
-      print(inst)
+     self.logger.debug(inst)
 
 def read_timeline (user):
     url = "https://api.twitter.com/1.1/statuses/user_timeline.json?screen_name=%s&count=1" % user

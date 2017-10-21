@@ -40,7 +40,7 @@ def get_imdb(self, e, urlposted=False):
             except:
                 pass
         else:
-            print("Didn't find overview heres the page")
+            self.logger.debug("Didn't find overview on {}".format(imdburl))
 
         title = movietitle + rating + summary
         if not urlposted:

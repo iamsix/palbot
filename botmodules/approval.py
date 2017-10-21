@@ -29,5 +29,6 @@ def get_presidential_approval(self, event):
 get_presidential_approval.command = "!approval"
 get_presidential_approval.helptext = get_presidential_approval.__doc__.splitlines()[0]
 
-get_presidential_approval(None, get_presidential_approval)
-print(get_presidential_approval.output)
+if __name__ == "__main__":
+    get_presidential_approval(None, get_presidential_approval)
+    print(get_presidential_approval.output)

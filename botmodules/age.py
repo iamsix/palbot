@@ -35,12 +35,17 @@ def age(self, e):
     return e
 age.command = "!age"
 
-age.message = age
-age.mentions = None
-age.input = "Nov 9 1983"
-age.nick = "six"
-age(None, age)
-print(age.output)
+class ageTest(object):
+    input = "nov 9 1983"
+    output = ""
+    nick = "six"
+    message = age
+    message.mentions = None
+
+if __name__ == "__main__":
+   t = age(None, ageTest)
+   print(t.output)
+
 
 def get_age(user):
     conn = sqlite3.connect('ages.sqlite')

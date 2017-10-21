@@ -11,7 +11,6 @@ def get_urbandictionary(self, e):
     if number and len(searchterm.split(" ")) > 1:
        searchterm = searchterm[2:]
        number = int(number.group(0)[0:1]) - 1
-       print(number)
     else:
        number = 0
 
@@ -48,7 +47,6 @@ def get_urbandictionary(self, e):
     first_definition = first_definition[0:392]
 
     first_definition = ((first_word + ": " + first_definition) + " [ %s ]" % self.tools['shorten_url'](url))
-    #print first_definition
     e.output = first_definition
     return e
 

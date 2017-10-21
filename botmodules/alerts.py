@@ -5,7 +5,6 @@ def sub_alert(self, e):
             self.alertsubs[e.input].add(e.source.id)
         else:
             self.alertsubs[e.input] = set(e.source.id)
-        #print( self.alertsubs[e.input])
         #prevent a blank item in the set
         self.alertsubs[e.input].discard("")
         self.botconfig['alerts'][e.input] = ",".join(self.alertsubs[e.input])
