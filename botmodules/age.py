@@ -29,7 +29,10 @@ def age(self, e):
     else:
         now = datetime.datetime.now()
         d = relativedelta.relativedelta(now, bday)
-        out = f"{e.nick} is {d.years} years, {d.months} months, and {d.days} days old"
+        if d.months == 0 and d.days == 0:
+            out = f"{e.nick} is {d.years} years old! Happy Birthday! http://youtu.be/3nONOuNEhhE"
+        else:
+            out = f"{e.nick} is {d.years} years, {d.months} months, and {d.days} days old"
         e.output = out
 
     return e

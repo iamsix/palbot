@@ -24,14 +24,14 @@ def __init__(self):
      self.logger.debug(inst)
 
 def read_timeline (user):
-    url = "https://api.twitter.com/1.1/statuses/user_timeline.json?screen_name=%s&count=1" % user
+    url = "https://api.twitter.com/1.1/statuses/user_timeline.json?screen_name=%s&count=1&tweet_mode=extended" % user
     opener = urllib.request.build_opener()
     opener.addheaders = [('Authorization', 'Bearer ' + read_timeline.holyshitbearstoken)]
     response = opener.open(url).read().decode('utf-8')
     tweet = json.loads(response)
     updated = datetime.datetime.strptime(tweet[0]['created_at'], "%a %b %d %H:%M:%S +0000 %Y")
     ago = round((datetime.datetime.utcnow() - updated).seconds/60)
-    text = tweet[0]['user']['screen_name'] + ": " + tweet[0]['text']
+    text = tweet[0]['user']['screen_name'] + ": " + tweet[0]['full_text']
     try:
       text = read_timeline.self.tools['decode_htmlentities'](text)
     except:

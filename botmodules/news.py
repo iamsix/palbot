@@ -11,27 +11,27 @@ def get_newest_rss(self, url):
     dom = xml.dom.minidom.parse(urllib.request.urlopen(url))
     newest_news = dom.getElementsByTagName('item')[0]
     title = newest_news.getElementsByTagName('title')[0].childNodes[0].data
-    description = BeautifulSoup(newest_news.getElementsByTagName('description')[0].childNodes[0].data)
-
+    description = BeautifulSoup(newest_news.getElementsByTagName('description')[0].childNodes[0].data, "lxml")
     updated = dom.getElementsByTagName('pubDate')[0].childNodes[0].data
     updated = datetime.datetime.fromtimestamp(time.mktime(parsedate(updated)))
     ago = round((datetime.datetime.utcnow() - updated).seconds/60)
 
 
 
-    links = description.findAll('a')
-    for link in links:
-        link.extract()
+    #links = description.findAll('a')
+    #for link in links:
+    #    link.extract()
     links = description.findAll(color='#6f6f6f')
     for link in links:
         link.extract()
 
     title = title.strip()
 
-    description = str(description)
-    description = description.replace("\n", "")
+    print(description)
+    description = description.text
+    description = description.replace("\n", " - ")
 
-    description = self.tools['remove_html_tags'](description)
+    #description = self.tools['remove_html_tags'](description)
     #description = description[0:len(description) - 9]
     description = description.strip()
     if description.rfind(".") != -1:
@@ -48,9 +48,9 @@ def google_news(self, e):
     query = urllib.parse.quote(e.input)
     url = ""
     if not query:
-        url = "http://news.google.com/news?ned=us&topic=h&output=rss"
+        url = "https://news.google.com/news/rss/?hl=en"
     else:
-        url = "http://news.google.com/news?q=%s&output=rss" % query
+        url = "https://news.google.com/news/rss/search/section/q/{0}/{0}?hl=e".format(query)
 
     description, updated, ago = get_newest_rss(self,url)
 
