@@ -27,7 +27,6 @@ def get_newest_rss(self, url):
 
     title = title.strip()
 
-    print(description)
     description = description.text
     description = description.replace("\n", " - ")
 

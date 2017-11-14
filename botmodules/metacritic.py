@@ -2,9 +2,9 @@
 def get_metacritic(self, e):
     url = self.tools['google_url']("site:metacritic.com " + e.input, "www.metacritic.com/")
     page = self.tools["load_html_from_URL"](url)
-    titleDiv = page.findAll('h1', attrs={"class": "product_title"})[0]
+    titleDiv = page.findAll('div', attrs={"class": "product_title"})[0]
     try:
-        title = titleDiv.a.span.string.strip()
+        title = titleDiv.a.text.strip()
     except: #tv shows have an extra span
         title = ""
         for string in titleDiv.a.stripped_strings:
