@@ -11,7 +11,7 @@ def get_newest_rss(self, url):
     dom = xml.dom.minidom.parse(urllib.request.urlopen(url))
     newest_news = dom.getElementsByTagName('item')[0]
     title = newest_news.getElementsByTagName('title')[0].childNodes[0].data
-    description = BeautifulSoup(newest_news.getElementsByTagName('description')[0].childNodes[0].data, "lxml")
+#    description = BeautifulSoup(newest_news.getElementsByTagName('description')[0].childNodes[0].data, "lxml")
     updated = dom.getElementsByTagName('pubDate')[0].childNodes[0].data
     updated = datetime.datetime.fromtimestamp(time.mktime(parsedate(updated)))
     ago = round((datetime.datetime.utcnow() - updated).seconds/60)
@@ -21,24 +21,24 @@ def get_newest_rss(self, url):
     #links = description.findAll('a')
     #for link in links:
     #    link.extract()
-    links = description.findAll(color='#6f6f6f')
-    for link in links:
-        link.extract()
+#    links = description.findAll(color='#6f6f6f')
+#    for link in links:
+#        link.extract()
 
     title = title.strip()
 
-    description = description.text
-    description = description.replace("\n", " - ")
+#    description = description.text
+#    description = description.replace("\n", " - ")
 
     #description = self.tools['remove_html_tags'](description)
     #description = description[0:len(description) - 9]
-    description = description.strip()
-    if description.rfind(".") != -1:
-        description = description[0:description.rfind(".") + 1]
+#    description = description.strip()
+#    if description.rfind(".") != -1:
+#        description = description[0:description.rfind(".") + 1]
 
     link = self.tools['shorten_url'](newest_news.getElementsByTagName('link')[0].childNodes[0].data)
 
-    description = "%s - %s [ %s ]" % (title, description, link)
+    description = "%s - [ %s ]" % (title, link)
 
     return description, updated, ago
 
@@ -54,7 +54,7 @@ def google_news(self, e):
     description, updated, ago = get_newest_rss(self,url)
 
     e.output = description
-
+    e.allowembed = True
     return e
 
 google_news.command = "!news"

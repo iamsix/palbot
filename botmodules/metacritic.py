@@ -8,7 +8,8 @@ def get_metacritic(self, e):
     except: #tv shows have an extra span
         title = ""
         for string in titleDiv.a.stripped_strings:
-            title = title + string
+            title = title + string.strip()
+    title = title.replace("\n", "")
     titleUrl = titleDiv.a['href']
     if titleUrl.find("game/") > 0:
         category = 'Game - '

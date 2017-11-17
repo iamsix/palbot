@@ -11,7 +11,6 @@ def get_goodreads_book_rating(self, e):
     #Load XML response and parse DOM in one shot
     dom = xml.dom.minidom.parse(urllib.request.urlopen("%s?%s" % (url,query)))
 
-
     # This finds the first `title` tag and gets its text value
     firsttitle = dom.getElementsByTagName("title")[0].firstChild.nodeValue
 
@@ -29,28 +28,12 @@ def get_goodreads_book_rating(self, e):
     
     # Set the URL to the user friendly URL you would load in your web browser
     bookurl = "https://www.goodreads.com/book/show/%s" % bookid
-    
-    # This lets us add custom headers to HTTP requests and other more complicated things
-    opener = urllib.request.build_opener()
-    
-    # Add the 'User-Agent' header to trick the site that we're using an actual web browser (rekt)
-    opener.addheaders = [('User-Agent', "Opera/9.10 (YourMom 8.0)")]
-    
-    # This downloads the actual HTML page, in binary form, encoded in UTF-8, so we read it and decode it
-    bookpage = opener.open(bookurl).read().decode('utf-8')
-    
-    # Regular expression to find the description META tag
-    # This matches first: <meta property="og:description" content="
-    # Then we look for zero or more characters in (.*) -> later refered to by .group(1) - parenthesis in regular expressions form 'groups'
-    # Then we end the matching line with: "/>
-    #
-    # Example line: <meta property="og:description" content="The irresistible, ever-curious, and always best-selling Mary Roach returns with a new adventure to the invisible realm we carry around in..."/>
-    bookdesc = re.search('<meta property="og:description" content="(.*)"/>', bookpage).group(1)
-    try:
-        bookdesc = re.search('^(.*[\.|\?])\s.*?\.\.\.', bookdesc).group(1)
+    bookpage = self.tools['load_html_from_URL'](bookurl)
+
+    try:   
+        bookdesc = bookpage.find("meta", property="og:description")['content'] 
     except:
-        pass
-    
+        bookdesc = ""
     
     # Use the bot function to Google shorten the URL
     bookurl = self.tools['shorten_url'](bookurl)
