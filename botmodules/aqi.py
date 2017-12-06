@@ -10,9 +10,10 @@ pass
 def get_aqi(self, e):
     if user and not e.input:
         try:
-            lat, lng, _, _ = user.get_location_extended(self, e.nick)
-            loc = "geo:{};{}".format(lat, lng)
+            location = user.get_location_extended(self, e.nick)
+            loc = "geo:{};{}".format(location.lat, location.lng)
         except Exception as ex:
+            self.logger.exception("location aqi exception{}".format(ex))
             e.output = "No user location found"
             return e
     elif e.input[-1] == "!":

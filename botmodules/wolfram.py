@@ -5,89 +5,18 @@ import re
 import json
 
 
-def google_geocode(self, address):
-    gapikey = self.botconfig["APIkeys"]["shorturlkey"] #This uses the same Google API key as URL shortener
-    address = urllib.parse.quote(address)
-
-    url = "https://maps.googleapis.com/maps/api/geocode/json?address={}&key={}"
-    url = url.format(address, gapikey)
-
-
-    try:
-        request = urllib.request.Request(url, None, {'Referer': 'http://irc.00id.net'})
-        response = urllib.request.urlopen(request)
-    except urllib.error.HTTPError as err:
-        self.logger.exception("Exception in google_geocode:")
-
-    try:
-        results_json = json.loads(response.read().decode('utf-8'))
-        status = results_json['status']
-
-        if status != "OK":
-            raise
-
-        city, state, country, poi = "","","", ""
-        
-        for component in results_json['results'][0]['address_components']:
-            if 'locality' in component['types']:
-                city = component['long_name']
-            elif 'point_of_interest' in component['types'] or 'natural_feature' in component['types']:
-                poi = component['long_name']
-            elif 'administrative_area_level_1' in component['types']:
-                state = component['short_name']
-            elif 'country' in component['types']:
-                if component['short_name'] != "US":                
-                    country = component['long_name']
-                else:
-                    country = False
-
-        if not city:
-            city = poi #if we didn't find a city, maybe there was a POI or natural feature entry, so use that instead
-
-        if not country: #Only show the state if in the US
-            country == ""
-        elif country != "Canada" and city:               #We don't care about provinces outside of the US and Canada, unless the city name is empty
-            state = ""
-
-        if city:
-            formatted_address = "{}{}{}".format(city,"" if not state else ", " + state,"" if not country else ", " + country)
-        elif state:
-            formatted_address = "{}{}".format(state,"" if not country else ", " + country)
-        else:
-            formatted_address = "{}".format("" if not country else country)
-        
-        
-        lng = results_json['results'][0]['geometry']['location']['lng']
-        lat = results_json['results'][0]['geometry']['location']['lat']
-
-
-        
-    except:
-        self.logger.exception("Failed to geocode location using Google API:")
-
-        return
-    
-    return formatted_address, lat, lng, country
-
-
 def get_wolfram(self, e):
     #query 'input' on wolframalpha and get the plaintext result back
     if get_wolfram.waitfor_callback:
         return
     
     try:
-        location = e.location
+        locobj = user.get_location_extended(self, e.nick)
+        lat = locobj.lat
+        lng = locobj.lng
+        address = locobj.addr
     except:
-        location = ""
-    
-    if location == "" and user:
-        location = user.get_location(e.nick)
-#        if location=="":
-#            get_wolfram.waitfor_callback=True
-#            user.get_geoIP_location(self, e, "", "", "", get_wolfram)
-            
-#            return
-    address, lat, lng, country = google_geocode(self,location)
+        address, lat, lng = "","",""
 
     location = urllib.parse.quote(address)
 

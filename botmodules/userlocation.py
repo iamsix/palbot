@@ -48,11 +48,20 @@ def get_location_extended(self, nick):
             save_location(self, nick, result[0])
             result = c.execute(query, [nick]).fetchone()
             if not result[1]:
-                return None, None, None, None 
-        return result[1], result[2], result[3], result[4]
+                return None
+        return location(result[1], result[2], result[3], result[4], result[0])
     else:
-        return None, None, None, None
+        return None
     
+
+class location:
+    def __init__(self, lat, lng, addr, country, userinputlocation):
+        self.lat = lat
+        self.lng = lng
+        self.addr = addr
+        self.country = country
+        self.userinputlocation = userinputlocation
+
 
 def google_geocode(self, address):
     gapikey = self.botconfig["APIkeys"]["shorturlkey"] #This uses the same Google API key as URL shortener
