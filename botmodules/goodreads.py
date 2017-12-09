@@ -20,8 +20,12 @@ def get_goodreads_book_rating(self, e):
     name = dom.getElementsByTagName("name")[0].firstChild.nodeValue
     avgrating = dom.getElementsByTagName("average_rating")[0].firstChild.nodeValue
     ratingscount = dom.getElementsByTagName("ratings_count")[0].firstChild.nodeValue
-    pubyear = dom.getElementsByTagName("original_publication_year")[0].firstChild.nodeValue
-    
+ 
+    #apparently some books don't have a year
+    try:
+        pubyear = dom.getElementsByTagName("original_publication_year")[0].firstChild.nodeValue
+    except:
+        pubyear = ""
     #Find the first `best_book` tag and then inside of that get the first `id` tag's value
     bookid = dom.getElementsByTagName("best_book")[0].getElementsByTagName("id")[0].firstChild.nodeValue
  
