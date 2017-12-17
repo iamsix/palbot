@@ -24,3 +24,5 @@ def coin(self, e):
     e =  id + " | current price: $" + pUSD + ' | '  + "1-hour change: " + pC1 +'%' + ' | '  + "24-hour change: " + pC24 +'%'
     
     return(e)
+
+coin.command = "!coin"
