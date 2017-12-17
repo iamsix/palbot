@@ -13,7 +13,7 @@ def coin(self, e):
     
     results_json = json.loads(response.read().decode('utf-8'))
     
-    id = results_json[0]['id']
+    id = results_json[0]['symbol']
     
     id = id.upper()
     rank = results_json[0]['rank']
