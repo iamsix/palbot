@@ -2,12 +2,16 @@ import urllib.request, urllib.error, urllib.parse
 import json
 
 url = "https://api.coinmarketcap.com/v1/ticker/"
+SYMBOLS = {"eth": "ethereum", "btc": "bitcoin", "xrp": "ripple", 
+           "bch": "bitcoin-cash", "ltc": "litecoin", "fun": "funfair"}
 
 
 def coin(self, e):
     
-    
-    request = urllib.request.Request(url + e)
+    coin = e.input
+    if coin in SYMBOLS:
+        coin = SYMBOLS[coin]
+    request = urllib.request.Request(url + coin)
     
     response = urllib.request.urlopen(request)
     
@@ -21,7 +25,7 @@ def coin(self, e):
     pC24 = results_json[0]['percent_change_24h']
     pC1 = results_json[0]['percent_change_1h']
     
-    e =  id + " | current price: $" + pUSD + ' | '  + "1-hour change: " + pC1 +'%' + ' | '  + "24-hour change: " + pC24 +'%'
+    e.output =  id + " | current price: $" + pUSD + ' | '  + "1-hour change: " + pC1 +'%' + ' | '  + "24-hour change: " + pC24 +'%'
     
     return(e)
 
