@@ -28,10 +28,10 @@ async def on_ready():
 async def on_message(message):
     e = await process_message(message)
 
-    if e.output:
+    if e.output or e.embed:
         if not e.allowembed:
             e.output = re.sub(urlregex, "<\g<0>>",  e.output)
-        respid = await client.send_message(message.channel, e.output)
+        respid = await client.send_message(message.channel, e.output, embed=e.embed)
         client.lastresponses.append((message.id, respid))
 
 
@@ -50,7 +50,7 @@ async def on_message_edit(before, after):
             if e.output:
                 if not e.allowembed:
                     e.output = re.sub(urlregex, "<\g<0>>",  e.output)
-                await client.edit_message(response, e.output)
+                await client.edit_message(response, e.output, embed=e.embed)
             else:
                 await client.delete_message(response)
             
@@ -192,7 +192,7 @@ def load_config():
 
 
 class botEvent:
-    def __init__(self, source, nick, hostmask, inpt, message, output="", notice=False):
+    def __init__(self, source, nick, hostmask, inpt, message, output="", notice=False, embed=None):
         self.source = source
         self.nick = nick
         self.input = inpt
@@ -200,6 +200,7 @@ class botEvent:
         self.notice = notice
         self.hostmask = hostmask
         self.message = message
+        self.embed = None
 
 client.loadmodules = loadmodules
 client.load_config = load_config

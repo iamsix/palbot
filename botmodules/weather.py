@@ -6,6 +6,7 @@ try:
 except ImportError:
     user = None
     pass
+import discord
 
 
 def set_wwokey(line, nick, self, c):
@@ -177,8 +178,15 @@ get_weather.helptext = """Usage: \002!w <location>\002
 Example: !w hell, mi
 Shows weather info from a few different providers.
 Use \002!setlocation <location>\002 to save your location"""
+
+
+
+def get_prettyweather(self, e):
+    forecast_io(self, e, pretty=True)
+get_prettyweather.command = "!prettyweather"
+
    
-def forecast_io(self,e, location=""):
+def forecast_io(self,e, location="", pretty=False):
     apikey = self.botconfig["APIkeys"]["forecastIO_APIkey"]
     self.logger.debug("Entered Forecast.IO function. Location {} or {}".format(location, e.input))
     if location == "":
@@ -271,6 +279,22 @@ def forecast_io(self,e, location=""):
                           feels_like, humidity, wind_arrow, wind_direction,
                           wind_speed_kmh, cloud_cover, max_temp_c,
                           min_temp_c, outlook)
+
+    if pretty:
+        e.output = ""
+        etitle = f"**{address}** - {current_summary}".format()
+        icon = "https://png.icons8.com/color/540/sun.png"
+        embed = discord.Embed(title=etitle)
+        embed.set_thumbnail(url=icon)
+        embed.add_field(name="Temp", value=f"{temp_c}C/{temp}F".format(), inline=True)
+        embed.add_field(name="High", value=f"{max_temp_c}".format(), inline=True)
+        embed.add_field(name="Low", value=f"{min_temp_c}".format(), inline=True)
+        embed.add_field(name="Humidity", value=f"{humidity}%".format(), inline=True)
+        embed.add_field(name="Wind", value=f"{wind_arrow}{wind_direction} at {wind_speed_kmh} km/h".format(), inline=True)
+        embed.add_field(name="Outlook", value=outlook, inline=False)
+        print(embed)
+        e.embed = embed
+
     return e
 
 

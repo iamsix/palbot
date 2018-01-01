@@ -3,12 +3,13 @@ import json
 
 url = "https://api.coinmarketcap.com/v1/ticker/"
 SYMBOLS = {"eth": "ethereum", "btc": "bitcoin", "xrp": "ripple", 
-           "bch": "bitcoin-cash", "ltc": "litecoin", "fun": "funfair"}
+           "bch": "bitcoin-cash", "ltc": "litecoin", "fun": "funfair",
+           "req": "request-network"}
 
 
 def coin(self, e):
     
-    coin = e.input
+    coin = e.input.lower()
     if coin in SYMBOLS:
         coin = SYMBOLS[coin]
     request = urllib.request.Request(url + coin)
