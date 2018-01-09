@@ -115,7 +115,7 @@ def newcoins(line, nick, self, c):
     cursor = conn.cursor()
     result = cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='coins';").fetchone()
     if not result:
-        cursor.execute("CREATE TABLE 'coins' ('symbol' TEXT UNIQUE ON CONFLICT REPLACE, 'coinid' TEXT, 'name' TEXT);")
+        cursor.execute("CREATE TABLE 'coins' ('symbol' TEXT, 'coinid' TEXT UNIQUE ON CONFLICT REPLACE, 'name' TEXT);")
         conn.commit()
     url = "https://api.coinmarketcap.com/v1/ticker/?limit=0"
     results_json = get_coin_json(url)
