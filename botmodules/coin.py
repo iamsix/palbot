@@ -15,7 +15,6 @@ def __init__(self):
 #     newcoins()
 
 
-
 def coin(self, e):
     coinqty = 1
     qtycheck = re.search("(^(\d*\.)?\d+)\s(\w.+)", e.input)
@@ -98,9 +97,9 @@ def get_coin_json(url):
     return results_json
 
 
-
 def from_to(tovalue, fromvalue):
     return fromvalue / tovalue
+
 
 def findcoin(input): 
     conn = sqlite3.connect("coins.sqlite3")
@@ -111,7 +110,7 @@ def findcoin(input):
         return result[0]
 
 
-def newcoins():
+def newcoins(line, nick, self, c):
     conn = sqlite3.connect("coins.sqlite3")
     cursor = conn.cursor()
     result = cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='coins';").fetchone()
@@ -129,3 +128,6 @@ def newcoins():
         
     conn.commit()
     conn.close()
+    return "Coin DB reloaded"
+newcoins.admincommand = "newcoins"
+

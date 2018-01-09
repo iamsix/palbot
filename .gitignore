@@ -48,6 +48,7 @@ Temporary Items
 
 # bot stuff
 *.sqlite
+*.sqlite3
 clues.db
 palbot.cfg
 debug.log

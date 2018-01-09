@@ -15,8 +15,11 @@ def get_rt(self, e):
 
     url = self.tools['shorten_url'](movie['urls'][2]['url'])
 
-    concensus = movie['reviews']['rottenTomatoes']['consensus']
-    concensus = "- " + self.tools['remove_html_tags'](concensus)
+    try:
+        concensus = movie['reviews']['rottenTomatoes']['consensus']
+        concensus = "- " + self.tools['remove_html_tags'](concensus)
+    except:
+        concensus = ""
 
     e.output = "%s (%s) - Critics: %s - Users: %s %s [ %s ]" % (movie['title'],
                                                                 str(movie['theaterReleaseDate']['year']),
