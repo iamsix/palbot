@@ -200,7 +200,7 @@ class botEvent:
         self.notice = notice
         self.hostmask = hostmask
         self.message = message
-        self.embed = None
+        self.embed = embed
 
 client.loadmodules = loadmodules
 client.load_config = load_config

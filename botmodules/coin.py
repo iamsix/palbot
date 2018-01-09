@@ -13,8 +13,12 @@ def coin(self, e):
     if coin in SYMBOLS:
         coin = SYMBOLS[coin]
     request = urllib.request.Request(url + coin)
-    
-    response = urllib.request.urlopen(request)
+   
+    try: 
+        response = urllib.request.urlopen(request)
+    except urllib.error.HTTPError as err:
+        self.logger.exception("Coin {} not found: {}".format(e.input, err))
+        return
     
     results_json = json.loads(response.read().decode('utf-8'))
     
@@ -25,8 +29,8 @@ def coin(self, e):
     pUSD = results_json[0]['price_usd']
     pC24 = results_json[0]['percent_change_24h']
     pC1 = results_json[0]['percent_change_1h']
-    
-    e.output =  id + " | current price: $" + pUSD + ' | '  + "1-hour change: " + pC1 +'%' + ' | '  + "24-hour change: " + pC24 +'%'
+
+    e.output = "{} | current price: ${} | 1-hour change: {}% | 24-hour change: {}%".format(id, pUSD, pC1, pC24)    
     
     return(e)
 

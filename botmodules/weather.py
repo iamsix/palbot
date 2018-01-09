@@ -185,6 +185,18 @@ def get_prettyweather(self, e):
     forecast_io(self, e, pretty=True)
 get_prettyweather.command = "!prettyweather"
 
+
+WICONS = {"clear-day": "https://raw.githubusercontent.com/manifestinteractive/weather-underground-icons/master/dist/icons/white/png/128x128/clear.png",
+          "clear-night": "https://raw.githubusercontent.com/manifestinteractive/weather-underground-icons/master/dist/icons/white/png/128x128/nt_clear.png",
+          "partly-cloudy-day": "https://raw.githubusercontent.com/manifestinteractive/weather-underground-icons/master/dist/icons/white/png/128x128/partlycloudy.png",
+          "partly-cloudy-night": "https://raw.githubusercontent.com/manifestinteractive/weather-underground-icons/master/dist/icons/white/png/128x128/nt_partlycloudy.png",
+          "cloudy": "https://raw.githubusercontent.com/manifestinteractive/weather-underground-icons/master/dist/icons/white/png/128x128/cloudy.png",
+          "rain": "https://raw.githubusercontent.com/manifestinteractive/weather-underground-icons/master/dist/icons/white/png/128x128/rain.png",
+          "sleet": "https://raw.githubusercontent.com/manifestinteractive/weather-underground-icons/master/dist/icons/white/png/128x128/sleet.png",
+          "snow": "https://raw.githubusercontent.com/manifestinteractive/weather-underground-icons/master/dist/icons/white/png/128x128/snow.png",
+          "wind": "",
+          "fog": "https://raw.githubusercontent.com/manifestinteractive/weather-underground-icons/master/dist/icons/white/png/128x128/fog.png"}
+
    
 def forecast_io(self,e, location="", pretty=False):
     apikey = self.botconfig["APIkeys"]["forecastIO_APIkey"]
@@ -282,20 +294,25 @@ def forecast_io(self,e, location="", pretty=False):
 
     if pretty:
         e.output = ""
-        etitle = f"**{address}** - {current_summary}".format()
-        icon = "https://png.icons8.com/color/540/sun.png"
+        etitle = f"{address} - {current_summary}".format()
+        icon = WICONS[current_conditions['icon'].lower()]
         embed = discord.Embed(title=etitle)
+        embed = discord.Embed()
+#        embed.set_author(name=etitle, icon_url=icon)
+        embed.set_footer(text=outlook)
         embed.set_thumbnail(url=icon)
-        embed.add_field(name="Temp", value=f"{temp_c}C/{temp}F".format(), inline=True)
-        embed.add_field(name="High", value=f"{max_temp_c}".format(), inline=True)
-        embed.add_field(name="Low", value=f"{min_temp_c}".format(), inline=True)
+        embed.add_field(name="Temp", value=f"{temp_c}°C / {temp}°F".format(), inline=True)
         embed.add_field(name="Humidity", value=f"{humidity}%".format(), inline=True)
-        embed.add_field(name="Wind", value=f"{wind_arrow}{wind_direction} at {wind_speed_kmh} km/h".format(), inline=True)
-        embed.add_field(name="Outlook", value=outlook, inline=False)
-        print(embed)
+        embed.add_field(name="High", value=f"{max_temp_c}°C / {max_temp}°F".format(), inline=True)
+        embed.add_field(name="Low", value=f"{min_temp_c}°C / {min_temp}°F".format(), inline=True)
+        embed.add_field(name="Wind", value=f"{wind_arrow} {wind_direction} at {wind_speed_kmh} km/h / {wind_speed} mph".format(), inline=True)
+        #embed.add_field(name="Outlook", value=outlook, inline=False)
         e.embed = embed
 
     return e
+
+
+
 
 
 forecast_io.command = "!fio"
