@@ -39,7 +39,7 @@ def coin(self, e):
     
     coinid = findcoin(coin)
     if not coinid:
-        e.output = 'Aye canne find no "{}" coin'.format(coin)
+        e.output = 'Aye cannae find no "{}" coin'.format(coin)
         return
 
     url = "https://api.coinmarketcap.com/v1/ticker/{}{}".format(coinid, curr)
@@ -68,12 +68,12 @@ def coin(self, e):
                 tojson = get_coin_json(url)
                 cvtto = tojson[0]['symbol'].upper()
                 toval = float(tojson[0]['price_usd'])
-                cvtval = "{:.8f}".format(from_to(toval, float(pUSD) * coinqty))
+                cvtval = "{:.8g}".format(from_to(toval, float(pUSD) * coinqty))
         if coinqty == 1:
             e.output = "{} {} | Value: {} {} (${} USD) | 1-hour change: {}% | 24-hour change: {}%".format(cid, name, cvtval, cvtto.upper(), pUSD, pC1, pC24)
         else:
             usdfinal = float(pUSD) * coinqty
-            e.output = "{} {} : {:.8f} {} (${:.2f} USD)".format(coinqty, cid, cvtval, cvtto.upper(), usdfinal)
+            e.output = "{} {} : {:.8g} {} (${:.2f} USD)".format(coinqty, cid, float(cvtval), cvtto.upper(), usdfinal)
     else:
         if coinqty == 1:
             e.output = "{} {} | Value: ${} | 1-hour change: {}% | 24-hour change: {}%".format(cid, name, pUSD, pC1, pC24)
