@@ -12,21 +12,22 @@ CURR = ["AUD", "BRL", "CAD", "CHF", "CLP", "CNY", "CZK", "DKK", "EUR",
 
 def __init__(self):
      pass
+     coin.logger = self.logger
 #     newcoins()
 
 
 def coin(self, e):
     coinqty = 1
-    qtycheck = re.search("(^(\d*\.)?\d+)\s(\w.+)", e.input)
+    qtycheck = re.search("(^(\d*\.)?\d+)\s?(\w.+)", e.input)
     if qtycheck:
         coinqty = float(qtycheck.group(1))
         e.input = qtycheck.group(3).strip()
     curr = ""
     cvtto = ""
-    if " in " in e.input or " to " in e.input:
-        if " in " in e.input:
+    if " in " in e.input.lower() or " to " in e.input.lower():
+        if " in " in e.input.lower():
             coin, cvtto = e.input.lower().split(" in ")
-        elif " to " in e.input:
+        elif " to " in e.input.lower():
             coin, cvtto = e.input.lower().split(" to ")
 
         coinid = findcoin(coin)
@@ -56,10 +57,13 @@ def coin(self, e):
             cvtval = "{:.2f}".format(float(results_json[0]['price_{}'.format(cvtto.lower())]) * coinqty)
         else:
             toid = findcoin(cvtto)
+            if not toid:
+                e.output = 'Ach! what ye tryin tae convert te thus "{}" I never fathern'.format(cvtto)
+                return
          
             if toid == "bitcoin":
                 #api gives us BTC by default - its not in the currencies so that we get coin lookup on it and more than 2 decimal prescision
-                cvtval = float(results_json[0]['price_btc']) * coinqty
+                cvtval = ffstr(float(results_json[0]['price_btc']) * coinqty)
                 cvtto = "BTC"
             # convert to crypto
             else:
@@ -67,12 +71,12 @@ def coin(self, e):
                 tojson = get_coin_json(url)
                 cvtto = tojson[0]['symbol'].upper()
                 toval = float(tojson[0]['price_usd'])
-                cvtval = "{:.8g}".format(from_to(toval, float(pUSD) * coinqty))
+                cvtval = ffstr((float(pUSD) * coinqty) / toval)
         if coinqty == 1:
             e.output = "{} {} | Value: {} {} (${} USD) | 1-hour change: {}% | 24-hour change: {}%".format(cid, name, cvtval, cvtto.upper(), pUSD, pC1, pC24)
         else:
             usdfinal = float(pUSD) * coinqty
-            e.output = "{} {} : {:.8g} {} (${:.2f} USD)".format(coinqty, cid, float(cvtval), cvtto.upper(), usdfinal)
+            e.output = "{} {} : {} {} (${:.2f} USD)".format(coinqty, cid, ffstr(cvtval), cvtto.upper(), usdfinal)
     else:
         if coinqty == 1:
             e.output = "{} {} | Value: ${} | 1-hour change: {}% | 24-hour change: {}%".format(cid, name, pUSD, pC1, pC24)
@@ -84,21 +88,21 @@ def coin(self, e):
 coin.command = "!coin"
 
 
+def ffstr(number):
+    return "{:.8f}".format(float(number)).rstrip('0').rstrip('.')
+
+
 def get_coin_json(url):
     request = urllib.request.Request(url)
    
     try: 
         response = urllib.request.urlopen(request)
     except urllib.error.HTTPError as err:
-        self.logger.exception("Coin {} not found: {} {}".format(e.input, url, err))
+        coin.logger.exception("Coin {} not found: {} {}".format(url, err))
         return
     
     results_json = json.loads(response.read().decode('utf-8'))
     return results_json
-
-
-def from_to(tovalue, fromvalue):
-    return fromvalue / tovalue
 
 
 def findcoin(input): 
