@@ -63,6 +63,7 @@ async def process_message(message):
     e.botnick = client.user.name
     e.allowembed = False
     if command in client.bangcommands:
+        await client.send_typing(message.channel)
         client.bangcommands[command](client, e)
 
     elif command in client.admincommands and\

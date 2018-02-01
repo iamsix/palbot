@@ -17,6 +17,7 @@ def __init__(self):
 
 
 def coin(self, e):
+    e.input = e.input.lower().replace("\n", " ").strip()
     coinqty = 1
     qtycheck = re.search("(^(\d*\.)?\d+)\s?(\w.+)", e.input)
     if qtycheck:
@@ -24,18 +25,18 @@ def coin(self, e):
         e.input = qtycheck.group(3).strip()
     curr = ""
     cvtto = ""
-    if " in " in e.input.lower() or " to " in e.input.lower():
-        if " in " in e.input.lower():
-            coin, cvtto = e.input.lower().split(" in ")
-        elif " to " in e.input.lower():
-            coin, cvtto = e.input.lower().split(" to ")
+    if " in " in e.input or " to " in e.input:
+        if " in " in e.input:
+            coin, cvtto = e.input.split(" in ")
+        elif " to " in e.input:
+            coin, cvtto = e.input.split(" to ")
 
         coinid = findcoin(coin)
         if cvtto.upper() in CURR:
             curr = "?convert={}".format(cvtto)
         
     else:
-        coin = e.input.lower()
+        coin = e.input
     
     coinid = findcoin(coin)
     if not coinid:
@@ -98,7 +99,7 @@ def get_coin_json(url):
     try: 
         response = urllib.request.urlopen(request)
     except urllib.error.HTTPError as err:
-        coin.logger.exception("Coin {} not found: {} {}".format(url, err))
+        coin.logger.exception("Coin not found: {} {}".format(url, err))
         return
     
     results_json = json.loads(response.read().decode('utf-8'))
@@ -108,8 +109,10 @@ def get_coin_json(url):
 def findcoin(input): 
     conn = sqlite3.connect("coins.sqlite3")
     cursor = conn.cursor()
-    like = "%{}%".format(input)
-    result = cursor.execute("SELECT coinid FROM coins WHERE coinid = (?) OR symbol = (?) OR name LIKE (?)", (input, input, like)).fetchone()
+    result = cursor.execute("SELECT coinid FROM coins WHERE coinid = (?) OR symbol = (?)", (input, input)).fetchone()
+    if not result:
+        like = "%{}%".format(input)
+        result = cursor.execute("SELECT coinid FROM coins WHERE name LIKE (?)", [like]).fetchone()
     if result:
         return result[0]
 
