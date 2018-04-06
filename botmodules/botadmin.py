@@ -1,6 +1,8 @@
 import time, sys, traceback
 import threading
 import logging
+import asyncio
+import discord
 
 #test commit
 def manual_spamban(line, nick, self, c):
@@ -13,6 +15,15 @@ def manual_spamban(line, nick, self, c):
         self.spam[user]['first'] = time.time()
         self.spam[user]['limit'] = bantime
 manual_spamban.admincommand = "spamban"
+
+
+def now_playing(line, nick, self, c):
+    if line == "playing":
+        asyncio.ensure_future(self.change_presence(game=None))
+    else:
+        np = line[8:]
+        asyncio.ensure_future(self.change_presence(game=discord.Game(name=np)))
+now_playing.admincommand = "playing"
 
 
 def log_level(line, nick, self, c):

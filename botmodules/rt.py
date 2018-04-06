@@ -13,7 +13,10 @@ def get_rt(self, e):
     flxurl = "http://api.flixster.com/android/api/v1/movies/{}.json".format(movie[0]['id'])
     movie = loadjson(flxurl)
 
-    url = self.tools['shorten_url'](movie['urls'][2]['url'])
+    try:
+        url = self.tools['shorten_url'](movie['urls'][2]['url'])
+    except:
+        url = ""
 
     try:
         concensus = movie['reviews']['rottenTomatoes']['consensus']
