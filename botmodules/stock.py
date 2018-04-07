@@ -13,16 +13,27 @@ def stock (self, e):
         response = urllib.request.urlopen(url)
         response = json.loads(response.read().decode('utf-8'))
         today = datetime.date.today().strftime("%Y-%m-%d")
-        yesterday = (datetime.date.today() - timedelta(days=1)).strftime("%Y-%m-%d") 
+        yesterday = (datetime.date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+        symbol = response['Meta Data']["2. Symbol"]
         data = response['Time Series (Daily)']
-        open = float(data[yesterday]['4. close'])
-        close = float(data[today]['4. close'])
+
+        closed = False
+        if today not in data:
+           closed = True
+           today = yesterday
+           yesterday = (datetime.date.today() - timedelta(days=2)).strftime("%Y-%m-%d")
+
+        open = float(data[today]['4. close'])
+        close = float(data[yesterday]['4. close'])
 
         change = close - open
         perc = (change / open) * 100
 
-
-        e.output = "{} : {} || Today's Change: {:.2f} ({:.2f}%)".format(e.input, close, change, perc)
+        if not closed:
+            e.output = "{} : {} || Today's Change: {:.2f} ({:.2f}%)".format(symbol, close, change, perc)
+        else:
+            e.output = "{} : {} || Yesterday's Change: {:.2f} ({:.2f}%) || MARKET CLOSED".format(symbol, close, change, perc)
+          
         
 
 stock.command = "!stock"
