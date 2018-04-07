@@ -23,17 +23,19 @@ def stock (self, e):
            today = yesterday
            yesterday = (datetime.date.today() - timedelta(days=2)).strftime("%Y-%m-%d")
 
-        open = float(data[today]['4. close'])
+        current = float(data[today]['4. close'])
         close = float(data[yesterday]['4. close'])
 
-        change = close - open
-        perc = (change / open) * 100
+        change = current - close
+        perc = (change / current) * 100
 
         if not closed:
-            e.output = "{} : {} || Today's Change: {:.2f} ({:.2f}%)".format(symbol, close, change, perc)
+            e.output = "{} : {} || Today's Change: {:.2f} ({:.2f}%)".format(symbol, current, change, perc)
         else:
-            e.output = "{} : {} || Yesterday's Change: {:.2f} ({:.2f}%) || MARKET CLOSED".format(symbol, close, change, perc)
+            e.output = "{} : {} || Yesterday's Change: {:.2f} ({:.2f}%) || MARKET CLOSED".format(symbol, current, change, perc)
           
         
 
 stock.command = "!stock"
+
+# http://query1.finance.yahoo.com/v7/finance/quote?symbols=msft
