@@ -19,6 +19,11 @@ def get_logicfiction(self, e):
     return e
 get_logicfiction.command = "!logicfiction"
 
+def get_nopls(self, e):
+    e.output = "https://cdn.discordapp.com/attachments/124572142485504002/434009857524367400/15243997.jpg"
+    e.allowembed = True
+    return e
+get_nopls.command = "!nopls"
 
 def get_mixomatosys(self, e):
     e.output ="i'm not sure hwat you're point is"

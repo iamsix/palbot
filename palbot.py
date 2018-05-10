@@ -1,20 +1,54 @@
 import discord
 import asyncio
+import aiohttp
+import websockets
 import importlib.util
 import os
 import logging, logging.handlers
 import configparser
 import re
+import time
 from collections import deque
 
 
 FORMAT = "[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s"
 logging.basicConfig(filename='debug.log',level=logging.DEBUG, format=FORMAT)
-client = discord.Client()
-logger = logging.getLogger("py3")
-client.logger = logger
-client.lastresponses= deque(((0,0), (0,0)), maxlen=10)
 
+async def keep_running(client, token):
+    delay = 30
+
+    while True:
+        try:
+            await client.login(token)
+
+        except (discord.HTTPException, aiohttp.ClientError):
+            logging.exception("Discord.py pls login")
+            await asyncio.sleep(delay)
+
+        else:
+            break
+
+    while client.is_logged_in:
+        if client.is_closed:
+            logger.debug("connecting client to Discord.py")
+            client._closed.clear()
+            client.http.recreate()
+
+        try:
+            await client.connect()
+
+        except (discord.HTTPException, aiohttp.ClientError,
+                discord.GatewayNotFound, discord.ConnectionClosed,
+                websockets.InvalidHandshake,
+                websockets.WebSocketProtocolError) as e:
+            if isinstance(e, discord.ConnectionClosed) and e.code == 4004:
+                raise # Do not reconnect on authentication failure
+            logging.exception("Discord.py pls keep running")
+            await asyncio.sleep(delay)
+
+
+
+client = discord.Client()
 urlregex = re.compile(r"(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>])*\))+(?:\(([^\s()<>])*\)|[^\s`!()\[\]{};:'\".,<>?«»“”‘’]))")
 
 @client.event
@@ -203,11 +237,18 @@ class botEvent:
         self.message = message
         self.embed = embed
 
+
+    
+logger = logging.getLogger("py3")
+client.logger = logger
+client.lastresponses= deque(((0,0), (0,0)), maxlen=10)
 client.loadmodules = loadmodules
 client.load_config = load_config
+client.lastresponses= deque(((0,0), (0,0)), maxlen=10)
 load_config()
 loadmodules()
+
 client.loop.create_task(bot_alerts())
-client.run(client.botconfig['discord']['token'])
-print("Discord client has stopped running, so the  bot is exiting")
+client.loop.run_until_complete(keep_running(client, client.botconfig['discord']['token']))
+print("Discord client has stopped running,")
 

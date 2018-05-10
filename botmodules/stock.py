@@ -2,6 +2,7 @@ import datetime
 from datetime import timedelta
 import json
 import urllib.request, urllib.parse
+import html
 
 
 def stock (self, e):
@@ -36,6 +37,24 @@ def stock (self, e):
           
         
 
-stock.command = "!stock"
+stock.command = "!astock"
 
-# http://query1.finance.yahoo.com/v7/finance/quote?symbols=msft
+
+def ystock (self, e):
+    url = "http://query1.finance.yahoo.com/v7/finance/quote?symbols={}"
+    if " " in e.input:
+        e.output = "I can only take a single stock quote for now"
+        return
+
+    url = url.format(urllib.parse.quote(e.input))
+    response = urllib.request.urlopen(url)
+    response = json.loads(response.read().decode('utf-8'))
+    data = response["quoteResponse"]["result"][0]
+
+    outstr = "{} ({}): {} {} || Today's change: {:.2f} ({:.2f}%)"
+    outstr = outstr.format(data['symbol'], data['longName'], data['regularMarketPrice'], data['currency'],
+                           float(data['regularMarketChange']), float(data['regularMarketChangePercent']))
+
+    e.output = html.unescape(outstr)
+
+ystock.command = "!stock"
