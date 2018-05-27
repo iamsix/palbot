@@ -30,6 +30,12 @@ def get_mixomatosys(self, e):
     return e
 get_mixomatosys.command = "!mixy"
 
+def get_source(self, e):
+    e.output ="https://github.com/iamsix/palbot/"
+    return e
+get_source.command = "!source"
+
+
 def get_dvq(self, e):
     e.output = "http://i.imgur.com/1lq54.jpg"
     return e

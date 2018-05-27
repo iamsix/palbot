@@ -30,7 +30,7 @@ async def keep_running(client, token):
 
     while client.is_logged_in:
         if client.is_closed:
-            logger.debug("connecting client to Discord.py")
+            logging.info("connecting client to Discord.py")
             client._closed.clear()
             client.http.recreate()
 
@@ -244,7 +244,6 @@ client.logger = logger
 client.lastresponses= deque(((0,0), (0,0)), maxlen=10)
 client.loadmodules = loadmodules
 client.load_config = load_config
-client.lastresponses= deque(((0,0), (0,0)), maxlen=10)
 load_config()
 loadmodules()
 
