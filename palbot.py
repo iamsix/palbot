@@ -67,6 +67,9 @@ async def on_message(message):
             e.output = re.sub(urlregex, "<\g<0>>",  e.output)
         respid = await client.send_message(message.channel, e.output, embed=e.embed)
         client.lastresponses.append((message.id, respid))
+    if e.reaction:
+        for react in e.reaction:
+            await client.add_reaction(message, react)
 
 
 @client.event
@@ -236,6 +239,7 @@ class botEvent:
         self.hostmask = hostmask
         self.message = message
         self.embed = embed
+        self.reaction = [] 
 
 
     
