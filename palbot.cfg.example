@@ -8,18 +8,23 @@ token = abc123
 [APIkeys]
 wolframapikey = abc123
 fmlapikey = abc123
+rtapikey = abc123
+wwoapikey = abc123
 lastfmapikey = abc123
 twitterconsumerkey = abc123
 twitterconsumersecret = abc123
-gsearchapi = abc123
+stravatoken = abc123
+
 gsearchcx = abc123
+#These 3 can be all the same key from google
+gsearchapi = abc123
+ischapi = abc123
 shorturlkey = abc123
+
 forecastio_apikey = abc123
-wunderAPIkey = abc123
-untappd_clientid=1abc123
-untappd_clientsecret=abc123
-
-
-[misc]
-error_log = error_log
-event_log = event_log
+wunderapikey = abc123
+untappd_clientid = abc123
+untappd_clientsecret = abc123
+goodreadskey = abc123
+aqicn = abc123
+alphavantage = abc123
