@@ -12,7 +12,7 @@ from collections import deque
 
 
 FORMAT = "[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s"
-logging.basicConfig(filename='debug.log',level=logging.DEBUG, format=FORMAT)
+logging.basicConfig(filename='debug.log',level=logging.INFO, format=FORMAT)
 
 async def keep_running(client, token):
     delay = 30

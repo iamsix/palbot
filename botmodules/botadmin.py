@@ -174,7 +174,8 @@ def say_cmd(line, nick, self, c):
 	if len(line.split(" ")) > 2:
 		chan = line.split(" ")[1]
 		words = " ".join(line.split(" ")[2:])
-		c.privmsg(chan, words)
+#		c.privmsg(chan, words)
+		asyncio.ensure_future(self.send_message(self.get_channel(chan), words))
 		return "Said %s to %s" % (words, chan)
 	else:
 		return "Correct syntax: say [#channel/nickname] I hate you!"

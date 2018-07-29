@@ -1,4 +1,4 @@
-#stupid fucking twitter api authentication just to fucking read a fucking public timeline, what the fuck.
+# in which I implement a super-simple oauth interface just to read a publically available feed
 import json
 import urllib, urllib.request, urllib.parse
 import datetime
@@ -18,7 +18,6 @@ def __init__(self):
     response = urllib.request.urlopen(req)
     response = json.loads(response.read().decode('utf-8'))
     read_timeline.holyshitbearstoken = response['access_token']
-    # print(read_timeline.holyshitbearstoken)
     read_timeline.self = self
   except Exception as inst:
      self.logger.debug(inst)

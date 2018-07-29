@@ -496,7 +496,7 @@ def strava_command_handler(self, e):
 
         try:
             function = arg_function_dict[words[arg_offset]]
-            print("Calling " + function.__name__ + " with e.input of: " + ''.join('none' if e.input is None else e.input))
+            self.logger.debug("Calling " + function.__name__ + " with e.input of: " + ''.join('none' if e.input is None else e.input))
             function(self, e)
             return e
         except KeyError:
@@ -505,7 +505,7 @@ def strava_command_handler(self, e):
     #There are no args or only unknown args. We fall through from the exception above
     #EX: "" or "beardedw1zard"
     function = arg_function_dict['get']
-    print("Calling " + function.__name__ + " with e.input of: " + ''.join('none' if e.input is None else e.input))
+    self.logger.debug("Calling " + function.__name__ + " with e.input of: " + ''.join('none' if e.input is None else e.input))
     function(self, e)
 
     return e
