@@ -174,10 +174,14 @@ def trivia_q(self, e):
     dateid = "{}-{}".format(time.strftime("%Y-%m-%d"), trivia.session)
     load_scores(dateid)
 
+    try:
+        trivia.questionlimit = int(e.input)
+    except:
+        trivia.questionlimit = 1
+
     trivia.bot = self
     trivia.e = e
     ask_question()
-    trivia.stoptrivia = True
 trivia_q.command = "!trivia"
 trivia_q.helptext = """
 Usage: !triviaq

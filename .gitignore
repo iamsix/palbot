@@ -53,3 +53,5 @@ clues.db
 palbot.cfg
 debug.log
 __pycache__
+# although GPU theres really no reason to distribute it here https://github.com/thomasahle/sunfish
+botmodules/sunfish.py

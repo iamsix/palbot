@@ -67,6 +67,8 @@ async def on_message(message):
             e.output = re.sub(urlregex, "<\g<0>>",  e.output)
         respid = await client.send_message(message.channel, e.output, embed=e.embed)
         client.lastresponses.append((message.id, respid))
+        for react in e.self_reaction:
+            await client.add_reaction(respid, react)
     if e.reaction:
         for react in e.reaction:
             await client.add_reaction(message, react)
@@ -90,7 +92,16 @@ async def on_message_edit(before, after):
                 await client.edit_message(response, e.output, embed=e.embed)
             else:
                 await client.delete_message(response)
-            
+
+@client.event
+async def on_reaction_add(reaction, user):
+    for fn in client.reaction_listeners:
+        await fn(client, reaction, user, False)
+
+@client.event
+async def on_reaction_remove(reaction,user):
+    for fn in client.reaction_listeners:
+        await fn(client, reaction, user, True)
             
 async def process_message(message):
     command = message.content.split(" ")[0].lower()
@@ -150,6 +161,7 @@ def loadmodules():
     client.admincommands = {}
     client.lineparsers = []
     client.botalerts = []
+    client.reaction_listeners = []
 
     filenames = []
     for fn in os.listdir('./botmodules'):
@@ -178,6 +190,8 @@ def loadmodules():
                     client.admincommands[command] = func
                 elif hasattr(func, 'alert'):
                     client.botalerts.append(func)
+                elif hasattr(func, 'reaction_listener'):
+                    client.reaction_listeners.append(func)
                 elif hasattr(func, 'lineparser'):
                     if func.lineparser:
                         client.lineparsers.append(func)
@@ -240,6 +254,7 @@ class botEvent:
         self.message = message
         self.embed = embed
         self.reaction = [] 
+        self.self_reaction = [] 
 
 
     
