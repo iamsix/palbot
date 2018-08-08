@@ -1,6 +1,7 @@
 import urllib.request, urllib.error, urllib.parse
 import json
 from collections import deque
+import discord
 
 def image_search(self, e):
     searchterm = urllib.parse.quote(e.input)
@@ -20,12 +21,13 @@ def image_search(self, e):
 
     results_json = json.loads(response.read().decode('utf-8'))
     results = results_json['items']
- #   image_flip.last10.append((e.message.id, results,0))
-    image_flip.results[e.message.id] = (results, 0)
-    image_flip.current = 0
+    image_flip.results[e.message.id] = (results, 0, e.message.author.id)
     e.self_reaction = ['\u2b05', '\u27a1']
 
-    e.output = results[0]['link']
+    embed = discord.Embed(title="1. {}".format(results[0]['title']))
+    embed.set_image(url=results[0]['link'])
+    embed.url = results[0]['image']['contextLink']
+    e.embed = embed
     e.allowembed = True
     return e
 
@@ -56,22 +58,28 @@ async def image_flip(client, reaction, user, was_removed):
             rid = resp
             rto = responseto
     # a housecleaning hack to clean our own dict
-    for key in image_flip.results:
-        print(key)
+    for key in list(image_flip.results.keys()):
         if key not in rtolist:
             image_flip.results.pop(key, None)
-    if not rid:
+    if not rid or not rto or rto not in image_flip.results:
         return
-    images, current = image_flip.results[rto]
-
+    images, current, authorid = image_flip.results[rto]
+    if user.id != authorid:
+        return
     if reaction.emoji == '\u27a1':
         current += 1
     elif reaction.emoji == '\u2b05':
         current -= 1
+    else:
+        return
     current = max(0, min(9, current))
-    image_flip.results[rto] = (images, current)
-    image = images[current]['link']
-    await client.edit_message(rid, image)
+    image_flip.results[rto] = (images, current, authorid)
+    #image = "{}. {}".format(current+1, images[current]['link'])
+      
+    embed = discord.Embed(title="{}. {}".format(current+1, images[current]['title']))
+    embed.set_image(url=images[current]['link'])
+    embed.url = images[current]['image']['contextLink']
+    await client.edit_message(rid, "", embed=embed)
 
 
 #image_flip.last10 = deque((,,), maxlen=10)

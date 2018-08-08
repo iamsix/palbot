@@ -86,7 +86,7 @@ async def on_message_edit(before, after):
     for responseto, response in client.lastresponses:
         if before.id == responseto:
             e = await process_message(after)
-            if e.output:
+            if e.output or e.embed:
                 if not e.allowembed:
                     e.output = re.sub(urlregex, "<\g<0>>",  e.output)
                 await client.edit_message(response, e.output, embed=e.embed)
@@ -260,7 +260,7 @@ class botEvent:
     
 logger = logging.getLogger("py3")
 client.logger = logger
-client.lastresponses= deque(((0,0), (0,0)), maxlen=10)
+client.lastresponses= deque([], maxlen=10)
 client.loadmodules = loadmodules
 client.load_config = load_config
 load_config()

@@ -19,6 +19,12 @@ def get_logicfiction(self, e):
     return e
 get_logicfiction.command = "!logicfiction"
 
+def get_noplsca(self, e):
+    e.output = "https://cdn.discordapp.com/attachments/124572142485504002/476208864988233738/image.jpg"
+    e.allowembed = True
+    return e
+get_noplsca.command = "!nopls.ca"
+
 def get_nopls(self, e):
     e.output = "https://cdn.discordapp.com/attachments/124572142485504002/434009857524367400/15243997.jpg"
     e.allowembed = True

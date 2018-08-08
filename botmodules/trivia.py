@@ -86,12 +86,13 @@ trivia.e = None
 trivia.qtimestamp = None
 trivia.questionlimit = 10
 
-def ask_question():
+def ask_question(clueid=None):
     conn = sqlite3.connect("clues.db")
     c = conn.cursor()
     rows = int(c.execute("SELECT Count(*) FROM clues").fetchone()[0])
-    clueid = str(random.randint(1, rows))
-    clue = c.execute("SELECT value, category, clue, answer \
+    if not clueid:
+        clueid = str(random.randint(1, rows))
+    clue = c.execute("SELECT value, category, clue, answer, links \
                       FROM clues \
                       JOIN documents ON clues.id = documents.id \
                       JOIN classifications ON clues.id = classifications.clue_id \
@@ -108,15 +109,19 @@ def ask_question():
     #Try to highlight the point of the question - only if it's in the middle of a sentence'
     question = clue[2].replace(" this ", " **this** ")
     question = question.replace(" these ", " **these** ")
-
+    links = ""
+    # TODO validate these links
+    if clue[4].strip():
+        links = "\n {}".format(clue[4])
     trivia.value = int(str(clue[0]).replace(",", ""))
     if trivia.value == 0:
         trivia.value = 5000
     trivia.questions_asked += 1
-    trivia.question = "**Question** {}: ${}. [ {} ] {} \nHint: `{}`".format(trivia.questions_asked,
+    trivia.question = "**Question** {}: ${}. [ {} ] {}{}\nHint: `{}`".format(trivia.questions_asked,
                                                                         trivia.value,
                                                                         clue[1],
                                                                         question,
+                                                                        links,
                                                                         hint
                                                                         )
     trivia.e.output = trivia.question
@@ -174,14 +179,13 @@ def trivia_q(self, e):
     dateid = "{}-{}".format(time.strftime("%Y-%m-%d"), trivia.session)
     load_scores(dateid)
 
-    try:
-        trivia.questionlimit = int(e.input)
-    except:
-        trivia.questionlimit = 1
-
+    clueid = None
+    qid = re.search('clue (\d+)', e.input)
+    if qid:
+        clueid = int(qid.group(1))
     trivia.bot = self
     trivia.e = e
-    ask_question()
+    ask_question(clueid)
 trivia_q.command = "!trivia"
 trivia_q.helptext = """
 Usage: !triviaq
