@@ -12,6 +12,12 @@ def get_jeffers(self, e):
     return e
 get_jeffers.command = "!jeffers"
 
+def get_willy(self, e):
+    e.output = "https://pbs.twimg.com/media/CXnTv9mW8AA1_2c?format=jpg"
+    e.allowembed = True
+    return e
+get_willy.command = "!willy"
+
 
 def get_logicfiction(self, e):
     e.output = "https://cdn.discordapp.com/attachments/124572142485504002/347148872709046272/l.jpg"

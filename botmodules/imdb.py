@@ -1,4 +1,5 @@
 import re
+import json
 
 
 def get_imdb(self, e, urlposted=False):
@@ -19,28 +20,21 @@ def get_imdb(self, e, urlposted=False):
         imdburl = ('http://www.imdb.com/title/' + imdbid.group(0) + '/')
         page = self.tools["load_html_from_URL"](imdburl)
 
-        movietitle = page.html.head.title.string.replace(" - IMDb", "")
-        movietitle = movietitle.replace("IMDb - ", "")
-        movietitle = "Title: " + movietitle
+        data = json.loads(page.find('script', type='application/ld+json').text)
+        
+        movietitle = "{} ({})".format(data['name'], data['datePublished'][:4])
 
-        if True: # page.find(id="overview-top") != None:
-            #page = page.find(id="overview-top").extract()
-            if page.find(itemprop="ratingValue") != None:
-                rating = page.find(itemprop="ratingValue").get_text()
-                rating = " - Rating: " + rating.replace("\n", "")  # remove newlines since BS4 adds them in there
+        rating = ""
+        description = ""
 
-            try:
-
-                summary = str(page.find(itemprop='description'))
-                summary = re.sub(r'\<a.*\/a\>', '', summary)
-                summary = self.tools['remove_html_tags'](summary)
-                summary = summary.replace('&raquo;', "")
-                summary = summary.replace("\n", "").strip()
-                summary = " - " + summary
-            except:
-                pass
-        else:
-            self.logger.debug("Didn't find overview on {}".format(imdburl))
+        try:
+            rating = " - Rating: {}".format(data['aggregateRating']['ratingValue'])
+        except KeyError:
+            pass
+        try:
+            summary = " - {}".format(data['description'])
+        except KeyError:
+            pass
 
         title = movietitle + rating + summary
         if not urlposted:

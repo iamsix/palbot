@@ -186,6 +186,7 @@ def trivia_q(self, e):
     trivia.bot = self
     trivia.e = e
     ask_question(clueid)
+    trivia.stoptrivia = True
 trivia_q.command = "!trivia"
 trivia_q.helptext = """
 Usage: !triviaq

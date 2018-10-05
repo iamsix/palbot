@@ -28,7 +28,7 @@ def get_nhl_games(self, e):
     games = []
     for game in data['games']:
  
-        if game['status']['statusCode'] is "1":
+        if game['status']['statusCode'] == "1" or game['status']['statusCode'] == "2":
             # game is scheduled in future
             starttime = datetime.datetime.strptime(game['gameDate'], "%Y-%m-%dT%H:%M:%SZ")
             starttime = starttime.replace(tzinfo=pytz.utc).astimezone(tz=ET)

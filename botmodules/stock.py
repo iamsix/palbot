@@ -54,6 +54,10 @@ def ystock (self, e):
     outstr = "{} ({}): {} {} || Today's change: {:.2f} ({:.2f}%)"
     outstr = outstr.format(data['symbol'], data['longName'], data['regularMarketPrice'], data['currency'],
                            float(data['regularMarketChange']), float(data['regularMarketChangePercent']))
+    
+    if data['marketState'] == "CLOSED":
+        outstr += " || After Hours: {:.2f} - Change: {:.2f}".format(data['postMarketPrice'],
+                                                                     data['postMarketChange'])
 
     e.output = html.unescape(outstr)
 
