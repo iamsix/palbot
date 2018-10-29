@@ -51,11 +51,12 @@ def ystock (self, e):
     response = json.loads(response.read().decode('utf-8'))
     data = response["quoteResponse"]["result"][0]
 
-    outstr = "{} ({}): {} {} || Today's change: {:.2f} ({:.2f}%)"
-    outstr = outstr.format(data['symbol'], data['longName'], data['regularMarketPrice'], data['currency'],
+    outstr = "{}{}: {} {} || Today's change: {:.2f} ({:.2f}%)"
+    longn = ' ({})'.format(data['longName']) if 'longName' in data else ''
+    outstr = outstr.format(data['symbol'], longn, data['regularMarketPrice'], data['currency'],
                            float(data['regularMarketChange']), float(data['regularMarketChangePercent']))
     
-    if data['marketState'] == "CLOSED":
+    if 'postMarketPrice' in data and (data['marketState'] == "CLOSED" or "POST" in data['marketState']):
         outstr += " || After Hours: {:.2f} - Change: {:.2f}".format(data['postMarketPrice'],
                                                                      data['postMarketChange'])
 

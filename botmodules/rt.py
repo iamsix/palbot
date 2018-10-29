@@ -14,7 +14,9 @@ def get_rt(self, e):
     movie = loadjson(flxurl)
 
     try:
-        url = self.tools['shorten_url'](movie['urls'][2]['url'])
+        for urls in movie['urls']:
+            if urls['type'] == 'rottentomatoes':
+                url = urls['url'].replace('?lsrc=mobile','')
     except:
         url = ""
 
@@ -44,5 +46,5 @@ def loadjson(url):
         response = gzip.decompress(response)
     except:
         pass
-    response = response.decode('utf-8', 'replace')
+    response = response.decode('windows-1252', 'replace')
     return json.loads(response)
