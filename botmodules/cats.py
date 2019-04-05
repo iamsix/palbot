@@ -18,6 +18,12 @@ def get_willy(self, e):
     return e
 get_willy.command = "!willy"
 
+def get_vilkata(self, e):
+    e.output = "https://i.imgur.com/P0EqJv2.png"
+    e.allowembed = True
+    return e
+get_vilkata.command = "!vilkata"
+
 
 def get_logicfiction(self, e):
     e.output = "https://cdn.discordapp.com/attachments/124572142485504002/347148872709046272/l.jpg"

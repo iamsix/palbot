@@ -36,7 +36,15 @@ def get_imdb(self, e, urlposted=False):
         except KeyError:
             pass
 
-        title = movietitle + rating + summary
+        try:
+            if isinstance(data['genre'], list):
+                genre = " - {}".format(", ".join(data['genre']))
+            else:
+                genre = " - {}".format(data['genre'])
+        except KeyError:
+            genre = ""
+
+        title = movietitle + rating + genre + summary
         if not urlposted:
             title = title + " [ %s ]" % url
 

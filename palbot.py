@@ -37,10 +37,11 @@ async def keep_running(client, token):
         try:
             await client.connect()
 
-        except (discord.HTTPException, aiohttp.ClientError,
-                discord.GatewayNotFound, discord.ConnectionClosed,
-                websockets.InvalidHandshake,
-                websockets.WebSocketProtocolError) as e:
+#        except (discord.HTTPException, aiohttp.ClientError,
+#                discord.GatewayNotFound, discord.ConnectionClosed,
+#                websockets.InvalidHandshake,
+#                websockets.WebSocketProtocolError) as e:
+        except Exception as e:
             if isinstance(e, discord.ConnectionClosed) and e.code == 4004:
                 raise # Do not reconnect on authentication failure
             logging.exception("Discord.py pls keep running")

@@ -1,5 +1,12 @@
 
 def sub_alert(self, e):
+    isadmin = False
+    for r in e.message.author.roles:
+        if r.name == "Admins":
+            isadmin = True
+    if not isadmin:
+        e.output = "nah, admins only"
+        return
     if e.input in [n.__name__ for n in self.botalerts]:
         if e.input in self.alertsubs:
             self.alertsubs[e.input].add(e.source.id)

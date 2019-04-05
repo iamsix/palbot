@@ -79,6 +79,7 @@ async def image_flip(client, reaction, user, was_removed):
     embed = discord.Embed(title="{}. {}".format(current+1, images[current]['title']))
     embed.set_image(url=images[current]['link'])
     embed.url = images[current]['image']['contextLink']
+#    print(images[current]['link'])
     await client.edit_message(rid, "", embed=embed)
 
 

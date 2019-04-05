@@ -81,14 +81,14 @@ get_wolfram.helptext = "Calculator alias for !wolfram"
 def wolfram_time(self, e):
     if e.input:
         location = user.get_location(e.input)
-        if location:
-            e.input = "current time in %s" % location
-            return get_wolfram(self, e)
     else:
         location = user.get_location(e.nick)
-        if location:
-            e.input = "current time in %s" % location
-            return get_wolfram(self, e)
+    if location:
+        e.input = "current time in %s" % location
+        e = get_wolfram(self, e)
+        e.output += "\nhttps://i.imgur.com/HHCethk.gif"
+        e.allowembed = True
+        return e
             
 wolfram_time.command = "!time"
 wolfram_time.helptext = "Usage: !time to get your local time, !time <nick> to get someone else's local time"
