@@ -201,12 +201,16 @@ WICONS = {"clear-day": "https://raw.githubusercontent.com/manifestinteractive/we
 def forecast_io(self,e, location="", pretty=False):
     apikey = self.botconfig["APIkeys"]["forecastIO_APIkey"]
     self.logger.debug("Entered Forecast.IO function. Location {} or {}".format(location, e.input))
-    if location == "":
+    if e.input == "" and user:
+        location = user.get_location_extended(self, e.nick)
+        address = location.addr
+        country = location.country
+        lat = location.lat
+        lng = location.lng
+    else:
         location = e.input
-    if location == "" and user:
-        location = user.get_location(e.nick)
-  
-    address, lat, lng, country = google_geocode(self,location)
+        address, lat, lng, country = google_geocode(self,location)
+
 
     url = "https://api.forecast.io/forecast/{}/{},{}"
     url = url.format(apikey, lat, lng)
@@ -269,8 +273,8 @@ def forecast_io(self,e, location="", pretty=False):
     except:
         outlook = "%s %s" % (results_json['hourly']['summary'], results_json['daily']['summary'])
 
-
-    if not country: #If we're in the US, use Fahrenheit, otherwise Celsius    
+    print(country)
+    if country == "0" or not country: #If we're in the US, use Fahrenheit, otherwise Celsius    
         output = "{} / {} {} / {}°F ({}°C){} / Humidity: {}% / Wind: {} {} at {} mph / Cloud Cover: {}% / High: {}°F Low: {}°F / Outlook: {}"
         e.output = output.format(address, current_summary, summary_icon, temp, temp_c,
                           feels_like, humidity,
