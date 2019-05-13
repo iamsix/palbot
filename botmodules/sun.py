@@ -47,7 +47,7 @@ def get_sun(self, e):
     sunset = sunsetobj.strftime("%H:%M")
     sunset = "{} ({} {})".format(sunset, til, ago)
 
-    out = "[ {} ] Sunrise: {} / Sunset: {} / Day Length: {}".format(location.userinputlocation, sunrise, sunset, sunlength)
+    out = "[ {} ] Sunrise: {} / Sunset: {} / Day Length: {}".format(location.addr, sunrise, sunset, sunlength)
     e.output = out
     return e
 get_sun.command = "!sun"

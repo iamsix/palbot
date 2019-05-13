@@ -273,7 +273,6 @@ def forecast_io(self,e, location="", pretty=False):
     except:
         outlook = "%s %s" % (results_json['hourly']['summary'], results_json['daily']['summary'])
 
-    print(country)
     if country == "0" or not country: #If we're in the US, use Fahrenheit, otherwise Celsius    
         output = "{} / {} {} / {}°F ({}°C){} / Humidity: {}% / Wind: {} {} at {} mph / Cloud Cover: {}% / High: {}°F Low: {}°F / Outlook: {}"
         e.output = output.format(address, current_summary, summary_icon, temp, temp_c,

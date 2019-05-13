@@ -1,96 +1,84 @@
-import datetime, urllib.request
-import xml.etree.ElementTree as ET
+import json
+import urllib.request
+import datetime
+from datetime import timedelta
+import pytz
 
-def mlb_schedule(self, e):
-    team = e.input
-    preUrl = 'http://wap.mlb.com/gdcross/components/game/mlb/year_' + datetime.date.today().strftime("%Y/month_%m/day_%d")
-    activeGameUrl = preUrl + '/linescore.xml'
-    masterScoreboardUrl = preUrl + '/master_scoreboard.xml'
-    # url = 'http://wap.mlb.com/gdcross/components/game/mlb/year_2014/month_03/day_01/master_scoreboard.xml'
-    activeGame = {}
-    games = ET.parse(urllib.request.urlopen(masterScoreboardUrl)).getroot().getchildren()
-    game_details = []
 
-    def isCareAbout(team):
-        truth = False
+ET = pytz.timezone("US/Eastern")
 
-        items = [
-            'ATL',
-            'CLE',
-            'NYY',
-            'NYM',
-            'BOS',
-            'BAL',
-            'OAK',
-            'SF',
-            'LAD'
+CARE = [
+         144, #   'ATL',
+         114, #   'CLE',
+         147, #   'NYY',
+         121, #   'NYM',
+         111, #   'BOS',
+         110, #   'BAL',
+         133, #   'OAK',
+         137, #   'SF',
+         119, #   'LAD'
         ]
 
-        if team in items:
-                truth = True
+def get_mlb_games(self, e):
+    if e.input:
+        if e.input.lower() == "tomorrow":
+            gameday = datetime.date.today() + timedelta(days=1)
+        elif e.input.lower() == "yesterday":
+            gameday = datetime.date.today() - timedelta(days=1)
+        else:
+            gameday = datetime.datetime.strptime(e.input, "%Y-%m-%d")
+    else:
+        gameday = datetime.date.today()
 
-        return truth
+    url = "https://statsapi.mlb.com/api/v1/schedule?sportId=1&hydrate=linescore,team"
+    url += "&startDate={0}&endDate={0}".format(gameday)
 
-    for game in games:
-        # get results for final game specified
-        if team and (team.lower() == game.attrib['home_name_abbrev'].lower() or team.lower() == game.attrib['away_name_abbrev'].lower()) and game[00].attrib['status'] != 'Final' and game[00].attrib['status'] != 'Game Over':
-            activeGame = ET.parse(urllib.request.urlopen(preUrl + '/gid_' + game.attrib['gameday'] + '/miniscoreboard.xml')).getroot().getchildren()
-            game_details.append('{} {} vs {} ({}-{}) {} {} | {}-{}, {} Outs P: {} AB: {} |{}Last Play: {}'.format(
-                activeGame[0].attrib['delay_reason'],
-                game.attrib['away_name_abbrev'],
-                game.attrib['home_name_abbrev'],
-                (game[1][9].attrib['away'] or 0) if game[1]._children.__len__() >= 10 else '0',
-                (game[1][9].attrib['home'] or 0)  if game[1]._children.__len__() >= 10 else '0',
-                activeGame[0].attrib['inning_state'],#game[00].attrib['ind'],
-                game[00].attrib['inning'],
-                activeGame[0].attrib['b'],
-                activeGame[0].attrib['s'],
-                activeGame[0].attrib['o'],
+    data = urllib.request.urlopen(url).read().decode()
+    data = json.loads(data)
+    data = data['dates'][0]['games']
 
-                activeGame[2][1].attrib['last'],
-                activeGame[2][0].attrib['last'],
-                (' Runners on: ' + (('First' if activeGame[2][8].attrib['id'] else '') + ('Second' if activeGame[2][9].attrib['id'] else ' ') + ('Third' if activeGame[2][10].attrib['id'] else ''))) if (('First' if activeGame[2][8].attrib['id'] else '') + ('Second' if activeGame[2][9].attrib['id'] else '') + ('Third' if activeGame[2][10].attrib['id'] else '')) else ' ',
-                activeGame[2].attrib['last_pbp']
-            ))
+    games = []
+    for game in data:
+        home = game['teams']['home']
+        away = game['teams']['away']
+        if away['team']['id'] in CARE or home['team']['id'] in CARE:
+               code = game['status']['codedGameState']
+               if code == "I": 
+               # In progress
+                   o = "{} {} - {} {} ({} {})".format(
+                           away['team']['teamName'],away['score'],
+                           home['score'],home['team']['teamName'],
+                           game['linescore']['currentInning'],
+                           game['linescore']['inningState'])
+                   games.append(o)
+               
+               elif code == "F" or code == "O":
+               #Final or Over whatever the difference is...
+                   o = "{} {} - {} {} (Final)".format(
+                           away['team']['teamName'],away['score'],
+                           home['score'],home['team']['teamName'])
+                   games.append(o)
+               elif code == "D":
+               #Delayed
+                   o = "{} @ {} (Postponed)".format(away['team']['teamName'],
+                                                    home['team']['teamName'])
+                   games.append(o)
+               elif code == "S":
+               #Scheduled
+                   starttime = datetime.datetime.strptime(game['gameDate'], "%Y-%m-%dT%H:%M:%SZ")
+                   starttime = starttime.replace(tzinfo=pytz.utc).astimezone(tz=ET)
+                   starttime = starttime.strftime('%I:%M%p').lstrip('0').replace(':00', '')
 
-        elif team.lower() and (team == game.attrib['home_name_abbrev'].lower() or team == game.attrib['away_name_abbrev'].lower()) and game[00].attrib['status'] == 'Final':
-            game_details.append('{} vs {} {}-{} {}/{} | WP: {} ({}-{}) {} ERA | LP: {} ({}-{}) {} ERA | SV: {} ({}-{}) {}'.format(
-                game.attrib['away_name_abbrev'],
-                game.attrib['home_name_abbrev'],
-                game[1][9].attrib['away'] if game[1]._children.__len__() >= 10 else '0',
-                game[1][9].attrib['home'] if game[1]._children.__len__() >= 10 else '0',
-                game[00].attrib['ind'],
-                game[00].attrib['inning'],
-                game[3].attrib['last'],
-                game[3].attrib['wins'],
-                game[3].attrib['losses'],
-                game[3].attrib['era'],
-                game[4].attrib['last'],
-                game[4].attrib['wins'],
-                game[4].attrib['losses'],
-                game[4].attrib['era'],
-                game[5].attrib['last'],
-                game[5].attrib['saves'],
-                game[5].attrib['svo'],
-                game[5].attrib['era']
-            ))
-        elif not team:
-            if game[00].attrib['status'] == 'Final' or game[00].attrib['status'] == 'In Progress'  and (isCareAbout(game.attrib['home_name_abbrev']) or isCareAbout(game.attrib['away_name_abbrev'])):
-                game_details.append('{} at {} {}-{} {}/{}'.format(
-                    game.attrib['away_name_abbrev'],
-                    game.attrib['home_name_abbrev'],
-                    game[1][9].attrib['away'] if game[1]._children.__len__() >= 10 else '0',
-                    game[1][9].attrib['home'] if game[1]._children.__len__() >= 10 else '0',
-                    game[00].attrib['ind'],
-                    game[00].attrib['inning']
-                ))
-            elif (isCareAbout(game.attrib['home_name_abbrev']) or isCareAbout(game.attrib['away_name_abbrev'])):
-                game_details.append(game.attrib['away_name_abbrev'] + ' at ' + game.attrib['home_name_abbrev'] + ' ' + game.attrib['home_time'] + ' ' + game.attrib['ampm'] + ' ' + game.attrib['home_time_zone'])
+                   o = "{} @ {} ({} ET)".format(away['team']['teamName'],
+                                             home['team']['teamName'],
+                                             starttime)
+                   games.append(o)
 
-    # print(game_details)
-    e.output = ' | '.join(game_details)
 
+    e.output = " | ".join(games)
     return e
+get_mlb_games.command = "!mlb"
 
-mlb_schedule.command = '!mlb'
-#mlb_schedule({}, {})
+
+
+#get_mlb_games({}, {})

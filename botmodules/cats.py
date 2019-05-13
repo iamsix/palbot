@@ -24,6 +24,11 @@ def get_vilkata(self, e):
     return e
 get_vilkata.command = "!vilkata"
 
+def get_bfa(self, e):
+    e.output = "https://i.imgur.com/HMxAqYu.png"
+    e.allowembed = True
+    return e
+get_bfa.command = "!bfa"
 
 def get_logicfiction(self, e):
     e.output = "https://cdn.discordapp.com/attachments/124572142485504002/347148872709046272/l.jpg"
