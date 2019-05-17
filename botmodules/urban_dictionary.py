@@ -1,53 +1,37 @@
 import urllib.parse
+import json
 import re
 
 
 def get_urbandictionary(self, e):
     searchterm = e.input
     
-    #super smrt AI code to tell if you want a different definition
-    #We only get the first 7 results.
-    number = re.search("[1-7]", searchterm[0:1])
-    if number and len(searchterm.split(" ")) > 1:
-       searchterm = searchterm[2:]
-       number = int(number.group(0)[0:1]) - 1
-    else:
-       number = 0
-
-    url = "https://www.urbandictionary.com/define.php?term=%s" % urllib.parse.quote(searchterm)
-
     if searchterm == "wotd":
         e.output = get_urbandictionary_wotd(self)
         return e
 
+    #super smrt AI code to tell if you want a different definition
+    #We only get the first 9 results.
+    number = re.search("-[1-9]", searchterm[0:2])
+    if number and len(searchterm.split(" ")) > 1:
+       searchterm = searchterm[3:]
+       number = int(number.group(0)[1:2]) - 1
+    else:
+       number = 0
+
+    url = "http://api.urbandictionary.com/v0/define?term={}".format(urllib.parse.quote(searchterm))
+
     if searchterm == "":
-        url = "http://www.urbandictionary.com/random.php"
+        url = "http://api.urbandictionary.com/v0/random"
 
-    page, url = self.tools["load_html_from_URL"](url, returnurl=True)
+    data = urllib.request.urlopen(url).read().decode()
+    data = json.loads(data)['list'][number]
+    
+    definition = data['definition'].replace('[','').replace(']','')
+    definition = definition.replace("\n",' ')
+    o = f"{data['word']}: {definition} [ {data['permalink']} ]".format()
 
-    first_definition = ""
-
-    if page.find(id='not_defined_yet') is not None:
-        return None
-
-    first_word = page.findAll('a', attrs={"class": "word"})[number].get_text()
-
-    first_word = first_word.replace("\n", "")
-
-    for content in page.findAll('div', attrs={"class": "meaning"})[number].contents:
-        if content.string is not None:
-            first_definition += content.string
-
-    #first_definition = first_definition.encode("utf-8", 'ignore')
-#    first_definition = tools.decode_htmlentities(first_definition)
-#    first_word = tools.decode_htmlentities(first_word)
-
-    first_definition = first_definition.replace("\n", " ")
-    first_definition = first_definition.replace("\r", " ")
-    first_definition = first_definition[0:392]
-
-    first_definition = ((first_word + ": " + first_definition) + " [ %s ]" % self.tools['shorten_url'](url))
-    e.output = first_definition
+    e.output = o
     return e
 
 get_urbandictionary.command = "!ud"
