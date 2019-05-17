@@ -6,63 +6,11 @@ def get_cat(self, e):
 get_cat.command = "!cats"
 
 
-def get_jeffers(self, e):
-    e.output = "http://i.imgur.com/kalVBHv.jpg"
-    e.allowembed = True
-    return e
-get_jeffers.command = "!jeffers"
-
-def get_willy(self, e):
-    e.output = "https://pbs.twimg.com/media/CXnTv9mW8AA1_2c?format=jpg"
-    e.allowembed = True
-    return e
-get_willy.command = "!willy"
-
-def get_vilkata(self, e):
-    e.output = "https://i.imgur.com/P0EqJv2.png"
-    e.allowembed = True
-    return e
-get_vilkata.command = "!vilkata"
-
-def get_bfa(self, e):
-    e.output = "https://i.imgur.com/HMxAqYu.png"
-    e.allowembed = True
-    return e
-get_bfa.command = "!bfa"
-
-def get_logicfiction(self, e):
-    e.output = "https://cdn.discordapp.com/attachments/124572142485504002/347148872709046272/l.jpg"
-    e.allowembed = True
-    return e
-get_logicfiction.command = "!logicfiction"
-
-def get_noplsca(self, e):
-    e.output = "https://cdn.discordapp.com/attachments/124572142485504002/476208864988233738/image.jpg"
-    e.allowembed = True
-    return e
-get_noplsca.command = "!nopls.ca"
-
-def get_nopls(self, e):
-    e.output = "https://cdn.discordapp.com/attachments/124572142485504002/434009857524367400/15243997.jpg"
-    e.allowembed = True
-    return e
-get_nopls.command = "!nopls"
-
-def get_mixomatosys(self, e):
-    e.output ="i'm not sure hwat you're point is"
-    return e
-get_mixomatosys.command = "!mixy"
-
 def get_source(self, e):
     e.output ="https://github.com/iamsix/palbot/"
     return e
 get_source.command = "!source"
 
-
-def get_dvq(self, e):
-    e.output = "http://i.imgur.com/1lq54.jpg"
-    return e
-get_dvq.command = "!dvq"
 
 def get_rat(self, e):
     url = "http://www.reddit.com/r/rats/.json"
