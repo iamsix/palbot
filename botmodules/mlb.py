@@ -48,8 +48,8 @@ def get_mlb_games(self, e):
                    o = "{} {} - {} {} ({} {})".format(
                            away['team']['teamName'],away['score'],
                            home['score'],home['team']['teamName'],
-                           game['linescore']['currentInning'],
-                           game['linescore']['inningState'])
+                           game['linescore']['inningState'],
+                           game['linescore']['currentInning'])
                    games.append(o)
                
                elif code == "F" or code == "O":

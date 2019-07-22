@@ -103,6 +103,11 @@ async def on_reaction_add(reaction, user):
 async def on_reaction_remove(reaction,user):
     for fn in client.reaction_listeners:
         await fn(client, reaction, user, True)
+
+@client.event
+async def on_member_update(before, after):
+    for l in client.user_listeners:
+        l(before, after)
             
 async def process_message(message):
     command = message.content.split(" ")[0].lower()
@@ -163,6 +168,7 @@ def loadmodules():
     client.lineparsers = []
     client.botalerts = []
     client.reaction_listeners = []
+    client.user_listeners = []
 
     filenames = []
     for fn in os.listdir('./botmodules'):
@@ -193,6 +199,8 @@ def loadmodules():
                     client.botalerts.append(func)
                 elif hasattr(func, 'reaction_listener'):
                     client.reaction_listeners.append(func)
+                elif hasattr(func, 'user_listener'):
+                    client.user_listeners.append(func)
                 elif hasattr(func, 'lineparser'):
                     if func.lineparser:
                         client.lineparsers.append(func)

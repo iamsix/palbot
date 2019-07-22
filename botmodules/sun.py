@@ -10,11 +10,16 @@ except ImportError:
 
 
 def get_sun(self, e):
+    url = "https://api.forecast.io/forecast/{}/{},{}"
+    apikey = self.botconfig["APIkeys"]["forecastIO_APIkey"]
+
     location = e.input
     if location == "" and user:
         location = user.get_location_extended(self, e.nick)
-    apikey = self.botconfig["APIkeys"]["forecastIO_APIkey"]
-    url = "https://api.forecast.io/forecast/{}/{},{}"
+    else:
+        addr, lat, lng, ctr = user.google_geocode(self, location)
+        location = user.location(lat, lng, addr, ctr, e.input)
+
     url = url.format(apikey, location.lat, location.lng)
 
     response = urllib.request.urlopen(url).read().decode("utf-8", "replace")

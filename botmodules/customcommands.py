@@ -48,8 +48,8 @@ def add_command(self, e):
 add_command.command = "!addcmd"
 
 async def custom_command(self, e):
-    c = custom_command.cursor
-    if e.input[0] == CMDSTART:
+    if e.input and e.input[0] == CMDSTART:
+        c = custom_command.cursor
         result = c.execute("SELECT output FROM commands WHERE cmd = (?)", [e.input[1:]]).fetchone()
         if not result:
             return

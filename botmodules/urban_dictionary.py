@@ -28,7 +28,7 @@ def get_urbandictionary(self, e):
     data = json.loads(data)['list'][number]
     
     definition = data['definition'].replace('[','').replace(']','')
-    definition = definition.replace("\n",' ')
+    definition = definition.replace("\n",' ').replace('\r', '')
     o = f"{data['word']}: {definition} [ {data['permalink']} ]".format()
 
     e.output = o

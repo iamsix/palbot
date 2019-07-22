@@ -246,7 +246,7 @@ def forecast_io(self,e, location="", pretty=False):
     cloud_cover = int(100*current_conditions['cloudCover'])
     
     feels_like = current_conditions['apparentTemperature']
-
+#    print(feels_like)
     min_temp = int(round(results_json['daily']['data'][0]['temperatureMin'],0))
     #min_temp_time = time.strftime("%I%p",time.gmtime(results_json['daily']['data'][0]['temperatureMinTime'] + (timezone_offset * 3600))).lstrip("0")
     min_temp_c = int(round((min_temp - 32)*5/9,0)) 
@@ -256,10 +256,10 @@ def forecast_io(self,e, location="", pretty=False):
     max_temp_c = int(round((max_temp - 32)*5/9,0))
         
     if feels_like != temp:
-        if country:
-            feels_like = " / Feels like: %s°C" % (int(round((feels_like- 32)*5/9,0)))
-        else:
+        if country == "0" or not country:
             feels_like = " / Feels like: %s°F" % (int(round(feels_like,0)))
+        else:
+            feels_like = " / Feels like: %s°C" % (int(round((feels_like- 32)*5/9,0)))
     
     else:
         feels_like = ""
@@ -405,24 +405,32 @@ def get_weather2(self, e):
     #wunderground weather of place specified in 'zipcode'
     zipcode = e.input
     if zipcode == "" and user:
-        zipcode = user.get_location(e.nick)
+        location = user.get_location_extended(self, e.nick)
+        zipcode = location.userinputlocation
 
-    url = "http://api.wunderground.com/auto/wui/geo/WXCurrentObXML/index.xml?query=" + urllib.parse.quote(zipcode)
-    dom = xml.dom.minidom.parse(urllib.request.urlopen(url))
-    city = dom.getElementsByTagName('display_location')[0].getElementsByTagName('full')[0].childNodes[0].data
+    apikey = self.botconfig["APIkeys"]["wunderapikey"]
+    url = "http://api.wunderground.com/api/{}/conditions/q/{}.json"
+    url = url.format(apikey, urllib.parse.quote(zipcode))
+    print(url)
+    data = urllib.request.urlopen(url).read().decode()
+    data = json.loads(data)
+    print(data)
+    data = data['current_observation']
+
+    city = data['display_location']['full']
     if city != ", ":
-        temp_f = dom.getElementsByTagName('temp_f')[0].childNodes[0].data
-        temp_c = dom.getElementsByTagName('temp_c')[0].childNodes[0].data
+        temp_f = data['temp_f']
+        temp_c = data['temp_c']
         try:
-            condition = dom.getElementsByTagName('weather')[0].childNodes[0].data
+            condition = data['weather']
         except:
             condition = ""
         try:
-            humidity = "Humidity: " + str(dom.getElementsByTagName('relative_humidity')[0].childNodes[0].data)
+            humidity = "Humidity: {}".format(data['relative_humidity'])
         except:
             humidity = ""
         try:
-            wind = "Wind: " + str(dom.getElementsByTagName('wind_string')[0].childNodes[0].data)
+            wind = "Wind: {}".format(data['wind_string'])
         except:
             wind = ""
 
@@ -437,15 +445,6 @@ def get_weather2(self, e):
                                                        wind)
         e.output = chanmsg
         return e
-    else:
-        if user:
-            ziptry = user.get_location(e.input)
-            if ziptry:
-                e.nick = e.input
-                e.input = ""
-                return get_weather(self, e)
-            else:
-                return None
 
 get_weather2.command = "!wu"
 get_weather2.helptext = """Usage: \002!wu <location>\002

@@ -22,15 +22,27 @@ def __init__(self):
   except Exception as inst:
      self.logger.debug(inst)
 
-def read_timeline (user):
-    url = "https://api.twitter.com/1.1/statuses/user_timeline.json?screen_name=%s&count=1&tweet_mode=extended" % user
+
+# Terrible and hacky count/since to account for multiple tweets since last check
+def read_timeline (user, count=1, since=None):
+    url = "https://api.twitter.com/1.1/statuses/user_timeline.json?screen_name={}&count={}&tweet_mode=extended"
+    url = url.format(user, count)
     opener = urllib.request.build_opener()
     opener.addheaders = [('Authorization', 'Bearer ' + read_timeline.holyshitbearstoken)]
     response = opener.open(url).read().decode('utf-8')
     tweet = json.loads(response)
+
+
     updated = datetime.datetime.strptime(tweet[0]['created_at'], "%a %b %d %H:%M:%S +0000 %Y")
     ago = round((datetime.datetime.utcnow() - updated).seconds/60)
-    text = tweet[0]['user']['screen_name'] + ": " + tweet[0]['full_text']
+    text = ""
+    if since:
+        for twt in tweet:
+            if datetime.datetime.strptime(twt['created_at'], "%a %b %d %H:%M:%S +0000 %Y") > since:
+                text += twt['full_text'] + "\n"
+        text = tweet[0]['user']['screen_name'] + ": " + text.strip()
+    else:
+        text = tweet[0]['user']['screen_name'] + ": " + tweet[0]['full_text']
     try:
       text = read_timeline.self.tools['decode_htmlentities'](text)
     except:
@@ -53,7 +65,7 @@ latest_tweet.command = "!lasttweet"
 def trump_alert(self):
     #returns a new breaking news only if it hasn't returned it before
       try:
-        description, updated, ago = read_timeline('realdonaldtrump')
+        description, updated, ago = read_timeline('realdonaldtrump', 2, trump_alert.lastcheck)
 
         if not trump_alert.lastcheck:
             self.logger.debug("First run empty, setting lastcheck to {}".format(updated))

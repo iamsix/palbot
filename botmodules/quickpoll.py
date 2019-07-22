@@ -7,7 +7,7 @@ quickpoll.command = "!qp"
 
 #async def canada(self, e):
 #     if "canada" in e.input.lower():
-#        e.reaction = ["🇨🇦", "🇦"]
+#        e.reaction = ["🇨🇦", "🇪","🇭"]
 
 #canada.lineparser = True
 
