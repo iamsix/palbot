@@ -22,10 +22,11 @@ class Paginator:
     async def previous_page(self):
         await self.load_page(self.current_page - 1)
 
-    async def load_page(self, page_number):
+    async def load_page(self, page_number, post=False):
+        page_number = max(0, min(len(self.data) - 1, page_number))
         self.current_page = page_number
-        content, embed = await self.callback(self.data[page_number])
-        if page_number > 0:
+        content, embed = await self.callback(self.data, page_number)
+        if not post:
             await self.message.edit(content=content, embed=embed)
             return
         else:
@@ -48,7 +49,7 @@ class Paginator:
 
 
     async def paginate(self):
-        self.bot.loop.create_task(self.load_page(0))
+        self.bot.loop.create_task(self.load_page(0, True))
         while self.paginating:
             try:
                 reaction, user = await self.bot.wait_for('reaction',

@@ -6,7 +6,6 @@ from discord.ext import commands
 import config
 
 from pathlib import Path
-import utils
 # instead of a userlocation see about subclassing my own discord user class
 
 import datetime
@@ -28,7 +27,6 @@ class PalBot(commands.Bot):
                 pm_help=None, help_attrs=dict(hidden=True), 
                 fetch_offline_members=False)
         self.loop = asyncio.get_event_loop()
-        self.utils = utils
         self.session = aiohttp.ClientSession(loop=self.loop)
         self.logger = logging.getLogger("palbot")
         self.moddir = "modules"
@@ -57,6 +55,10 @@ class PalBot(commands.Bot):
 
     def run(self):
         super().run(config.token, reconnect=True)
+
+    @property
+    def utils(self):
+        return __import__('utils')
 
     @property
     def config(self):
