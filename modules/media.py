@@ -29,7 +29,6 @@ class Media(commands.Cog):
         pages = Paginator(ctx, movielist, self.rt_output_callback)
         await pages.paginate()
         #await ctx.send(await self.parse_rt(movie))
-        # Paginate here.
 
 
     async def rt_output_callback(self, data, pg_number):
@@ -152,6 +151,47 @@ class Media(commands.Cog):
             pass
 
         await ctx.send(embed=e)
+
+    @commands.command(name='mc')
+    async def metacritic(self, ctx, *, title: str):
+        """Search for a metacrtic entry to get its MC rating and info"""
+        urls = await self.bot.utils.google_for_urls(self.bot, 
+                "site:metacritic.com " + title,
+                url_regex="www.metacritic.com/")
+
+        page = await self.bot.utils.bs_from_url(self.bot, urls[0])
+
+        data = json.loads(page.find('script', 
+            type='application/ld+json').text)
+
+        title = data['name']
+        category = ""
+        if data['@type'] == "VideoGame":
+            category = data['gamePlatform']
+        elif data['@type'] == "Movie":
+            category = "Film"
+            title += " ({})".format(data['datePublished'][-4:])
+
+        e = discord.Embed(title=f"{title} ({category})", url=urls[0])
+        e.description = data['description']
+        try:
+            rating = "Score: {} ({} reviews)".format(
+                    data['aggregateRating']['ratingValue'],
+                    data['aggregateRating']['ratingCount'])
+            e.add_field(name="MC rating", value=rating)
+        except:
+            pass
+        try:
+            e.add_field(name="Genres", value=", ".join(data['genre']))
+        except:
+            pass
+        try:
+            e.set_thumbnail(url=data['image'])
+        except:
+            pass
+
+        await ctx.send(embed=e)
+
 
 def setup(bot):
     bot.add_cog(Media(bot))

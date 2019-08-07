@@ -22,7 +22,9 @@ async def google_for_urls(bot, search_term, *, url_regex=None):
 
     async with bot.session.get(url) as resp:
         json = await resp.json()
-
+        if resp.status != 200:
+            print(resp, json)
+            return
         results = []
         for result in json['items']:
             if url_regex:
@@ -40,7 +42,7 @@ async def bs_from_url(bot, url, return_url=False):
         data = await resp.read()
         page = BeautifulSoup(data, 'lxml')
         if return_url:
-            return page, resp.url
+            return page, str(resp.url)
         else:
             return page
 

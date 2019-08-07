@@ -9,7 +9,7 @@ class Paginator:
         self.message = ctx.message
         self.author = ctx.author
         self.data = data
-        self.paginating = True
+        self.paginating = len(data) > 1
         self.current_page = 0
         self.interface = {
                 '\N{BLACK LEFT-POINTING TRIANGLE}': self.previous_page,
@@ -31,6 +31,8 @@ class Paginator:
             return
         else:
             self.message = await self.channel.send(content=content, embed=embed)
+            if not self.paginating:
+                return
             for emoji in self.interface.keys():
                 await self.message.add_reaction(emoji)
 
