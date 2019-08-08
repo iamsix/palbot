@@ -43,44 +43,52 @@ class Media(commands.Cog):
         async with self.bot.session.get(url) as resp:
             data = await resp.read()
             return json.loads(data.decode('windows-1252', 'replace'))
-
-    async def parse_rt_embed(self, movie):
+          
+    async def parse_rt_embed(movie):
         title = f"{movie['title']} ({movie['theaterReleaseDate']['year']})"
         e = discord.Embed(title=title)
-        try:
-            for urls in movie['urls']:
-                if urls['type'] == 'rottentomatoes':
-                    e.url = urls['url'].replace('?lsrc=mobile','')
-        except:
-            pass
-        
-        try:
-            concensus = movie['reviews']['rottenTomatoes']['consensus']
-            e.description = self.bot.utils.remove_html_tags(concensus)
-        except:
-            pass
 
-        try:
-            tomato = (f"{movie['reviews']['rottenTomatoes']['rating']}%"
-                    f" ({movie['reviews']['criticsNumReviews']} reviews)")
-            e.add_field(name="Tomatometer", value=tomato)
-        except:
-            pass
+        movie_model = {
+            'urls': [],
+            'reviews': {
+                'rottenTomatoes': {
+                    'rating': '',
+                    'consensus': ''
+                },
+                'criticsNumReviews': '',
+                'flixster': {
+                    'popcornScore': ''
+                }
+            },
+            'poster': {
+                'thumbnail': ''
+            }
+        }
 
-        try:
-            e.add_field(name="User Score",
-                    value=movie['reviews']['flixster']['popcornScore'])
-        except:
-            pass
+        movie_model.update(movie)
 
-        try:
-            e.set_thumbnail(url=movie['poster']['thumbnail'])
-        except:
-            pass
+        for urls in movie_model['urls']:
+            if urls.get('type', '') == 'rottentomatoes':
+                e.url = urls['url'].replace('?lsrc=mobile','')
 
-        return e
-   
+        e.description = self.bot.utils.remove_html_tags(movie_model['reviews']['rottenTomatoes']['consensus'])
+        e.set_thumbnail(url=movie_model['poster']['thumbnail'])
 
+        tomato_rating = movie_model['reviews']['rottenTomatoes']['rating']
+        num_reviews = movie_model['reviews']['criticsNumReviews']
+
+        tomato = "{rating} {reviews}".format(
+            rating = f"{tomato_rating}%" if tomato_rating else '', 
+            reviews = f"({num_reviews})"if num_reviews else '')
+
+        embed_fields = {"Tomatometer": tomato, 
+                        "User Score": movie_model['reviews']['flixster']['popcornScore']}
+
+        for k,v in embed_fields.items():
+            if v:
+                e.add_field(k, v)
+        return e 
+                        
     async def parse_rt(self, movie):
         try:
             for urls in movie['urls']:
