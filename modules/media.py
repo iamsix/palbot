@@ -4,7 +4,15 @@ from urllib.parse import quote as uriquote
 from utils.paginator import Paginator
 import json
 import asyncio
-                
+import collections
+
+def dict_merge(dct, merge_dct):
+    for k, v in merge_dct.items():
+        if (k in dct and isinstance(dct[k], dict)
+                and isinstance(merge_dct[k], collections.Mapping)):
+            dict_merge(dct[k], merge_dct[k])
+        else:
+            dct[k] = merge_dct[k]                
 
 class Media(commands.Cog):
     """Contains movie related internets things"""
@@ -65,7 +73,7 @@ class Media(commands.Cog):
             }
         }
 
-        movie_model.update(movie)
+        dict_merge(movie_model, movie)
 
         for urls in movie_model['urls']:
             if urls.get('type', '') == 'rottentomatoes':
@@ -79,7 +87,7 @@ class Media(commands.Cog):
 
         tomato = "{rating} {reviews}".format(
             rating = f"{tomato_rating}%" if tomato_rating else '', 
-            reviews = f"({num_reviews})"if num_reviews else '')
+            reviews = f"({num_reviews} reviews)"if num_reviews else '')
 
         embed_fields = {"Tomatometer": tomato, 
                         "User Score": movie_model['reviews']['flixster']['popcornScore']}
