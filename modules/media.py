@@ -44,7 +44,7 @@ class Media(commands.Cog):
             data = await resp.read()
             return json.loads(data.decode('windows-1252', 'replace'))
           
-    async def parse_rt_embed(movie):
+    async def parse_rt_embed(self, movie):
         title = f"{movie['title']} ({movie['theaterReleaseDate']['year']})"
         e = discord.Embed(title=title)
 
