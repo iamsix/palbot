@@ -67,7 +67,8 @@ class Internets(commands.Cog):
         
         page, url = await self.bot.utils.bs_from_url(self.bot,
                 url[0], return_url=True)
-        await self.parse_wiki_page(page, url)
+        e = await self.parse_wiki_page(page, url)
+        await ctx.send(embed=e)
 
     async def parse_wiki_page(self, page, url):
         """Parse a beautifulsoup object and URL object in to an embed"""
@@ -76,7 +77,7 @@ class Internets(commands.Cog):
             table.extract()
         if url.find('#') != -1:
             anchor = url.split('#')[1]
-            page = str(page.find(id=anchor).findNext('p'))
+            page = page.find(id=anchor).findNext('p')
         else:
             page = page.findAll('p')
             for pg in page:
@@ -102,8 +103,8 @@ class Internets(commands.Cog):
             pass
         text = re.sub(r'\[\d*?\]', '', text)
         
-        e = discord.Embed(description=text)
-        await ctx.send(embed=e)
+        return discord.Embed(description=text)
+        
 
 
 
