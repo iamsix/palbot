@@ -16,7 +16,7 @@ class Media(commands.Cog):
     rt_search_url = ("http://api.flixster.com/android/api/v14/movies.json"
                      "?cbr=1&filter={}")
     rt_movie_url = "http://api.flixster.com/android/api/v1/movies/{}.json"
-   
+
 
     @commands.command(name='rt')
     async def rt(self, ctx, *, movie_name: str):
@@ -43,13 +43,15 @@ class Media(commands.Cog):
         async with self.bot.session.get(url) as resp:
             data = await resp.read()
             return json.loads(data.decode('windows-1252', 'replace'))
-          
+
     async def parse_rt_embed(self, movie):
-        title = f"{movie['title']} ({movie['theaterReleaseDate']['year']})"
-        e = discord.Embed(title=title)
 
         movie_model = {
+            'title': '',
             'urls': [],
+            'theaterReleaseDate':{
+                'year': ''
+                },
             'reviews': {
                 'rottenTomatoes': {
                     'rating': '',
@@ -67,137 +69,128 @@ class Media(commands.Cog):
 
         self.bot.utils.dict_merge(movie_model, movie)
 
+        title = f"{movie_model['title']} ({movie_model['theaterReleaseDate']['year']})"
+        description = self.bot.utils.remove_html_tags(movie_model['reviews']['rottenTomatoes']['consensus'])
+
+        e = discord.Embed(title=title, description=description)
+
         for urls in movie_model['urls']:
             if urls.get('type', '') == 'rottentomatoes':
                 e.url = urls['url'].replace('?lsrc=mobile','')
-
-        e.description = self.bot.utils.remove_html_tags(movie_model['reviews']['rottenTomatoes']['consensus'])
         e.set_thumbnail(url=movie_model['poster']['thumbnail'])
 
         tomato_rating = movie_model['reviews']['rottenTomatoes']['rating']
         num_reviews = movie_model['reviews']['criticsNumReviews']
 
         tomato = "{rating}{reviews}".format(
-            rating = f"{tomato_rating}%" if tomato_rating else '', 
-            reviews = f" ({num_reviews} reviews)" if num_reviews else '').strip()
+            rating = f"{tomato_rating}%" if tomato_rating else '',
+            reviews = f" ({num_reviews} reviews)" if num_reviews else '')
 
-        embed_fields = {"Tomatometer": tomato, 
+        embed_fields = {"Tomatometer": tomato,
                         "User Score": movie_model['reviews']['flixster']['popcornScore']}
 
         for k,v in embed_fields.items():
             if str(v).strip():
                 e.add_field(name=k, value=str(v))
-        return e 
-                        
-
-    async def parse_rt(self, movie):
-        try:
-            for urls in movie['urls']:
-                if urls['type'] == 'rottentomatoes':
-                    url = urls['url'].replace('?lsrc=mobile','')
-        except:
-            url = ""
-
-        try:
-            concensus = movie['reviews']['rottenTomatoes']['consensus']
-            concensus = " - " + self.bot.utils.remove_html_tags(concensus)
-        except:
-            concensus = ""
-
-        try:
-            rt_rating = movie['reviews']['rottenTomatoes']['rating']
-        except:
-            rt_rating = "N/A"
-
-        fmt = (f"{movie['title']} ({movie['theaterReleaseDate']['year']})"
-               f" - Critics: {rt_rating}"
-               f" - Users: {movie['reviews']['flixster']['popcornScore']}"
-               f"{concensus} [ <{url}> ]")
-
-        return fmt.format()
+        return e
 
 
 
     @commands.command(name='imdb')
     async def imdb(self, ctx, *, movie_name: str):
         """Search for a movie or TV show on IMDB to return some info"""
-        urls = await self.bot.utils.google_for_urls(self.bot, 
+
+        imdb_m = {'name': '',
+                  'datePublished': '',
+                  'description': '',
+                  'aggregateRating': {
+                      'ratingValue': ''
+                      },
+                  'genre': '',
+                  'image': ''
+        }
+
+
+        urls = await self.bot.utils.google_for_urls(self.bot,
                 "site:imdb.com inurl:com/title " + movie_name,
                 url_regex="imdb.com/title/tt\\d{7}/")
 
         page = await self.bot.utils.bs_from_url(self.bot, urls[0])
 
-        data = json.loads(page.find('script', 
-            type='application/ld+json').text)
+        data = json.loads(page.find('script', type='application/ld+json').text)
 
-        movietitle = f"{data['name']} ({data['datePublished'][:4]})"
-        
-        e = discord.Embed(title=movietitle, url=urls[0])
-        
-        try:
-            e.description = data['description']
-        except KeyError:
-            pass
+        self.bot.utils.dict_merge(imdb_m, data)
 
-        try:
-            e.add_field(name="Rating", 
-                    value=f"{data['aggregateRating']['ratingValue']}")
-        except KeyError:
-            pass
+        movie_title = f"{imdb_m['name']} ({imdb_m['datePublished'][:4]})"
+        desc = imdb_m['description']
 
-        try:
-            if isinstance(data['genre'], list):
-                e.add_field(name="Genres", value=", ".join(data['genre']))
-            else:
-                e.add_field(name="Genre", value=data['genre'])
-        except KeyError:
-            pass
+        e = discord.Embed(title=movie_title, description=desc, url=urls[0])
 
-        try:
-            thumb = data['image'].replace(".jpg", "_UX128_.jpg")
-            e.set_thumbnail(url=thumb)
-        except KeyError:
-            pass
+        rating = imdb_m['aggregateRating']['ratingValue']
+        if isinstance(imdb_m['genre'], list):
+            genre = ", ".join(imdb_m['genre'])
+        else:
+            genre = imdb_m['genre']
+
+        thumb = imdb_m['image'].replace(".jpg", "_UX128_.jpg")
+        e.set_thumbnail(url=thumb)
+
+        embed_fields = {"Rating": rating, "Genre": genre}
+        for k,v in embed_fields.items():
+            if str(v).strip():
+                e.add_field(name=k, value=str(v))
 
         await ctx.send(embed=e)
 
     @commands.command(name='mc')
     async def metacritic(self, ctx, *, title: str):
         """Search for a metacrtic entry to get its MC rating and info"""
-        urls = await self.bot.utils.google_for_urls(self.bot, 
+
+        mc_model = {'name': '',
+                    '@type': '',
+                    'gamePlatform': '',
+                    'datePublished': '',
+                    'description': '',
+                    'aggregateRating': {
+                        'ratingValue': '',
+                        'ratingCount': '',
+                    },
+                    'genre': [],
+                    'image': ''
+        }
+
+        urls = await self.bot.utils.google_for_urls(self.bot,
                 "site:metacritic.com " + title,
                 url_regex="www.metacritic.com/")
 
         page = await self.bot.utils.bs_from_url(self.bot, urls[0])
 
-        data = json.loads(page.find('script', 
+        data = json.loads(page.find('script',
             type='application/ld+json').text)
 
-        title = data['name']
-        category = ""
-        if data['@type'] == "VideoGame":
-            category = data['gamePlatform']
-        elif data['@type'] == "Movie":
+        self.bot.utils.dict_merge(mc_model, data)
+
+        title = mc_model['name']
+        category = mc_model['@type']
+        if mc_model['@type'] == "VideoGame":
+            category = mc_model['gamePlatform']
+        elif mc_model['@type'] == "Movie":
             category = "Film"
-            title += " ({})".format(data['datePublished'][-4:])
+            title += " ({})".format(mc_model['datePublished'][-4:])
 
         e = discord.Embed(title=f"{title} ({category})", url=urls[0])
-        e.description = data['description']
-        try:
-            rating = "Score: {} ({} reviews)".format(
-                    data['aggregateRating']['ratingValue'],
-                    data['aggregateRating']['ratingCount'])
-            e.add_field(name="MC rating", value=rating)
-        except:
-            pass
-        try:
-            e.add_field(name="Genres", value=", ".join(data['genre']))
-        except:
-            pass
-        try:
-            e.set_thumbnail(url=data['image'])
-        except:
-            pass
+        e.description = mc_model['description']
+        e.set_thumbnail(url=mc_model['image'])
+
+        mc_rating = mc_model['aggregateRating']['ratingValue']
+        mc_rating_count = mc_model['aggregateRating']['ratingCount']
+        rating = "{}{}".format(mc_rating, f' ({mc_rating_count} reviews)' if mc_rating_count else '')
+
+        embed_fields = {"MC Rating": rating, "Genres": ", ".join(mc_model['genre'])}
+
+        for k,v in embed_fields.items():
+            if str(v).strip():
+                e.add_field(name=k, value=str(v))
 
         await ctx.send(embed=e)
 

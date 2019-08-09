@@ -12,7 +12,7 @@ import datetime
 import sys, traceback
 import logging
 from collections import deque
-
+import imp
 
 
 FORMAT = "[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s"
@@ -58,7 +58,9 @@ class PalBot(commands.Bot):
 
     @property
     def utils(self):
-        return __import__('utils')
+        utils = __import__('utils')
+        imp.reload(utils)
+        return utils
 
     @property
     def config(self):
