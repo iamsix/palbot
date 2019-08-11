@@ -46,6 +46,9 @@ Network Trash Folder
 Temporary Items
 .apdisk
 
+# IDE junk
+*.swp
+
 # bot stuff
 *.sqlite
 *.sqlite3
@@ -54,5 +57,3 @@ palbot.cfg
 config.py
 debug.log
 __pycache__
-# although GPU theres really no reason to distribute it here https://github.com/thomasahle/sunfish
-botmodules/sunfish.py

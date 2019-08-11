@@ -16,7 +16,22 @@ class OwnerCog(commands.Cog, name="Owner Commands"):
 
     def __init__(self, bot):
         self.bot = bot
-    
+
+
+
+    @commands.command(name='infotest', hidden=True)
+    async def infotest(self, ctx):
+        loc = ctx.author_info.location.__dict__
+        strava = ctx.author_info.strava
+        out = f"""location: {ctx.author_info.location.__dict__}
+        timezone: {ctx.author_info.timezone}
+        strava: {ctx.author_info.strava}
+        lastfm: {ctx.author_info.lastfm}
+        birthday: {ctx.author_info.birthday}"""
+
+        await ctx.send(out)
+
+
     # Hidden means it won't show up on the default help.
     @commands.command(name='load', hidden=True)
     @commands.is_owner()

@@ -10,7 +10,6 @@ class Media(commands.Cog):
     """Contains movie related internets things"""
     def __init__(self, bot):
         self.bot = bot
-        self.lastresult = None
 
 
     rt_search_url = ("http://api.flixster.com/android/api/v14/movies.json"
