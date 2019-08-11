@@ -20,6 +20,15 @@ class Location:
         self.country = country
         self.user_input_location = user_input_location
         # convenience method for formatted "Ciy, ST" or "City, Country"
+    @property
+    def formatted_address(self):
+        if self.country == "United States":
+            return f"{self.city}, {self.local_area}"
+        elif self.country == "Canada":
+            return f"{self.city}, {self.local_area}, {self.country}"
+        else:
+            return f"{self.city}, {self.country}"
+
 
 class AuthorInfo:
     def __init__(self, user_id):

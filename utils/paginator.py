@@ -23,7 +23,7 @@ class Paginator:
         await self.load_page(self.current_page - 1)
 
     async def load_page(self, page_number, post=False):
-        page_number = page_number % (len(self.data) - 1)
+        page_number = page_number % (len(self.data))
         self.current_page = page_number
         content, embed = await self.callback(self.data, page_number)
         if not post:
