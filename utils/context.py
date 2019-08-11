@@ -1,6 +1,7 @@
 import sqlite3
 from discord.ext import commands
-
+import asyncio
+from urllib.parse import quote as uriquote
 
 class MoreContext(commands.Context):
     def __init__(self, **kwargs):
@@ -28,6 +29,40 @@ class Location:
             return f"{self.city}, {self.local_area}, {self.country}"
         else:
             return f"{self.city}, {self.country}"
+
+
+    async def from_google_geocode(bot, address):
+        url = "https://maps.googleapis.com/maps/api/geocode/json?address={}&key={}"
+        url = url.format(uriquote(address), bot.config.gsearch2)
+
+        async with bot.session.get(url) as resp:
+            results_json = await resp.json()
+            status = results_json['status']
+
+            if status != "OK":
+                raise
+
+            city, state, country, poi = "","","", ""
+
+            for component in results_json['results'][0]['address_components']:
+                if 'locality' in component['types']:
+                    city = component['long_name']
+                elif 'point_of_interest' in component['types'] or 'natural_feature' in component['types']:
+                    poi = component['long_name']
+                elif 'administrative_area_level_1' in component['types']:
+                    state = component['short_name']
+                elif 'country' in component['types']:
+                    country = component['long_name']
+
+            if not city:
+                city = poi #if we didn't find a city, maybe there was a POI or natural feature entry, so use that instead
+
+            lng = results_json['results'][0]['geometry']['location']['lng']
+            lat = results_json['results'][0]['geometry']['location']['lat']
+
+            loc = Location(lat, lng, city, state, country, address)
+
+            return loc
 
 
 class AuthorInfo:
@@ -87,6 +122,4 @@ class AuthorInfo:
         lastfm = self.c.execute(q, (self.user_id,)).fetchone()
         if lastfm:
             return lastfm[0]
-
-
 

@@ -2,17 +2,26 @@ import re
 
 class units:
     f_to_c = lambda n: int(round((n - 32)*5/9,0))
-#    F_C_REGEX = re.compile("(-?\d+)°F", f"{f_to_c(\g<1>)}°C")
-
     mi_to_km = lambda n: int(round(n * 1.609, 0))
     
-    def f_c(m):
-        c = bot.utils.units.f_to_c(m.group(1))
-        return f"{c}°C"
+    def imperial_string_to_metric(line, *, both=False):
+        f_to_c = lambda n: int(round((n - 32)*5/9,0))
+        mi_to_km = lambda n: int(round(n * 1.609, 0))
+        F_C = re.compile("(-?\d+)°F")
+        MI_KM = re.compile("(\d+) mph")
+        def f_c(m):
+            c = f_to_c(int(m.group(1)))
+            return f"{c}°C" if not both else f"{c}°C / {m.group(0)}"
 
-    def mi_km(m):
-        km = bot.utils.units.mi_to_km(m.group(1))
-        return f"{km}km/h"
+        def mi_km(m):
+            km = mi_to_km(int(m.group(1)))
+            return f"{km} km/h" if not both else f"{km} km/h / {m.group(0)}"
+
+        line = F_C.sub(f_c, line)
+        line = MI_KM.sub(mi_km, line)
+
+        return line
+
 
     def bearing_to_compass(bearing):
         dirs = {}        
