@@ -25,6 +25,7 @@ class Weather(commands.Cog):
     
     @commands.command(name='w', aliases=['pw'])
     async def forecast_io(self, ctx, *, location:str = ""):
+        """Show a weather report for your set location or optionally input a <location>"""
         key = self.bot.config.forecast_io_key
         if not location:
             loc = ctx.author_info.location

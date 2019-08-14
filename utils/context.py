@@ -20,10 +20,11 @@ class Location:
         self.local_area = local_area
         self.country = country
         self.user_input_location = user_input_location
-        # convenience method for formatted "Ciy, ST" or "City, Country"
+        #
 
     @property
     def formatted_address(self):
+        '''convenience method for formatted "Ciy, ST" or "City, Country"'''
         if self.country == "United States":
             return f"{self.city}, {self.local_area}"
         elif self.country == "Canada":
@@ -37,8 +38,8 @@ class Location:
                f"&format=json&by=position&lat={self.latitude}&lng={self.longitude}")
         async with bot.session.get(url) as resp:
             results = await resp.json()
-            zone = results['zoneName'].replace('\\', '')
             #not sure why they \escape a '/' char... pytz doesnt like it..
+            zone = results['zoneName'].replace('\\', '')
             return zone
 
 
@@ -86,7 +87,7 @@ class AuthorInfo:
         self.c = self.conn.cursor()
         result = self.c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='userinfo';").fetchone()
         if not result:
-            # add a username field just for convenience? don't actually query it
+            # username field is never queried, just exists for convenient lookup when manually checking db entries
             c.execute('''CREATE TABLE userinfo (user integer, username text, field text, data text);''')
             self.conn.commit()
 
@@ -113,7 +114,6 @@ class AuthorInfo:
 
     @property
     def location(self):
-        # consider json with a single location field?
         q = '''SELECT field, data FROM userinfo WHERE user = (?) AND
                (field = 'latitude' OR field = 'longitude' OR field = 'city'
                OR field = 'local_area' OR field = 'country'
