@@ -9,7 +9,7 @@ class MoreContext(commands.Context):
 
     @property
     def author_info(self):
-        return AuthorInfo(self.author.id)
+        return AuthorInfo(self.author)
 
 #@dataclass
 class Location:
@@ -21,6 +21,7 @@ class Location:
         self.country = country
         self.user_input_location = user_input_location
         # convenience method for formatted "Ciy, ST" or "City, Country"
+
     @property
     def formatted_address(self):
         if self.country == "United States":
@@ -29,6 +30,16 @@ class Location:
             return f"{self.city}, {self.local_area}, {self.country}"
         else:
             return f"{self.city}, {self.country}"
+
+    async def get_timezone(self, bot):
+        key = bot.config.timezonedb
+        url = (f"http://api.timezonedb.com/v2.1/get-time-zone?key={key}"
+               f"&format=json&by=position&lat={self.latitude}&lng={self.longitude}")
+        async with bot.session.get(url) as resp:
+            results = await resp.json()
+            zone = results['zoneName'].replace('\\', '')
+            #not sure why they \escape a '/' char... pytz doesnt like it..
+            return zone
 
 
     async def from_google_geocode(bot, address):
@@ -66,9 +77,10 @@ class Location:
 
 
 class AuthorInfo:
-    def __init__(self, user_id):
+    def __init__(self, user):
 
-        self.user_id = user_id
+        self.user_id = user.id
+        self.user = user
 
         self.conn = sqlite3.connect('userinfo.sqlite')
         self.c = self.conn.cursor()
@@ -77,6 +89,27 @@ class AuthorInfo:
             # add a username field just for convenience? don't actually query it
             c.execute('''CREATE TABLE userinfo (user integer, username text, field text, data text);''')
             self.conn.commit()
+
+    def single_getter(self, key):
+        q = '''SELECT data FROM userinfo WHERE user = (?) AND field = (?); '''
+        result = self.c.execute(q, (self.user_id, key)).fetchone()
+        if result:
+            return result[0]
+        else:
+            return None
+
+    def single_setter(self, key, value):
+        q = '''SELECT data FROM userinfo WHERE user = (?) AND field = (?); '''
+        result = self.c.execute(q, (self.user_id, key)).fetchone()
+        if result:
+            q = '''UPDATE userinfo SET data = (?) WHERE user = (?) AND field = (?); '''
+            self.c.execute(q, (value, self.user_id, key))
+        else:
+            q = '''INSERT INTO userinfo VALUES (?, ?, ?, ?); '''
+            self.c.execute(q, (self.user_id, str(self.user), key, value))
+        self.conn.commit()
+ 
+
 
     @property
     def location(self):
@@ -93,33 +126,36 @@ class AuthorInfo:
 
         return Location(**loc) if loc else None
 
+    @location.setter
+    def location(self, loc: Location):
+        for k,v in loc.__dict__.items():
+            self.single_setter(k, v)
+       
 
     @property
     def birthday(self):
-        q = '''SELECT data from userinfo WHERE user = (?) AND field = 'birthday'; '''
-        bd = self.c.execute(q, (self.user_id,)).fetchone()
-        if bd:
-            return bd[0]
-
+        return self.single_getter('birthday')
+    @birthday.setter
+    def birthday(self, user_input_birthday: str):
+        self.single_setter('birthday', user_input_birthday)
 
     @property
     def timezone(self):
-        q = '''SELECT data from userinfo WHERE user = (?) AND field = 'timezone'; '''
-        tz = self.c.execute(q, (self.user_id,)).fetchone()
-        if tz:
-            return tz[0]
-
+        return self.single_getter('timezone')
+    @timezone.setter
+    def timezone(self, tz_name: str):
+        self.single_setter('timezone', tz_name)
+        
     @property
     def strava(self):
-        q = '''SELECT data from userinfo WHERE user = (?) AND field = 'strava'; '''
-        strava = self.c.execute(q, (self.user_id,)).fetchone()
-        if strava:
-            return strava[0]
+        return self.single_getter('strava')
+    @strava.setter
+    def strava(self, uid: str):
+        self.single_setter('strava', uid)
 
     @property
     def lastfm(self):
-        q = '''SELECT data from userinfo WHERE user = (?) AND field = 'lastfm'; '''
-        lastfm = self.c.execute(q, (self.user_id,)).fetchone()
-        if lastfm:
-            return lastfm[0]
-
+        return self.single_getter('lastfm')
+    @lastfm.setter
+    def lastfm(self, uid: str):
+        self.single_setter('lastfm', uid)

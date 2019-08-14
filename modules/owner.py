@@ -38,7 +38,8 @@ class OwnerCog(commands.Cog, name="Owner Commands"):
     async def _load(self, ctx, *, cog: str):
         """Command which Loads a Module.
         Remember to use dot path. e.g: cogs.owner"""
-
+        if "." not in cog:
+            cog = f"{self.bot.moddir}.{cog}"
         try:
             self.bot.load_extension(cog)
         except Exception as e:
@@ -51,7 +52,8 @@ class OwnerCog(commands.Cog, name="Owner Commands"):
     async def _unload(self, ctx, *, cog: str):
         """Command which Unloads a Module.
         Remember to use dot path. e.g: cogs.owner"""
-
+        if "." not in cog:
+            cog = f"{self.bot.moddir}.{cog}"
         try:
             self.bot.unload_extension(cog)
         except Exception as e:
