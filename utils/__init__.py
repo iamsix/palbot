@@ -18,7 +18,7 @@ def remove_html_tags(data):
     return tagregex.sub('', data)
 
 
-async def google_for_urls(bot, search_term, *, url_regex=None):
+async def google_for_urls(bot, search_term, *, url_regex=None, return_full_data=False):
     url = 'https://www.googleapis.com/customsearch/v1?key={}&cx={}&q={}'
     url = url.format(bot.config.gsearchapi, 
             bot.config.gsearchcx, uriquote(search_term))
@@ -28,6 +28,9 @@ async def google_for_urls(bot, search_term, *, url_regex=None):
         if resp.status != 200:
             print(resp, json)
             return
+        if return_full_data:
+            return json['items']
+            
         results = []
         for result in json['items']:
             if url_regex:

@@ -129,6 +129,7 @@ class Weather(commands.Cog):
 
     @commands.command(name='aqi')
     async def get_aqi(self, ctx, *, location: str = ''):
+        """Show the air quality index of your location or optionally at <location>"""
         if not location:
             loc = ctx.author_info.location
         else:
@@ -175,6 +176,7 @@ class Weather(commands.Cog):
 
     @commands.command()
     async def metar(self, ctx, station: str):
+        """Get the Metar aviation weather report for an airport <station>"""
         url = ('http://aviationweather.gov/adds/dataserver_current/httpparam?'
                'dataSource=metars&requestType=retrieve&format=xml&stationString=' 
               f'{station}&hoursBeforeNow=2&mostRecent=true')

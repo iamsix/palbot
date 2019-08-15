@@ -105,6 +105,17 @@ class Internets(commands.Cog):
         
         return discord.Embed(description=text)
         
+    @commands.command()
+    async def gwiki(self, ctx, *, searchterm):
+        """Attempts to use the google search snippet to find specific sections on wikipedia (it's not very good at it)"""
+        search = f"site: wikipedia.org {uriquote(searchterm)}"
+        results = await self.bot.utils.google_for_urls(self.bot, 
+                                                        search, 
+                                                        return_full_data=True)
+
+        description = results[0]['snippet'].replace('\n', '')
+        description += f' [ <{results[0]["link"]}> ]'
+        await ctx.send(description)
 
 
 

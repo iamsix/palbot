@@ -40,7 +40,8 @@ class Pics(commands.Cog):
 
     @commands.command(name='rpics', aliases=['cats', 'dogs', 'birds', 'sloths', 'rats'])
     async def reddit_pics(self, ctx, *, subreddit: str = ""):
-        headers = {'User-agent': 'PalBot by /u/mrsix'}
+        """Search a subreddit for any image files and 2 random ones"""
+
         reddits = {'rpics': 'pics',
                     'cats': 'catpictures+cats',
                     'dogs': 'dogpictures+dogs',
@@ -51,7 +52,8 @@ class Pics(commands.Cog):
             subreddit = reddits[ctx.invoked_with]
         url = f"http://www.reddit.com/r/{subreddit}/.json"
 
-        async with self.bot.session.get(url) as resp:
+        headers = {'User-agent': 'PalBot by /u/mrsix'}
+        async with self.bot.session.get(url, headers=headers) as resp:
             data = await resp.json()
 
         catlist = []
@@ -76,6 +78,7 @@ class Vids(commands.Cog):
 
     @commands.command(name='yt')
     async def youtube(self, ctx, *, search: str):
+        """Search for a youtube video and return some info along with an embedded link"""
         pass
         #When porting use the real youtube search probably?
 

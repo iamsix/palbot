@@ -20,6 +20,10 @@ class Finance(commands.Cog):
 
     @commands.command()
     async def coin(self, ctx, *, line: str):
+        """Look up a cryptocurrency such as Bitcoin
+        Optionally specify a quantity such as `0.6 ETH`
+        Optionally specify a conversion value such as `2 BTC in ETH` or `10 ETH in CAD`"""
+
         coin = await self.parse_coinline(line)
         if not coin:
             await ctx.send(f"Unable to find coin {line}")
@@ -145,6 +149,7 @@ class Finance(commands.Cog):
     
     @commands.command(aliases=['stonks'])
     async def stock (self, ctx, name: str):
+        """Look up a stock and show its current price, change, etc"""
         symbol = ""
         url = f"https://autoc.finance.yahoo.com/autoc?query={uriquote(name)}&region=1&lang=en&guccounter=1"
         async with self.bot.session.get(url) as resp:

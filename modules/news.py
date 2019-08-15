@@ -12,6 +12,7 @@ class News(commands.Cog):
 
     @commands.command(name='news')
     async def google_news(self, ctx, *, query: str = ""):
+        """Search for a story on google news - returns the headline and a link"""
         if not query:
             url = "https://news.google.com/news/rss/?hl=en"
         else:

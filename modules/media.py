@@ -4,6 +4,7 @@ from urllib.parse import quote as uriquote
 from utils.paginator import Paginator
 import json
 import asyncio
+import xml.dom.minidom
 
 
 class Media(commands.Cog):
@@ -192,6 +193,35 @@ class Media(commands.Cog):
                 e.add_field(name=k, value=str(v))
 
         await ctx.send(embed=e)
+
+    @commands.command(name='gr')
+    async def get_goodreads_book_rating(self, ctx, *, book: str = ""):
+        key = self.bot.config.goodreadskey
+        
+        url = f"https://www.goodreads.com/search.xml?key={key}&q={uriquote(book)}"
+
+        async with self.bot.session.get(url) as resp:
+            response = await resp.read()
+            dom = xml.dom.minidom.parseString(response)
+
+        title = dom.getElementsByTagName("title")[0].firstChild.nodeValue
+        name = dom.getElementsByTagName("name")[0].firstChild.nodeValue
+        avgrating = dom.getElementsByTagName("average_rating")[0].firstChild.nodeValue
+        ratingscount = dom.getElementsByTagName("ratings_count")[0].firstChild.nodeValue
+    
+        #apparently some books don't have a year
+        try:
+            pubyear = dom.getElementsByTagName("original_publication_year")[0].firstChild.nodeValue
+            pubyear = f" ({pubyear})"
+        except ValueError:
+            pubyear = ""
+        
+        bookid = dom.getElementsByTagName("best_book")[0].getElementsByTagName("id")[0].firstChild.nodeValue
+        bookurl = f"https://www.goodreads.com/book/show/{bookid}"
+        
+        output = (f"{title} by {name}{pubyear} | Avg rating: {avgrating} ({ratingscount} ratings) | "
+                  f"{bookdesc} [ {bookurl} ]")
+        await ctx.send(output)
 
 
 def setup(bot):
