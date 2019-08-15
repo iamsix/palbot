@@ -2,6 +2,7 @@ import asyncio
 import discord
 from discord.ext import commands
 import re
+import xml.dom.minidom
 
 
 WEMOJI ={
@@ -126,9 +127,61 @@ class Weather(commands.Cog):
                    }
         return weather
 
+    @commands.command(name='aqi')
+    async def get_aqi(self, ctx, *, location: str = ''):
+        if not location:
+            loc = ctx.author_info.location
+        else:
+            loc = await self.bot.utils.Location.from_google_geocode(self.bot, location)
+            
+        url = "http://api.waqi.info/feed/{}/?token={}"
+        url = url.format(f'geo:{loc.latitude};{loc.longitude}', self.bot.config.aqicn)
 
-    
+        async with self.bot.session.get(url) as resp:
+            data = await resp.json()
 
+        if data['status'] != "ok":
+            self.logger.debug("AQI Lookup failed:")
+            self.logger.debug(data)
+            return
+        data = data['data']
+        
+        pm25 = data['iaqi']['pm25']['v']
+
+        conditions = {
+            50 :  " (Good)",
+            100 : " (Moderate)",
+            150 : " (Unhealthy for sensitive groups)",
+            200 : " (Unhealthy)",
+            300 : " (Very Unhealthy)",
+            9999 : " (Hazardous)",
+        }
+        condition = ""
+        for k in conditions:
+            if pm25 <= k:
+                condition = conditions[k]
+                break
+
+        city = data['city']['name']
+        out = "{} - Air Quality: PM2.5: {}{}".format(city, pm25, condition)
+
+        try:
+            o3 = pm25 = data['iaqi']['o3']['v']
+            out += " - Ozone: {}".format(o3)
+        except:
+            pass
+        
+        await ctx.send(out)
+
+    @commands.command()
+    async def metar(self, ctx, station: str):
+        url = ('http://aviationweather.gov/adds/dataserver_current/httpparam?'
+               'dataSource=metars&requestType=retrieve&format=xml&stationString=' 
+              f'{station}&hoursBeforeNow=2&mostRecent=true')
+        async with self.bot.session.get(url) as resp:
+            data = await resp.read()
+            dom = xml.dom.minidom.parseString(data)
+            await ctx.send(dom.getElementsByTagName('raw_text')[0].childNodes[0].data)
 
 
 def setup(bot):
