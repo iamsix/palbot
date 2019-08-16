@@ -11,8 +11,6 @@ from pathlib import Path
 import datetime
 import sys, traceback
 import logging
-from collections import deque
-import imp
 
 
 FORMAT = "[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s"
@@ -30,6 +28,8 @@ class PalBot(commands.Bot):
         self.session = aiohttp.ClientSession(loop=self.loop)
         self.logger = logging.getLogger("palbot")
         self.moddir = "modules"
+        self.config = __import__('config')
+        self.utils = __import__('utils')
 
 #        self.lastresponses = deque (command, myresponse)
 #        look in to the internal message cache
@@ -57,15 +57,9 @@ class PalBot(commands.Bot):
     def run(self):
         super().run(config.token, reconnect=True)
 
-    @property
-    def utils(self):
-        utils = __import__('utils')
-        imp.reload(utils)
-        return utils
-
-    @property
-    def config(self):
-        return __import__('config')
+    async def close(self):
+        await super().close()
+        await self.session.close()
 
 
 bot = PalBot()

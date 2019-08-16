@@ -1,6 +1,7 @@
 import datetime
 import parsedatetime as pdt
 from dateutil.relativedelta import relativedelta
+import pytz
 from .formats import plural, human_join
 from discord.ext import commands
 import re
@@ -31,11 +32,15 @@ class ShortTime:
 class HumanTime:
     calendar = pdt.Calendar(version=pdt.VERSION_CONTEXT_STYLE)
 
-    def __init__(self, argument, *, now=None):
-        now = now or datetime.datetime.utcnow()
+    def __init__(self, argument, *, now=None, now_tz=None):
+        now = now or datetime.datetime.utcnow() if not now_tz else datetime.datetime.now(now_tz)
         dt, status = self.calendar.parseDT(argument, sourceTime=now)
+        
         if not status.hasDateOrTime:
             raise commands.BadArgument('invalid time provided, try e.g. "tomorrow" or "3 days"')
+        if now_tz:
+            dt = dt.replace(tzinfo=pytz.utc).astimezone(tz=now_tz)
+            self.tzname = now.tzname()
 
         if not status.hasTime:
             # replace it with the current time
@@ -43,10 +48,18 @@ class HumanTime:
 
         self.dt = dt
         self._past = dt < now
-
+        
+    
     @classmethod
     async def convert(cls, ctx, argument):
-        return cls(argument, now=ctx.message.created_at)
+        if ctx.author_info.timezone:
+            ntz = pytz.timezone(ctx.author_info.timezone)
+        else:
+            ntz = None
+        
+        return cls(argument, now=ctx.message.created_at, now_tz=ntz)
+
+        
 
 class Time(HumanTime):
     def __init__(self, argument, *, now=None):

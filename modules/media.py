@@ -196,6 +196,7 @@ class Media(commands.Cog):
 
     @commands.command(name='gr')
     async def get_goodreads_book_rating(self, ctx, *, book: str = ""):
+        """Find a [book] on goodreads.com and return some rating info and a link"""
         key = self.bot.config.goodreadskey
         
         url = f"https://www.goodreads.com/search.xml?key={key}&q={uriquote(book)}"

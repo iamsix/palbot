@@ -57,3 +57,4 @@ palbot.cfg
 config.py
 debug.log
 __pycache__
+logfiles/

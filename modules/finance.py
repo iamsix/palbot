@@ -22,7 +22,7 @@ class Finance(commands.Cog):
     async def coin(self, ctx, *, line: str):
         """Look up a cryptocurrency such as Bitcoin
         Optionally specify a quantity such as `0.6 ETH`
-        Optionally specify a conversion value such as `2 BTC in ETH` or `10 ETH in CAD`"""
+        Optionally specify a conversion value such as `2 BTC in ETH` or `ETH in CAD`"""
 
         coin = await self.parse_coinline(line)
         if not coin:

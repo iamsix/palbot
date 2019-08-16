@@ -1,5 +1,6 @@
 from discord.ext import commands
 from pathlib import Path
+from importlib import reload
 
 
 class UsefulEvents(commands.Cog):
@@ -93,6 +94,16 @@ class OwnerCog(commands.Cog, name="Owner Commands"):
                 traceback.print_exec()
         mods = '\n'.join(modlist)
         await ctx.send(f"Reloaded:\n {mods}")
+
+    @_reload.command(name='utils', hidden=True)
+    async def _reload_utils(self, ctx):
+        """Reload the bot.utils stuff"""
+        self.bot.utils =  reload(self.bot.utils)
+
+    @_reload.command(name='config', hidden=True)
+    async def _reload_config(self, ctx):
+        """Reload the bot.utils stuff"""
+        self.bot.config =  reload(self.bot.config)
 
 
 def setup(bot):

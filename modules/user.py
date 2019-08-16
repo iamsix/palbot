@@ -4,6 +4,7 @@ import datetime
 import dateutil.parser
 from dateutil import relativedelta
 from utils.time import HumanTime
+import pytz
 
 class User(commands.Cog):
     def __init__(self, bot):
@@ -53,9 +54,14 @@ class User(commands.Cog):
     @commands.command()
     async def age(self, ctx, *, day: HumanTime = None):
         """Show your age if stored, or optionally return the time from [day] to now"""
-        fromday = day if day else HumanTime(ctx.author_info.birthday)
-
-        now = datetime.datetime.now()
+        if not ctx.author_info.birthday:
+            utz = pytz.utc
+        else:
+            utz = pytz.timezone(ctx.author_info.timezone)
+        now = datetime.datetime.now(utz)
+        fromday = day if day else HumanTime(ctx.author_info.birthday, now=now, now_tz=utz)
+ 
+        
         d = relativedelta.relativedelta(now, fromday.dt)
         if d.months == 0 and d.days == 0:
             out = f"{ctx.author.mention} is {d.years} years old! Happy Birthday! http://youtu.be/5qm8PH4xAss"
@@ -73,6 +79,7 @@ class User(commands.Cog):
             await ctx.send("Failed to parse date - try a different day format such as YYYY-MM-DD")
         if isinstance(error, commands.MissingRequiredArgument):
             await ctx.send(error)
+
 
 
 

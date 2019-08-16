@@ -149,7 +149,7 @@ class Alcohol(commands.Cog):
 
     @commands.command()
     async def drink(self, ctx, *, drink: str = ''):
-        """Search for a cocktail recipie"""
+        """Search for a cocktail recipe"""
         if drink:
             url = f"http://www.thecocktaildb.com/api/json/v1/1/search.php?s={uriquote(drink)}"
         else:
@@ -177,6 +177,40 @@ class Alcohol(commands.Cog):
                                 ingredients,
                                 drink["strInstructions"])
         await ctx.send(output)
+
+    @commands.command()
+    async def spirits(self, ctx, *, spirit: str):
+        """Search Distiller.com for a <spirit> and return some information about it"""
+        url = await self.bot.utils.google_for_urls(self.bot, 
+                                            "site:distiller.com {}".format(uriquote(spirit)),
+                                            url_regex="distiller.com/spirits/")
+
+        jsurl = url[0].replace('r.com/', 'r.com/api/')
+        headers = {'User-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:57.0) Gecko/20100101 Firefox/57.0',
+                   'X-DISTILLER-DEVELOPER-TOKEN': self.bot.config.distillertoken}
+                   
+        async with self.bot.session.get(jsurl, headers=headers) as resp:
+            data = await resp.json()
+            print(data)
+            data = data['spirit']
+        
+        stlye = data['spirit_family']['name']
+        name = data['name']
+        exp_rate = data['expert_rating']
+        pub_rate = data['average_rating']
+        num_raters = data['total_num_of_ratings']
+        abv = data['abv']
+        description = data['description']
+        # I probably could have done this by passing *data to a format() instead...
+        # TODO Paginate this?
+        # TODO make a fancy embed
+        
+        out = (f"{stlye}: {name} - Expert rating: {exp_rate} - User rating: {pub_rate} "
+              f"({num_raters} ratings) ABV: {abv} - {description} [ <{url[0]}> ]")
+
+        await ctx.send(out)
+        
+    
 
 def setup(bot):
     bot.add_cog(Alcohol(bot))
