@@ -8,13 +8,13 @@ class units:
         f_to_c = lambda n: int(round((n - 32)*5/9,0))
         mi_to_km = lambda n: int(round(n * 1.609, 0))
         F_C = re.compile("(-?\d+)°F")
-        MI_KM = re.compile("(\d+) mph")
+        MI_KM = re.compile("(\d+\.?\d+) mph", flags=re.IGNORECASE)
         def f_c(m):
             c = f_to_c(int(m.group(1)))
             return f"{c}°C" if not both else f"{c}°C / {m.group(0)}"
 
         def mi_km(m):
-            km = mi_to_km(int(m.group(1)))
+            km = mi_to_km(int(float(m.group(1))))
             return f"{km} km/h" if not both else f"{km} km/h / {m.group(0)}"
 
         line = F_C.sub(f_c, line)

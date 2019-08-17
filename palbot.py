@@ -6,7 +6,6 @@ from discord.ext import commands
 import config
 
 from pathlib import Path
-# instead of a userlocation see about subclassing my own discord user class
 
 import datetime
 import sys, traceback
@@ -23,18 +22,14 @@ class PalBot(commands.Bot):
         super().__init__(command_prefix=["$"],
                 description="https://github.com/iamsix/palbot/",
                 pm_help=None, help_attrs=dict(hidden=True),
-                fetch_offline_members=False)
+                fetch_offline_members=False, case_insensitive=True)
         self.loop = asyncio.get_event_loop()
         self.session = aiohttp.ClientSession(loop=self.loop)
         self.logger = logging.getLogger("palbot")
         self.moddir = "modules"
         self.config = __import__('config')
         self.utils = __import__('utils')
-
-#        self.lastresponses = deque (command, myresponse)
-#        look in to the internal message cache
-#        https://discordpy.readthedocs.io/en/latest/api.html#discord.Client.cached_messages
-
+#        self.lastresponses = deque((command, myresponse), maxlen=50))
 
         for module in Path(self.moddir).glob('*.py'):
             try:

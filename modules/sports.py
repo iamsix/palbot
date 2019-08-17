@@ -10,6 +10,15 @@ class Sports(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    async def sports_date(self, ctx, date):
+        if not date:
+            if ctx.author_info.timezone:
+                return datetime.datetime.now(pytz.timezone(ctx.author_info.timezone))
+            else:
+                return datetime.datetime.now(pytz.timezone("US/Eastern"))
+        else:
+            return date.dt
+
 
     MLB_TEAMS = [
          144, #   'ATL',
@@ -25,19 +34,13 @@ class Sports(commands.Cog):
 
     @commands.command()
     async def mlb(self, ctx, *, date: HumanTime = None):
-        if not date:
-            if ctx.author_info.timezone:
-                date = datetime.datetime.now(pytz.timezone(ctx.author_info.timezone))
-            else:
-                date = datetime.datetime.now(pytz.timezone("US/Eastern"))
-        else:
-            date = date.dt
-            
+        """Show today's MLB games with score, status, etc or optionally provide a <date>"""
+        date = await self.sports_date(ctx, date)
         url = "https://statsapi.mlb.com/api/v1/schedule?sportId=1&hydrate=linescore,team"
         url += "&startDate={0}&endDate={0}".format(date.date())
         async with self.bot.session.get(url) as resp:
             data = await resp.json()
-            if not data['games']:
+            if not data['dates']:
                 await ctx.send(f"No games found for {date.date()}")
                 return
             data = data['dates'][0]['games']
@@ -116,18 +119,11 @@ class Sports(commands.Cog):
     @commands.command()
     async def nba(self, ctx, *, date: HumanTime = None):
         """Show the NBA games being played, scores, times, optionally provide a [date]"""
+        # TODO Make this use timezone - NBA USES PREFORMATTED STRING CURRENTLY
 
-        # TODO : Make this use timezone
         def team(arg):
             return self.NBA_TEAMS.get(arg, arg)
-        
-        if not date:
-            if ctx.author_info.timezone:
-                date = datetime.datetime.now(pytz.timezone(ctx.author_info.timezone))
-            else:
-                date = datetime.datetime.now(pytz.timezone("US/Eastern"))
-        else:
-            date = date.dt
+        date = await self.sports_date(ctx, date)
 
         url = "https://data.nba.net/prod/v2/{}/scoreboard.json"
         url = url.format(date.strftime("%Y%m%d"))
@@ -166,13 +162,8 @@ class Sports(commands.Cog):
         
     @commands.command()
     async def nhl(self, ctx, *, date: HumanTime = None):
-        if not date:
-            if ctx.author_info.timezone:
-                date = datetime.datetime.now(pytz.timezone(ctx.author_info.timezone))
-            else:
-                date = datetime.datetime.now(pytz.timezone("US/Eastern"))
-        else:
-            date = date.dt
+        """Show today's NHL games with score, status, etc or optionally provide a [date]"""
+        date = await self.sports_date(ctx, date)
 
         url = ("http://statsapi.web.nhl.com/api/v1/schedule"
                "?startDate={0}&endDate={0}&expand=schedule.teams,schedule.linescore")
@@ -222,13 +213,7 @@ class Sports(commands.Cog):
 
     @commands.command()
     async def nfl(self, ctx, *, date: HumanTime = None):
-        if not date:
-            if ctx.author_info.timezone:
-                date = datetime.datetime.now(pytz.timezone(ctx.author_info.timezone))
-            else:
-                date = datetime.datetime.now(pytz.timezone("US/Eastern"))
-        else:
-            date = date.dt
+        date = await self.sports_date(ctx, date)
         
         r = {'url' : 'https://api.nfl.com/v1/reroute',
             'data' : {'grant_type': 'client_credentials'},

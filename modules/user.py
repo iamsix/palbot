@@ -10,7 +10,7 @@ class User(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.group(name="set")
+    @commands.group(name="set", case_insensitive=True)
     async def _set (self, ctx):
         """Set some useful user-related variables to the bot for conveneint command usage"""
         pass
@@ -80,6 +80,20 @@ class User(commands.Cog):
         if isinstance(error, commands.MissingRequiredArgument):
             await ctx.send(error)
 
+
+    @commands.command()
+    async def time(self, ctx):
+        if ctx.author_info.timezone:
+            now = datetime.datetime.utcnow()\
+                                   .replace(tzinfo=pytz.utc)\
+                                   .astimezone(tz=pytz.timezone(ctx.author_info.timezone))
+        else:
+            now = datetime.datetime.now()
+
+        fmt = "Current time: %-I:%M:%S %p %Z | %A, %B %-d, %Y"
+        time = now.strftime(fmt) + "\nhttps://i.imgur.com/HHCethk.gif"
+        await ctx.send(time)
+        
 
 
 

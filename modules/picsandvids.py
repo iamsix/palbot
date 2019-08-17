@@ -13,7 +13,7 @@ class Pics(commands.Cog):
     @commands.command(name='image', aliases=['pic', 'gif'])
     async def image(self, ctx, *, search: str):
         """Google Image Search and return the results in a switchable embed"""
-        if ctx.invoked_with == "gif":
+        if ctx.invoked_with.lower() == "gif":
             search += " gif"
         search = uriquote(search)
         url = 'https://www.googleapis.com/customsearch/v1?key={}&cx={}&q={}&searchType=image'

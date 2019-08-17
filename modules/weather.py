@@ -3,6 +3,10 @@ import discord
 from discord.ext import commands
 import re
 import xml.dom.minidom
+from urllib.parse import quote as uriquote
+import pytz
+from datetime import datetime, timedelta
+from utils.time import human_timedelta
 
 
 WEMOJI ={
@@ -23,20 +27,29 @@ class Weather(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    
+    async def locatamatron(self, ctx, location = ""):
+        if not location:
+            return ctx.author_info.location
+            if not loc:
+                await ctx.send("I don't have a location for you - use `!set location <location>` to set one")
+                return
+        else:
+            return await self.bot.utils.Location.from_google_geocode(self.bot, location)
+
+
     @commands.command(name='w', aliases=['pw'])
     async def forecast_io(self, ctx, *, location:str = ""):
-        """Show a weather report for your set location or optionally input a <location>"""
+        """Show a weather report from forecast.io for your set location or optionally input a <location>"""
         key = self.bot.config.forecast_io_key
-        if not location:
-            loc = ctx.author_info.location
-        else:
-            loc = await self.bot.utils.Location.from_google_geocode(self.bot, location)
+        loc = await self.locatamatron(ctx, location)
+        if not loc:
+            return
+
         url = f"https://api.forecast.io/forecast/{key}/{loc.latitude},{loc.longitude}"
         async with self.bot.session.get(url) as resp:
             data = await resp.json()
             weather = await self.parse_fio(data)
-            if ctx.invoked_with == "w":
+            if ctx.invoked_with.lower() == "w":
                 await ctx.send(await self.fio_text(weather, loc))
             else:
                 await ctx.send(embed=await self.fio_embed(weather, loc))
@@ -130,11 +143,10 @@ class Weather(commands.Cog):
     @commands.command(name='aqi')
     async def get_aqi(self, ctx, *, location: str = ''):
         """Show the air quality index of your location or optionally at <location>"""
-        if not location:
-            loc = ctx.author_info.location
-        else:
-            loc = await self.bot.utils.Location.from_google_geocode(self.bot, location)
-            
+        loc = await self.locatamatron(ctx, location)
+        if not loc:
+            return
+
         url = "http://api.waqi.info/feed/{}/?token={}"
         url = url.format(f'geo:{loc.latitude};{loc.longitude}', self.bot.config.aqicn)
 
@@ -183,7 +195,76 @@ class Weather(commands.Cog):
         async with self.bot.session.get(url) as resp:
             data = await resp.read()
             dom = xml.dom.minidom.parseString(data)
-            await ctx.send(dom.getElementsByTagName('raw_text')[0].childNodes[0].data)
+            text = dom.getElementsByTagName('raw_text')
+            if text:
+                await ctx.send(text[0].childNodes[0].data)
+            else:
+                await ctx.send(f"Failed to find METAR for `{station}` - it needs an airpot ICAO code such as KJFK")
+    @metar.error
+    async def metar_error(self, ctx, error):
+        if isinstance(error, commands.MissingRequiredArgument):
+            await ctx.send("No station provided, try an ICAO code such as `metar KJFK`")
+
+
+
+    @commands.command(name='wu')
+    async def wunderground(self, ctx, *, location: str = None):
+        """Show a weather report from weather underground for your set location or optionally input a <location>"""
+        key = self.bot.config.wunderground_key
+        loc = await self.locatamatron(ctx, location)
+        if not loc:
+            return
+        
+        url = f"http://api.wunderground.com/api/{key}/conditions/q/{uriquote(loc.user_input_location)}.json"
+        async with self.bot.session.get(url) as resp:
+            data = await resp.json()
+            data = data['current_observation']
+
+        city = data['display_location']['full']
+        temp_f = data['temp_f']
+        temp_c = data['temp_c']
+        condition = data['weather']
+        icon = WEMOJI.get(data['icon'], '')
+        humidity = "Humidity: {}".format(data['relative_humidity'])
+        wind = "Wind: {}".format(data['wind_string'])
+        wind = self.bot.utils.units.imperial_string_to_metric(wind, both=True)
+
+        out = f"{city} / {condition} {icon} / {temp_c}°C {temp_f}°F / {humidity} / {wind}"        
+        await ctx.send(out)
+    
+
+    @commands.command()
+    async def sun(self, ctx, *, location: str = None):
+        """Show sunrise/sunset for your set location or optionally input a <location>"""
+        key = self.bot.config.forecast_io_key
+        loc = await self.locatamatron(ctx, location)
+        if not loc:
+            return
+            
+        url = "https://api.forecast.io/forecast/{}/{},{}"
+        url = url.format(key, loc.latitude, loc.longitude)
+
+        async with self.bot.session.get(url) as resp:
+            data = await resp.json()
+
+        tmz = pytz.timezone(data['timezone'])
+        now = datetime.fromtimestamp(int(data['currently']['time']), tz=tmz)
+        data = data['daily']['data'][0]
+
+        sunriseobj = datetime.fromtimestamp(int(data['sunriseTime']), tz=tmz)
+        sunsetobj = datetime.fromtimestamp(int(data['sunsetTime']), tz=tmz)
+        sunlength = sunsetobj - sunriseobj
+
+        til = human_timedelta(sunriseobj, source=now, suffix=True)
+        sunrise = sunriseobj.strftime("%H:%M")
+        sunrise = f"{sunrise} ({til})"
+
+        til = human_timedelta(sunsetobj, source=now, suffix=True)
+        sunset = sunsetobj.strftime("%H:%M")
+        sunset = f"{sunset} ({til})"
+
+        out = f"{loc.formatted_address} / Sunrise: {sunrise} / Sunset: {sunset} / Day Length: {sunlength}"
+        await ctx.send(out)
 
 
 def setup(bot):

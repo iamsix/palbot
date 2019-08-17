@@ -106,7 +106,7 @@ class Internets(commands.Cog):
         return discord.Embed(description=text)
         
     @commands.command()
-    async def gwiki(self, ctx, *, searchterm):
+    async def gwiki(self, ctx, *, searchterm: str):
         """Attempts to use the google search snippet to find specific sections on wikipedia (it's not very good at it)"""
         search = f"site: wikipedia.org {uriquote(searchterm)}"
         results = await self.bot.utils.google_for_urls(self.bot, 
@@ -116,6 +116,57 @@ class Internets(commands.Cog):
         description = results[0]['snippet'].replace('\n', '')
         description += f' [ <{results[0]["link"]}> ]'
         await ctx.send(description)
+
+
+    @commands.command(aliases=['c'])
+    async def wolfram(self, ctx, *, query: str):
+        """Query wolfram alpha and return the output"""
+        location, lat, lng = "", "", ""
+        if ctx.author_info.location:
+            location = uriquote(ctx.author_info.location.formatted_address)
+            lat = ctx.author_info.location.latitude
+            lng = ctx.author_info.location.longitude
+        key = self.bot.config.wolframAPIkey
+
+        url = (f"http://api.wolframalpha.com/v2/query?appid={key}"
+                "&format=plaintext&output=json&input={}"
+               f"&location={location}&latlong={lat},{lng}")
+        if ctx.invoked_with.lower() == "c":
+            result = await self.get_wolfram(url, query)
+        else:
+            result = await self.get_wolfram(url, query, full=True)
+        if result:
+            await ctx.send(result)
+
+    async def get_wolfram(self, url, query, *, full=False):
+        """The recursive method used to look up wolfram data or woflram related data"""
+        furl = url.format(uriquote(query))
+        async with self.bot.session.get(furl) as resp:
+            data = await resp.read()
+            data = json.loads(data)
+        
+        if not data['queryresult']['success'] or len(data['queryresult']['pods']) < 2:
+            #Possibly recursively use didyoumeans with a high level here...
+            return
+        
+        #ls = data['queryresult']['pods'][0]['subpods'][0]['plaintext']
+        #rs = data['queryresult']['pods'][1]['subpods'][0]['plaintext']
+        pods = []
+        for pod in data['queryresult']['pods']:
+            if pod['subpods'][0]['plaintext']:
+                pods.append(f"{pod['title']}: {pod['subpods'][0]['plaintext']}")
+        ls = pods.pop(0).replace("\n", " :: ")
+        if full: 
+            rs = "\n".join(pods)
+            out = f"{ls}: \n```{rs}\n```"
+            if len(out) > 2000:
+                #could use text paginator here but....
+                out = out[:1990] + "\n```"
+        else:
+            rs = pods[0].replace("\n", " :: ")
+            out = f"{ls} :: {rs}"
+        return out
+
 
 
 

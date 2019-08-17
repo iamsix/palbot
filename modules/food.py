@@ -3,6 +3,8 @@ from discord.ext import commands
 
 import re
 from urllib.parse import quote as uriquote
+import json
+
 
 class BeerCals:
     avg_fg = 1.012
@@ -74,7 +76,7 @@ class BeerCals:
         return re.split('\s', calc_string)
 
 
-class Alcohol(commands.Cog):
+class Food(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
@@ -201,7 +203,7 @@ class Alcohol(commands.Cog):
         num_raters = data['total_num_of_ratings']
         abv = data['abv']
         description = data['description']
-        # I probably could have done this by passing *data to a format() instead...
+        # I probably could have done this by passing **data to a format() instead...
         # TODO Paginate this?
         # TODO make a fancy embed
         
@@ -209,9 +211,46 @@ class Alcohol(commands.Cog):
               f"({num_raters} ratings) ABV: {abv} - {description} [ <{url[0]}> ]")
 
         await ctx.send(out)
+
+
+    CUISINE = {"african": 1,"indian": 2,"french": 3,"british": 4,"european": 5,
+            "italian": 6, "australian": 7,"jewish": 8,"asian": 9,"mexican": 10,
+            "latin american": 11, "thai": 12, "chinese": 13,"irish": 14,
+            "american": 15,"spanish": 16,"turkish": 17, "vietnamese": 18,
+            "greek": 19,"moroccan": 20,"caribbean": 21,"mediterranean": 22,
+            "japanese": 23}
+
+
+    INGREDIENTS = {"dairy": 2, "seafood": 7, "pasta": 8, "vegetable": 9, "egg": 11,
+                "fish": 13, "lamb": 36, "pork": 37, "duck": 39, "chicken": 42,
+                "beef": 59, "turkey": 98}
+
+    @commands.command(name='wfd')
+    async def get_recipe(self, ctx, inpt: str = ""):
+        """Get a random recipe from reciperoulette.tv"""
+
+        url = "http://www.reciperoulette.tv/getRecipeInfo"
+
+        inpt = inpt.lower().strip()
+        ingdt = ""
+        cusine = ""
         
+        if inpt in self.CUISINE:
+            cusine = self.CUISINE[inpt]
+        if inpt in self.INGREDIENTS:
+            ingdt = self.INGREDIENTS[inpt]
+        post = {'ingdt': ingdt, 'diet': '', 'cusine': cusine}
+
+        async with self.bot.session.post(url, data=post) as resp:
+            data = await resp.read()
+            data = json.loads(data)
+
+        out = "{} - {} : <http://www.reciperoulette.tv/#{}>"
+        out = out.format(data['name'], data['description'], data['id'])
+        
+        await ctx.send(out)
     
 
 def setup(bot):
-    bot.add_cog(Alcohol(bot))
+    bot.add_cog(Food(bot))
 
