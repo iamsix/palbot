@@ -50,12 +50,15 @@ class User(commands.Cog):
         """Set your birthday for things like age"""
         
         ctx.author_info.birthday = str(bday.dt)
-        await self.age.invoke(ctx)
+        await self.show_age(ctx)
         
 
     @commands.command()
     async def age(self, ctx, *, day: HumanTime = None):
         """Show your age if stored, or optionally return the time from [day] to now"""
+        await self.show_age(ctx, day=day)
+
+    async def show_age(self, ctx, *, day: HumanTime = None):
         if not ctx.author_info.birthday:
             utz = pytz.utc
         else:
@@ -63,7 +66,6 @@ class User(commands.Cog):
         now = datetime.datetime.now(utz)
         fromday = day if day else HumanTime(ctx.author_info.birthday, now=now, now_tz=utz)
  
-        
         d = relativedelta.relativedelta(now, fromday.dt)
         if d.months == 0 and d.days == 0:
             out = f"{ctx.author.mention} is {d.years} years old! Happy Birthday! http://youtu.be/5qm8PH4xAss"
@@ -85,6 +87,7 @@ class User(commands.Cog):
 
     @commands.command()
     async def time(self, ctx):
+        """What time is it? Game time."""
         if ctx.author_info.timezone:
             now = datetime.datetime.utcnow()\
                                    .replace(tzinfo=pytz.utc)\
@@ -99,9 +102,10 @@ class User(commands.Cog):
 
     @commands.command(name='np')
     async def lastfm(self, ctx, user = None):
+        """Show the users last played song from last.fm"""
         user = user or ctx.author_info.lastfm
         if not user:
-            await ctx.send("No user found - usage is `np <user>` or set one with `set lastfm <user>`")
+            await ctx.send("No user found - usage is `np <user>` or set one with `set last.fm <user>`")
             return
 
         url = "http://ws.audioscrobbler.com/2.0/"
@@ -145,8 +149,6 @@ class User(commands.Cog):
             else:
                 link = ""
         
-
-
         if len(npdata['recenttracks']['track']) == 1:
             #User not currently playing track
             date = npdata['recenttracks']['track'][0]['date']['#text']
@@ -155,6 +157,8 @@ class User(commands.Cog):
             out = f"{user} np: {artist} - {trackname} {extended}{link}"
 
         await ctx.send(out)
+
+        # TODO : last.fm compare - was never really used much
             
 
 
