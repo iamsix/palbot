@@ -1,4 +1,5 @@
 from discord.ext import commands
+import discord
 import datetime
 
 class Logger(commands.Cog):
@@ -48,7 +49,7 @@ class Logger(commands.Cog):
     
     @commands.Cog.listener()
     async def on_guild_channel_update(self, before, after):
-        if type(before) != "TextChannel":
+        if before.type != discord.ChannelType.text:
             return
         if before.topic == after.topic:
             return

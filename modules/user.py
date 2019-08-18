@@ -5,6 +5,8 @@ import dateutil.parser
 from dateutil import relativedelta
 from utils.time import HumanTime
 import pytz
+from urllib.parse import quote as uriquote
+
 
 class User(commands.Cog):
     def __init__(self, bot):
@@ -95,6 +97,70 @@ class User(commands.Cog):
         await ctx.send(time)
         
 
+    @commands.command(name='np')
+    async def lastfm(self, ctx, user = None):
+        user = user or ctx.author_info.lastfm
+        if not user:
+            await ctx.send("No user found - usage is `np <user>` or set one with `set lastfm <user>`")
+            return
+
+        url = "http://ws.audioscrobbler.com/2.0/"
+        params = {'api_key': self.bot.config.lastfm_api_key, 'limit': 1, 
+                  'format': 'json','method': 'user.getRecentTracks', 'user': uriquote(user)}
+
+        async with self.bot.session.get(url, params=params) as resp:
+            npdata = await resp.json()
+            if not 'recenttracks' in npdata or not npdata['recenttracks']['track']:
+                await ctx.send(f"Unable to find recent tracks for user `{user}`")
+                return
+
+        params['artist'] = artist = npdata['recenttracks']['track'][0]['artist']['#text']
+        params['track'] = trackname = npdata['recenttracks']['track'][0]['name']
+        params['method'] = "track.getInfo"
+
+        async with self.bot.session.get(url, params=params) as resp:
+            track = await resp.json()
+            track = track.get('track', None)        
+        extended = ""
+        if track:
+            dmin, dsec = divmod((int(track.get('duration', 0)) / 1000), 60)
+            duration = " [{:.0f}:{:02.0f}]".format(dmin, dsec)
+            playcount = f" :: Playcount: {track['userplaycount']}" if 'userplaycount' in track else ''
+            genres = []
+            for genre in track['toptags']['tag']:
+                genres.append(genre['name'])
+            genre = f" ({', '.join(genres)})" if genres else ''
+
+            extended = f"{duration}{playcount}{genre}"
+
+        ytkey = self.bot.config.gsearch2
+        url = "https://www.googleapis.com/youtube/v3/search"
+        params = {'part' : 'snippet', 'q': uriquote(f"{artist} - {trackname}"), 'type': 'video',
+                  'maxResults': 1, 'key' : ytkey}
+        async with self.bot.session.get(url, params=params) as resp:
+            data = await resp.json()
+            if data['items']:
+                yt_id = data['items'][0]['id']['videoId']
+                link = f" - <https://youtu.be/{yt_id}>"
+            else:
+                link = ""
+        
+
+
+        if len(npdata['recenttracks']['track']) == 1:
+            #User not currently playing track
+            date = npdata['recenttracks']['track'][0]['date']['#text']
+            out = f"{user} last played: {artist} - {trackname} {extended} on {date}{link}"
+        else:
+            out = f"{user} np: {artist} - {trackname} {extended}{link}"
+
+        await ctx.send(out)
+            
+
+
+
+
+        
 
 
 def setup(bot):

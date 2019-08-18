@@ -16,11 +16,11 @@ class Pics(commands.Cog):
         if ctx.invoked_with.lower() == "gif":
             search += " gif"
 
-        url = 'https://www.googleapis.com/customsearch/v1?'
+        url = 'https://www.googleapis.com/customsearch/v1'
         params = {'key': self.bot.config.gsearch2, 'cx': self.bot.config.gsearchcx,
                    'q': uriquote(search), 'searchType': 'image'}
         if not ctx.channel.is_nsfw():
-             url += "&safe=medium"
+            params['safe'] = "medium"
         
         async with self.bot.session.get(url, params=params) as resp:
             data = await resp.json()
@@ -130,6 +130,7 @@ class Vids(commands.Cog):
         out = ""
         if 'contentRating' in ytjson['contentDetails']:
             out = "**NSFW** : "
+            link = f"<{link}>"
 
         out += (f"{title} [{category}] :: Length: {duration} - Rating: {rating} - "
                 f"{viewcount:,} views - {uploader} on {pubdate} - {link}")
@@ -142,3 +143,4 @@ class Vids(commands.Cog):
 def setup(bot):
     bot.add_cog(Pics(bot))
     bot.add_cog(Vids(bot))
+    

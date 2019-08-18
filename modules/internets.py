@@ -101,7 +101,7 @@ class Internets(commands.Cog):
             embed_url = str(url).replace("(", "\\(").replace(")","\\)")
             embed_url = embed_url.replace("_","\\_")
             text = re.sub(r"\*\*(.+?)\*\*", 
-                    f'**[\g<1>]({embed_url})**', text, 1)
+                    r'**[\g<1>]' + f'({embed_url})**', text, 1)
         except:
             # TODO : Set a proper title in this case
             pass
