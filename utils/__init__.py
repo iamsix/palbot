@@ -48,7 +48,7 @@ async def bs_from_url(bot, url, return_url=False):
         data = await resp.read()
         page = BeautifulSoup(data, 'lxml')
         if return_url:
-            return page, str(resp.url)
+            return page, resp.url
         else:
             return page
 

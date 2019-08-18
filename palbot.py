@@ -36,7 +36,8 @@ class PalBot(commands.Bot):
                 self.load_extension("{}.{}".format(self.moddir,module.stem))
             except Exception as e:
                 print(f'Failed to load cog {module}', file=sys.stderr)
-                traceback.print_exec()
+                print(e)
+                traceback.print_exc()
 
 
 

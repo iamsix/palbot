@@ -71,6 +71,7 @@ class Finance(commands.Cog):
                 cvtval = self.ffstr(float(data['price_btc']) * coin['qty'])
                 coin['cvtto'] = "BTC"
             else:
+                pUSD = data['price_usd']
                 url = "https://api.coinmarketcap.com/v1/ticker/{}".format(coin['cvtto'])
                 async with self.bot.session.get(url) as resp:
                     tojson = await resp.json()

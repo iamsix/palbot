@@ -48,6 +48,7 @@ Temporary Items
 
 # IDE junk
 *.swp
+.vscode/
 
 # bot stuff
 *.sqlite

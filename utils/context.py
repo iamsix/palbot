@@ -88,7 +88,7 @@ class AuthorInfo:
         result = self.c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='userinfo';").fetchone()
         if not result:
             # username field is never queried, just exists for convenient lookup when manually checking db entries
-            c.execute('''CREATE TABLE userinfo (user integer, username text, field text, data text);''')
+            self.c.execute('''CREATE TABLE userinfo (user integer, username text, field text, data text);''')
             self.conn.commit()
 
     def single_getter(self, key):

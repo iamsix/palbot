@@ -34,11 +34,12 @@ class Sports(commands.Cog):
 
     @commands.command()
     async def mlb(self, ctx, *, date: HumanTime = None):
-        """Show today's MLB games with score, status, etc or optionally provide a <date>"""
+        """Show today's or [date]s MLB games with score, status"""
         date = await self.sports_date(ctx, date)
-        url = "https://statsapi.mlb.com/api/v1/schedule?sportId=1&hydrate=linescore,team"
-        url += "&startDate={0}&endDate={0}".format(date.date())
-        async with self.bot.session.get(url) as resp:
+        url = "https://statsapi.mlb.com/api/v1/schedule"
+        params = {'sportId': 1, 'hydrate': 'linescore,team', 
+                  'startDate': str(date.date()), 'endDate': str(date.date())}
+        async with self.bot.session.get(url, params=params) as resp:
             data = await resp.json()
             if not data['dates']:
                 await ctx.send(f"No games found for {date.date()}")
@@ -118,7 +119,7 @@ class Sports(commands.Cog):
 
     @commands.command()
     async def nba(self, ctx, *, date: HumanTime = None):
-        """Show the NBA games being played, scores, times, optionally provide a [date]"""
+        """Show today's or [date]s NBA games with score, status"""
         # TODO Make this use timezone - NBA USES PREFORMATTED STRING CURRENTLY
 
         def team(arg):
@@ -162,14 +163,14 @@ class Sports(commands.Cog):
         
     @commands.command()
     async def nhl(self, ctx, *, date: HumanTime = None):
-        """Show today's NHL games with score, status, etc or optionally provide a [date]"""
+        """Show today's or [date]s NHL games with score, status"""
         date = await self.sports_date(ctx, date)
 
-        url = ("http://statsapi.web.nhl.com/api/v1/schedule"
-               "?startDate={0}&endDate={0}&expand=schedule.teams,schedule.linescore")
-        url = url.format(date.date())
+        url = "http://statsapi.web.nhl.com/api/v1/schedule"
+        par = {'startDate': str(date.date()), 'endDate': str(date.date()),
+               'expand': "schedule.teams,schedule.linescore"}
         
-        async with self.bot.session.get(url) as resp:
+        async with self.bot.session.get(url, params=par) as resp:
             data = await resp.json()
             
         games = []
@@ -213,8 +214,10 @@ class Sports(commands.Cog):
 
     @commands.command()
     async def nfl(self, ctx, *, date: HumanTime = None):
+        """Show today's NFL games with score, status
+           While a date can be provided the API is weird and only works for the current week?"""
+
         date = await self.sports_date(ctx, date)
-        
         r = {'url' : 'https://api.nfl.com/v1/reroute',
             'data' : {'grant_type': 'client_credentials'},
             'headers' : {'x-domain-id': '100'}}

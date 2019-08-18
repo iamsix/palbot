@@ -15,13 +15,14 @@ class Pics(commands.Cog):
         """Google Image Search and return the results in a switchable embed"""
         if ctx.invoked_with.lower() == "gif":
             search += " gif"
-        search = uriquote(search)
-        url = 'https://www.googleapis.com/customsearch/v1?key={}&cx={}&q={}&searchType=image'
-        url = url.format(self.bot.config.gsearch2, self.bot.config.gsearchcx, search)
+
+        url = 'https://www.googleapis.com/customsearch/v1?'
+        params = {'key': self.bot.config.gsearch2, 'cx': self.bot.config.gsearchcx,
+                   'q': uriquote(search), 'searchType': 'image'}
         if not ctx.channel.is_nsfw():
              url += "&safe=medium"
         
-        async with self.bot.session.get(url) as resp:
+        async with self.bot.session.get(url, params=params) as resp:
             data = await resp.json()
             if 'items' not in data:
                 await ctx.send(f"There are no images of `{search}` on Google Image Search")
@@ -40,7 +41,7 @@ class Pics(commands.Cog):
 
     @commands.command(name='rpics', aliases=['cats', 'dogs', 'birds', 'sloths', 'rats'])
     async def reddit_pics(self, ctx, *, subreddit: str = ""):
-        """Search a subreddit for any image files and 2 random ones"""
+        """Search a subreddit for any image files and return 2 random ones"""
 
         reddits = {'rpics': 'pics',
                     'cats': 'catpictures+cats',
@@ -76,11 +77,68 @@ class Vids(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    #TODO : Reddit video (on_message)
+
     @commands.command(name='yt')
     async def youtube(self, ctx, *, search: str):
         """Search for a youtube video and return some info along with an embedded link"""
-        pass
-        #When porting use the real youtube search probably?
+        key = self.bot.config.gsearch2
+        url = "https://www.googleapis.com/youtube/v3/search"
+        params = {'part' : 'snippet', 'q': uriquote(search), 'type': 'video',
+                  'maxResults': 1, 'key' : key}
+        
+        async with self.bot.session.get(url, params=params) as resp:
+            data = await resp.json()
+            if data['items']:
+                yt_id = data['items'][0]['id']['videoId']
+            else:
+                await ctx.send(f"Unable to find a youtube video for `{search}`")
+                return
+        link = f"https://youtu.be/{yt_id}"
+
+
+        url = "https://www.googleapis.com/youtube/v3/videos"
+        params = {'part': "snippet,contentDetails,statistics",
+                  'hl' : 'en', 'id': yt_id,  'key': key}
+        async with self.bot.session.get(url, params=params) as resp:
+            ytjson = await resp.json()
+            if ytjson['items']:
+                ytjson = ytjson['items'][0]
+            else:
+                await ctx.send(f"Failed to load video info for `{link}`")
+                return
+            
+        
+        title = ytjson['snippet']['title']
+        uploader = ytjson['snippet']['channelTitle']
+        pubdate = ytjson['snippet']['publishedAt'][:10]
+        likes = int(ytjson['statistics'].get('likeCount', 0))
+        dislikes = int(ytjson['statistics'].get('dislikeCount', 0))
+        rating = "{0:.1f}/10".format((likes / (likes + dislikes)) * 10)
+        viewcount = int(ytjson['statistics']['viewCount'])
+
+        duration = ytjson['contentDetails']['duration'][2:].lower()
+
+        category = ""
+        catid = ytjson['snippet']['categoryId']
+        url = "https://www.googleapis.com/youtube/v3/videoCategories"
+        params = {'part': 'snippet', 'id': catid, 'key': key}
+        async with self.bot.session.get(url, params=params) as resp:
+            catjson = await resp.json()
+            category = catjson['items'][0]['snippet']['title']
+
+        out = ""
+        if 'contentRating' in ytjson['contentDetails']:
+            out = "**NSFW** : "
+
+        out += (f"{title} [{category}] :: Length: {duration} - Rating: {rating} - "
+                f"{viewcount:,} views - {uploader} on {pubdate} - {link}")
+
+        await ctx.send(out)
+
+            
+
 
 def setup(bot):
     bot.add_cog(Pics(bot))
+    bot.add_cog(Vids(bot))

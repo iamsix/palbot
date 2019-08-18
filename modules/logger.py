@@ -48,6 +48,8 @@ class Logger(commands.Cog):
     
     @commands.Cog.listener()
     async def on_guild_channel_update(self, before, after):
+        if type(before) != "TextChannel":
+            return
         if before.topic == after.topic:
             return
 

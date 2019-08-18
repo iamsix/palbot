@@ -26,7 +26,7 @@ class Chat(commands.Cog):
         result = cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='commands';").fetchone()
         if not result:
             cursor.execute("CREATE TABLE 'commands' ('cmd' TEXT UNIQUE ON CONFLICT REPLACE, 'output' TEXT, 'owner' TEXT);")
-            conn.commit()
+            self.custom_command_conn.commit()
 
     @commands.command(name='qp')
     async def quickpoll(self, ctx):
@@ -38,8 +38,8 @@ class Chat(commands.Cog):
     async def translate(self, ctx, *, phrase: str):
         """Translate short phrases using google translate
         Optionally specify language code such as `!translate en-es cat`"""
-        url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl={}&tl={}&dt=t&q={}"
-        langs = re.search("(\w{2})-(\w{2})", phrase[0:5])
+        
+        langs = re.search(r"(\w{2})-(\w{2})", phrase[0:5])
         if langs:
             sl = langs.group(1)
             tl = langs.group(2)
@@ -48,9 +48,11 @@ class Chat(commands.Cog):
             sl = "auto"
             tl = "en"
 
-        headers = {'User-Agent': "Mozilla/5.0 (X11; CrOS x86_64 12239.19.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.38 Safari/537.36"}
-        url = url.format(sl, tl, uriquote(phrase))
-        async with self.bot.session.get(url, headers=headers) as resp:
+        url = "https://translate.googleapis.com/translate_a/single"
+        params = {'client': 'gtx', 'sl': sl, 'tl': tl, 'dt': 't', "q": uriquote(phrase)}
+        ua = "Mozilla/5.0 (X11; CrOS x86_64 12239.19.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.38 Safari/537.36"
+        headers = {'User-Agent': ua}
+        async with self.bot.session.get(url, headers=headers, params=params) as resp:
             result = await resp.json()
             await ctx.send("{} ({}): {}".format(result[0][0][1], result[2], result[0][0][0]))
 
@@ -65,12 +67,11 @@ class Chat(commands.Cog):
         elif "shrug" in message.content:
             out = self.shrug()
         elif message.content[:1] in prefix:
-            out = await self.custom_command(message.content[1:])
+            cmd = message.content[1:].split(" ")[0][1:]
+            out = await self.custom_command(cmd)
+            # TODO: Temprary during testing
             if out:
                 await message.channel.send(out)
-                ctx = await self.bot.get_context(message)
-                return
-
         if out:
             pass
             #await message.channel.send(out)
@@ -89,9 +90,8 @@ class Chat(commands.Cog):
         if not result:
             return
         else:
-            output = "\n" + result[0]
-            ouptut = output.strip()
-            return output
+            return result[0].strip()
+             
 
     @commands.command()
     @commands.has_role('Admins')

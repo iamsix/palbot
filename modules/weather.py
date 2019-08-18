@@ -29,17 +29,19 @@ class Weather(commands.Cog):
 
     async def locatamatron(self, ctx, location = ""):
         if not location:
-            return ctx.author_info.location
-            if not loc:
-                await ctx.send("I don't have a location for you - use `!set location <location>` to set one")
-                return
+            loc = ctx.author_info.location
+            if loc:
+                return loc
+            else:
+                await ctx.send("I don't have a location for you - use `set location <location>` to set one")
         else:
             return await self.bot.utils.Location.from_google_geocode(self.bot, location)
 
 
     @commands.command(name='w', aliases=['pw'])
     async def forecast_io(self, ctx, *, location:str = ""):
-        """Show a weather report from forecast.io for your set location or optionally input a <location>"""
+        """Show a weather report from forecast.io for <location>
+           Can be invoked without location if you have done a `set location`"""
         key = self.bot.config.forecast_io_key
         loc = await self.locatamatron(ctx, location)
         if not loc:
@@ -142,7 +144,8 @@ class Weather(commands.Cog):
 
     @commands.command(name='aqi')
     async def get_aqi(self, ctx, *, location: str = ''):
-        """Show the air quality index of your location or optionally at <location>"""
+        """Show the air quality index of <location>
+           Can be invoked without location if you have a set location"""
         loc = await self.locatamatron(ctx, location)
         if not loc:
             return
@@ -154,9 +157,8 @@ class Weather(commands.Cog):
             data = await resp.json()
 
         if data['status'] != "ok":
-            self.logger.debug("AQI Lookup failed:")
-            self.logger.debug(data)
             return
+
         data = data['data']
         
         pm25 = data['iaqi']['pm25']['v']
@@ -190,8 +192,8 @@ class Weather(commands.Cog):
     async def metar(self, ctx, station: str):
         """Get the Metar aviation weather report for an airport <station>"""
         url = ('http://aviationweather.gov/adds/dataserver_current/httpparam?'
-               'dataSource=metars&requestType=retrieve&format=xml&stationString=' 
-              f'{station}&hoursBeforeNow=2&mostRecent=true')
+               'dataSource=metars&requestType=retrieve&format=xml&' 
+              f'stationString={station}&hoursBeforeNow=2&mostRecent=true')
         async with self.bot.session.get(url) as resp:
             data = await resp.read()
             dom = xml.dom.minidom.parseString(data)
@@ -209,7 +211,8 @@ class Weather(commands.Cog):
 
     @commands.command(name='wu')
     async def wunderground(self, ctx, *, location: str = None):
-        """Show a weather report from weather underground for your set location or optionally input a <location>"""
+        """Show a weather report from weather underground for <location>
+           Can be invoked without location if you have done a `set location`"""
         key = self.bot.config.wunderground_key
         loc = await self.locatamatron(ctx, location)
         if not loc:
@@ -235,7 +238,8 @@ class Weather(commands.Cog):
 
     @commands.command()
     async def sun(self, ctx, *, location: str = None):
-        """Show sunrise/sunset for your set location or optionally input a <location>"""
+        """Show sunrise/sunset for a <location>
+           Can be invoked without location if you have done a `set location`"""
         key = self.bot.config.forecast_io_key
         loc = await self.locatamatron(ctx, location)
         if not loc:

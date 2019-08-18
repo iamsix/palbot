@@ -13,8 +13,7 @@ class Media(commands.Cog):
         self.bot = bot
 
 
-    rt_search_url = ("http://api.flixster.com/android/api/v14/movies.json"
-                     "?cbr=1&filter={}")
+    rt_search_url = "http://api.flixster.com/android/api/v14/movies.json?cbr=1&filter={}"
     rt_movie_url = "http://api.flixster.com/android/api/v1/movies/{}.json"
 
 
@@ -199,9 +198,10 @@ class Media(commands.Cog):
         """Find a [book] on goodreads.com and return some rating info and a link"""
         key = self.bot.config.goodreadskey
         
-        url = f"https://www.goodreads.com/search.xml?key={key}&q={uriquote(book)}"
+        url = f"https://www.goodreads.com/search.xml"
+        params = {'key': key, 'q': uriquote(book)}
 
-        async with self.bot.session.get(url) as resp:
+        async with self.bot.session.get(url, params=params) as resp:
             response = await resp.read()
             dom = xml.dom.minidom.parseString(response)
 
@@ -220,8 +220,7 @@ class Media(commands.Cog):
         bookid = dom.getElementsByTagName("best_book")[0].getElementsByTagName("id")[0].firstChild.nodeValue
         bookurl = f"https://www.goodreads.com/book/show/{bookid}"
         
-        output = (f"{title} by {name}{pubyear} | Avg rating: {avgrating} ({ratingscount} ratings) | "
-                  f"{bookdesc} [ {bookurl} ]")
+        output = f"{title} by {name}{pubyear} | Avg rating: {avgrating} ({ratingscount} ratings) | [ {bookurl} ]"
         await ctx.send(output)
 
 

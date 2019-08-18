@@ -73,7 +73,7 @@ class BeerCals:
         return int(round(self.abv_and_ml_to_cals(abv,  self.oz_to_ml(oz)) + self.fg_and_ml_to_cals(fg, self.oz_to_ml(oz)),0))
 
     def tokenize (self, calc_string):
-        return re.split('\s', calc_string)
+        return re.split(r'\s', calc_string)
 
 
 class Food(commands.Cog):
@@ -101,28 +101,30 @@ class Food(commands.Cog):
         clientsecret = self.bot.config.untappd_clientsecret
         top_rating = 4.7        
 
-        auth = f"client_id={clientid}&client_secret={clientsecret}"
-        url = f"https://api.untappd.com/v4/search/beer?q={uriquote(beername)}&{auth}"
+        url = "https://api.untappd.com/v4/search/beer"
+        params = {'client_id': clientid, 'client_secret': clientsecret,
+                  'q': uriquote(beername)}
 
-        async with self.bot.session.get(url) as resp:
+        async with self.bot.session.get(url, params=params) as resp:
             response = await resp.json()
                 
         beerid = response['response']['beers']['items'][0]['beer']['bid']
         
-        url = f"https://api.untappd.com/v4/beer/info/{beerid}?{auth}"
-        async with self.bot.session.get(url) as resp:
+        params = {'client_id': clientid, 'client_secret': clientsecret}
+        url = f"https://api.untappd.com/v4/beer/info/{beerid}?"
+        async with self.bot.session.get(url, params=params) as resp:
             response = await resp.json()
             response = response['response']['beer']
 
         beer_name = response['beer_name']
         beer_abv = response['beer_abv']
-        beer_ibu = response['beer_ibu']
+        #beer_ibu = response['beer_ibu']
         beer_style = response['beer_style']
         
         beer_url = f"https://untappd.com/b/{response['beer_slug']}/{beerid}"
                 
         rating = int(round((float(response['rating_score'])/top_rating)*100, 0))
-        rating_count = response['rating_count']
+        rating_count = int(response['rating_count'])
 
         if rating >=95:
             rating_word = "world-class"
@@ -144,7 +146,7 @@ class Food(commands.Cog):
         if cals:
             cals = f" Est. calories (12oz): {cals}"
 
-        out = (f"Beer: {beer_name} - Grade: {rating} [{rating_word}, {rating_count} ratings] "
+        out = (f"Beer: {beer_name} - Grade: {rating} [{rating_word}, {rating_count:,} ratings] "
                f"Style: {beer_style} ABV: {beer_abv}%{cals} [ <{beer_url}> ]")
         
         await ctx.send(out)
