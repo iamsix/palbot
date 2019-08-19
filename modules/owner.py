@@ -1,6 +1,7 @@
 from discord.ext import commands
 from pathlib import Path
 from importlib import reload
+import sys, traceback
 
 
 class UsefulEvents(commands.Cog):
@@ -22,8 +23,6 @@ class OwnerCog(commands.Cog, name="Owner Commands"):
 
     @commands.command(name='infotest', hidden=True)
     async def infotest(self, ctx):
-        loc = ctx.author_info.location.__dict__
-        strava = ctx.author_info.strava
         out = f"""location: {ctx.author_info.location.__dict__}
         timezone: {ctx.author_info.timezone}
         strava: {ctx.author_info.strava}
@@ -88,10 +87,10 @@ class OwnerCog(commands.Cog, name="Owner Commands"):
         for module in modlist:
             try:
                 self.bot.reload_extension(module)
-            except Exception as e:
+            except Exception:
                 await ctx.send(f"Failed to load module {module}")
                 print(f'Failed to load cog {module}', file=sys.stderr)
-                traceback.print_exec()
+                traceback.print_exc()
         mods = '\n'.join(modlist)
         await ctx.send(f"Reloaded:\n {mods}")
 
