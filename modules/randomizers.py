@@ -22,7 +22,7 @@ class Randomizers(commands.Cog):
         """mmm chicken"""
         rand = random.randint(2, 10)
         if ctx.author.display_name.lower().startswith('rc'):
-            output = f"rcpilot gets {rand}lbs of boiled beef"
+            output = f"{ctx.author.mention} gets {rand}lbs of boiled beef"
         else:
             output = f"{ctx.author.mention} gets {rand} boiled chickens"
         await ctx.send(output)

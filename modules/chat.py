@@ -14,7 +14,7 @@ FACES = [" ͡° ͜ʖ ͡°", " ͡° ʖ̯ ͡°", " ͠° ͟ʖ ͡°", " ͡ᵔ ͜ʖ �
          "*´▽`*", " ﾟ^∀^ﾟ", " ´ ω ` ", "≧◡≦", "´• ω •`", "⌒ω⌒", "*^‿^*", "◕‿◕", "*≧ω≦*",
          "｡•́‿•̀｡", "ー_ー", "´ー` ", "‘～` ", "　￣д￣", "￣ヘ￣", "￣～￣　", "ˇヘˇ", "︶▽︶", 
          "ツ", " ´ д ` ", "︶︿︶", " ˘ ､ ˘ ", " ˘_˘ ", " ᐛ ", "・_・", "⇀_⇀", "￢_￢" ]
-SHRUG = "¯\\\\\_({})\_/¯"
+SHRUG = r"¯\\\_({})\_/¯"
 
 
 class Chat(commands.Cog):
@@ -69,12 +69,8 @@ class Chat(commands.Cog):
         elif message.content[:1] in prefix:
             cmd = message.content[1:].split(" ")[0][1:]
             out = await self.custom_command(cmd)
-            # TODO: Temprary during testing
-            if out:
-                await message.channel.send(out)
         if out:
-            pass
-            #await message.channel.send(out)
+            await message.channel.send(out)
 
     def shrug(self):
         return SHRUG.format(random.choice(FACES))

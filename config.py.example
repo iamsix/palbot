@@ -1,0 +1,35 @@
+token = "abc123"
+
+owner = 123
+
+gsearchapi = "abc123"
+gsearchcx = "abc123"
+gsearch2 = "abc123"
+
+timezonedb = "abc123"
+
+forecast_io_key = "abc123"
+aqicn = "abc123"
+wunderground_key = "abc123"
+
+untappd_clientid = "abc123"
+untappd_clientsecret = "abc123"
+
+goodreadskey = "abc123"
+
+# This isn't exactly a private token since it's directly off the website
+distillertoken = "abc123"
+
+wolframAPIkey = "abc123"
+
+lastfm_api_key = "abc123"
+
+stravaToken = "abc123"
+
+twitterconsumerkey = "abc123"
+twitterconsumersecret = "abc123"
+twitter_token = "abc123"
+
+# Format is {'twitterHandle' : [chanid, chanid2, chanid3]}
+# this will likely change
+twitter_subscriptions = {'twitter' : [123]}

@@ -11,14 +11,11 @@ class Twitter(commands.Cog):
     """All twittery functions like subscribe and lasttweet"""
     def __init__(self, bot):
         self.bot = bot
-        # TODO : Disabled for now during porting
-        #self.tweet_subscriptions.start()
+        self.tweet_subscriptions.start() # pylint: disable=no-member
         self.last_checked = {}
 
     def cog_unload(self):
-        # TODO : Disabled for now during porting
-        pass
-        #self.tweet_subscriptions.cancel()
+        self.tweet_subscriptions.cancel() # pylint: disable=no-member
 
     # TODO : Subscribe/unsubscribe functions here. 
     # Need a different config method for subs
