@@ -1,7 +1,6 @@
 # palbot
-a simple discord bot
+A simple discord bot based on the latest [discord.py](https://github.com/Rapptz/discord.py)
 
-This branch is pre-alpha, not working yet.
+Documentation, requirements.txt and whatnot not yet finished.
 
-It makes use of [discord.py](https://github.com/Rapptz/discord.py)
-
+Currently uses config.py file to set the token and other bot info
