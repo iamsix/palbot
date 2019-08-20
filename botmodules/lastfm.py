@@ -3,6 +3,7 @@ import sqlite3
 import urllib
 import json
 import traceback
+from urllib.parse import quote as uriquote
 #import time
 
 
@@ -32,7 +33,7 @@ def nowplaying(self, e):
         lastfmuser = c.execute("SELECT lastfmuser FROM lastfm WHERE user = LOWER(?)", [e.nick]).fetchone()
 
     if lastfmuser:
-        lastfmuser = lastfmuser[0]
+        lastfmuser = uriquote(lastfmuser[0])
         url = "http://ws.audioscrobbler.com/2.0/?api_key=%s&limit=1&format=json&method=user.getRecentTracks&user=%s" % (self.botconfig["APIkeys"]["lastfmAPIkey"], lastfmuser)
         response = urllib.request.urlopen(url).read().decode('utf-8')
         track = json.loads(response)

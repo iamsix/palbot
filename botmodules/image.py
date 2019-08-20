@@ -72,6 +72,10 @@ async def image_flip(client, reaction, user, was_removed):
         current -= 1
     else:
         return
+    if current > 9:
+        current = 0
+    if current < 0:
+        current = 9
     current = max(0, min(9, current))
     image_flip.results[rto] = (images, current, authorid)
     #image = "{}. {}".format(current+1, images[current]['link'])

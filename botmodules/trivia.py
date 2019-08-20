@@ -427,7 +427,7 @@ async def answer_grabber(self, e):
         # Show the ratio of the guess for tuning
         trivia.bot.logger.info("{}: {} - {:10.4f}%".format(e.nick,e.input,ratio * 100))
 
-        if ratio >= 0.90:
+        if ratio >= 0.88:
             tmr = "{:.2f}".format(time.time() - trivia.qtimestamp)
 
             trivia.gameon = False

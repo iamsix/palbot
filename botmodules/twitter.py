@@ -39,7 +39,8 @@ def read_timeline (user, count=1, since=None):
     if since:
         for twt in tweet:
             if datetime.datetime.strptime(twt['created_at'], "%a %b %d %H:%M:%S +0000 %Y") > since:
-                text += twt['full_text'] + "\n"
+                # reverse order append
+                text = "\n" + twt['full_text'] + text
         text = tweet[0]['user']['screen_name'] + ": " + text.strip()
     else:
         text = tweet[0]['user']['screen_name'] + ": " + tweet[0]['full_text']
@@ -65,7 +66,7 @@ latest_tweet.command = "!lasttweet"
 def trump_alert(self):
     #returns a new breaking news only if it hasn't returned it before
       try:
-        description, updated, ago = read_timeline('realdonaldtrump', 2, trump_alert.lastcheck)
+        description, updated, ago = read_timeline('realdonaldtrump', 3, trump_alert.lastcheck)
 
         if not trump_alert.lastcheck:
             self.logger.debug("First run empty, setting lastcheck to {}".format(updated))

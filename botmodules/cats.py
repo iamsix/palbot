@@ -2,14 +2,26 @@ import json, urllib.request, urllib.error, urllib.parse, random
 def get_cat(self, e):
     url = "http://www.reddit.com/r/catpictures+cats/.json"
     e.output = get_redditpics(url)
+    if e.input:
+        e.allowembed = True
     return e
 get_cat.command = "!cats"
 
 
 def get_source(self, e):
-    e.output ="https://github.com/iamsix/palbot/"
+    e.output ="https://github.com/iamsix/palbot/ <:sadcat:606257196094980107>"
     return e
 get_source.command = "!source"
+
+import discord
+def v_reddit(self, e):
+    embed = discord.Embed(title="lol testing")
+    embed.video(url="https://v.redd.it/qmxomlv6rhe31/DASH_240?source=fallback.mp4")
+    e.embed = embed
+    e.allowembed = True
+    return e
+
+v_reddit.command = "!vreddittest"
 
 
 def get_rat(self, e):

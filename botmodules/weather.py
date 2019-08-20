@@ -135,7 +135,7 @@ def weather_summary_to_icon(icon):
     icons = {
         "cloudy": "\U00002601",
         "partly-cloudy-day": "\U0001F324",
-        "clear-day": "️\U00002600",
+        "clear-day": "\U00002600",
         "clear-night": "\U0001F319",
         "rain": "\U0001F327",
         "snow": "\U00002744",
@@ -183,7 +183,7 @@ Use \002!setlocation <location>\002 to save your location"""
 
 def get_prettyweather(self, e):
     forecast_io(self, e, pretty=True)
-get_prettyweather.command = "!prettyweather"
+get_prettyweather.command = "!pw"
 
 
 WICONS = {"clear-day": "https://raw.githubusercontent.com/manifestinteractive/weather-underground-icons/master/dist/icons/white/png/128x128/clear.png",
@@ -255,7 +255,7 @@ def forecast_io(self,e, location="", pretty=False):
     #max_temp_time = time.strftime("%I%p",time.gmtime(results_json['daily']['data'][0]['temperatureMaxTime'] + (timezone_offset * 3600))).lstrip("0")
     max_temp_c = int(round((max_temp - 32)*5/9,0))
         
-    if feels_like != temp:
+    if round(feels_like,0) != round(temp,0):
         if country == "0" or not country:
             feels_like = " / Feels like: %s°F" % (int(round(feels_like,0)))
         else:
@@ -300,7 +300,7 @@ def forecast_io(self,e, location="", pretty=False):
         etitle = f"{address} - {current_summary}".format()
         icon = WICONS[current_conditions['icon'].lower()]
         embed = discord.Embed(title=etitle)
-        embed = discord.Embed()
+#        embed = discord.Embed()
 #        embed.set_author(name=etitle, icon_url=icon)
         embed.set_footer(text=outlook)
         embed.set_thumbnail(url=icon)

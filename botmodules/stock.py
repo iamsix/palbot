@@ -41,6 +41,7 @@ stock.command = "!astock"
 
 
 def ystock (self, e):
+    # https://autoc.finance.yahoo.com/autoc?query=disney&region=1&lang=en
     url = "http://query1.finance.yahoo.com/v7/finance/quote?symbols={}"
     if " " in e.input:
         e.output = "I can only take a single stock quote for now"
