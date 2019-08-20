@@ -40,7 +40,7 @@ class Logger(commands.Cog):
         newnick = new.display_name.replace(' ', '_').replace('!', "_")
 
         # this depends...
-        for chan in old.server.channels:
+        for chan in old.guild.channels:
             if chan.id in self.files:
                 svr = chan.id
                 line = fmt.format(timestamp, svr, oldnick, host, newnick)

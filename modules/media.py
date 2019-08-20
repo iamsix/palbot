@@ -194,8 +194,8 @@ class Media(commands.Cog):
         await ctx.send(embed=e)
 
     @commands.command(name='gr')
-    async def get_goodreads_book_rating(self, ctx, *, book: str = ""):
-        """Find a [book] on goodreads.com and return some rating info and a link"""
+    async def get_goodreads_book_rating(self, ctx, *, book: str):
+        """Find a <book> on goodreads.com and return some rating info and a link"""
         key = self.bot.config.goodreadskey
         
         url = f"https://www.goodreads.com/search.xml"
@@ -208,7 +208,7 @@ class Media(commands.Cog):
         title = dom.getElementsByTagName("title")[0].firstChild.nodeValue
         name = dom.getElementsByTagName("name")[0].firstChild.nodeValue
         avgrating = dom.getElementsByTagName("average_rating")[0].firstChild.nodeValue
-        ratingscount = dom.getElementsByTagName("ratings_count")[0].firstChild.nodeValue
+        ratingscount = int(dom.getElementsByTagName("ratings_count")[0].firstChild.nodeValue)
     
         #apparently some books don't have a year
         try:
@@ -220,7 +220,7 @@ class Media(commands.Cog):
         bookid = dom.getElementsByTagName("best_book")[0].getElementsByTagName("id")[0].firstChild.nodeValue
         bookurl = f"https://www.goodreads.com/book/show/{bookid}"
         
-        output = f"{title} by {name}{pubyear} | Avg rating: {avgrating} ({ratingscount} ratings) | [ {bookurl} ]"
+        output = f"{title} by {name}{pubyear} | Avg rating: {avgrating} ({ratingscount:,} ratings) | [ {bookurl} ]"
         await ctx.send(output)
 
 

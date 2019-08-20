@@ -73,7 +73,7 @@ class Twitter(commands.Cog):
 
     @tasks.loop(minutes=1.0)
     async def tweet_subscriptions(self):
-        """Reads a twitter timeline and posts the result to any channels that sub it"""
+        """Reads a twitter timeline and posts the new tweets to any channels that sub it"""
         subs = self.bot.config.twitter_subscriptions
         for twitter_nick in subs:      
             if twitter_nick not in self.last_checked:

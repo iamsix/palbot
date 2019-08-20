@@ -55,7 +55,7 @@ class PalBot(commands.Bot):
 
     async def close(self):
         await super().close()
-        await self.session.close()
+        sys.exit()
 
 
 bot = PalBot()

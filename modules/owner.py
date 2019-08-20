@@ -20,6 +20,11 @@ class OwnerCog(commands.Cog, name="Owner Commands"):
         self.bot = bot
 
 
+    @commands.command()
+    @commands.is_owner()
+    async def die(self, ctx):
+        await ctx.send("Goodbye.")
+        await self.bot.close()
 
     @commands.command(name='infotest', hidden=True)
     async def infotest(self, ctx):
