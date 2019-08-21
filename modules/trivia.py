@@ -222,13 +222,17 @@ class Trivia(commands.Cog):
         self.hints_given = 0
         if self.auto_hint:
             qtime = self.question_time/2
-            self.answer_timer = self.bot.loop.create_task(self.run_later(qtime, task=self.first_hint()))
+            self.answer_timer = self.bot.loop.create_task(self.run_later(qtime, 
+                                                                         task=self.first_hint(),
+                                                                         loop=self.bot.loop))
         else:
             qtime = self.question_time
-            self.answer_timer = self.bot.loop.create_task(self.run_later(qtime, task=self.failed_answer()))
+            self.answer_timer = self.bot.loop.create_task(self.run_later(qtime, 
+                                                                         task=self.failed_answer(),
+                                                                         loop=self.bot.loop))
 
-    async def run_later(self, sleep: int, task):
-        await asyncio.sleep(sleep)
+    async def run_later(self, sleep: int, task, loop=None):
+        await asyncio.sleep(sleep, loop=loop)
         await task
 
     def clean_answer(self, answer):
@@ -285,7 +289,9 @@ class Trivia(commands.Cog):
         self.hint = self.perc_hint(30)
         await self.question_channel.send(f"Hint1 ${self.value}: `{self.hint}`")
         qtime = round(self.question_time/6)
-        self.answer_timer = self.bot.loop.create_task(self.run_later(qtime, task=self.second_hint()))
+        self.answer_timer = self.bot.loop.create_task(self.run_later(qtime, 
+                                                                     task=self.second_hint(),
+                                                                     loop=self.bot.loop))
 
 
     async def second_hint(self):
@@ -294,7 +300,9 @@ class Trivia(commands.Cog):
         self.hint = self.perc_hint(45)
         await self.question_channel.send(f"Hint2 ${self.value}: `{self.hint}`")
         qtime = round(self.question_time/6)
-        self.answer_timer = self.bot.loop.create_task(self.run_later(qtime, task=self.third_hint()))
+        self.answer_timer = self.bot.loop.create_task(self.run_later(qtime, 
+                                                                     task=self.third_hint(),
+                                                                     loop=self.bot.loop))
 
 
     #Might make this show all vowels or all consonants rather than percent based
@@ -304,7 +312,9 @@ class Trivia(commands.Cog):
         self.hint = self.perc_hint(75)
         await self.question_channel.send(f"Hint3 ${self.value}: `{self.hint}`")
         qtime = round(self.question_time/6)
-        self.answer_timer = self.bot.loop.create_task(self.run_later(qtime, task=self.failed_answer()))
+        self.answer_timer = self.bot.loop.create_task(self.run_later(qtime, 
+                                                                     task=self.failed_answer(),
+                                                                     loop=self.bot.loop))
 
 
     def perc_hint(self, revealpercent):
@@ -366,7 +376,7 @@ class Trivia(commands.Cog):
                 self.session = "{}-0".format(time.strftime("%Y-%m-%d"))
                 await self.load_scores()
         else:
-            self.bot.loop.create_task(self.run_later(self.question_delay, self.ask_question()))
+            self.bot.loop.create_task(self.run_later(self.question_delay, self.ask_question(), self.bot.loop))
 
 
     async def trivia_check(self, ctx, must_be_running=False, quiet=False):

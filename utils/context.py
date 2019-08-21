@@ -11,14 +11,19 @@ class MoreContext(commands.Context):
         self.override_send_for_edit = None
         
     async def send(self, *args, **kwargs):
+        paginator = kwargs.pop('paginator', None)
         if not self.override_send_for_edit or not self.message.id == self.override_send_for_edit[0].id:
+            print(paginator)
             result = await super().send(*args, **kwargs)
-            self.bot.recent_posts.append((self.message, result))
+            self.bot.recent_posts.append((self.message, result, paginator))
+            return result
         else:
             edit = self.override_send_for_edit[1]
             self.override_send_for_edit = None
-            kwargs['content'] = args[0]
+            if len(args):
+                kwargs['content'] = args[0]
             await edit.edit(**kwargs)
+            return edit
         
     @property
     def author_info(self):

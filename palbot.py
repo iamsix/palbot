@@ -21,7 +21,7 @@ logging.basicConfig(filename='debug.log',level=logging.INFO, format=FORMAT)
 class PalBot(commands.Bot):
 
     def __init__(self):
-        super().__init__(command_prefix=["!"],
+        super().__init__(command_prefix=["$"],
                 description="https://github.com/iamsix/palbot/ by six",
                 pm_help=None, help_attrs=dict(hidden=True),
                 fetch_offline_members=False, case_insensitive=True)
@@ -34,6 +34,7 @@ class PalBot(commands.Bot):
         # This contains a list of tuples where:
         #  [0] = User's command Message obj
         #  [1] = the bot's response Message obj
+        #  [2] = Paginator (None if not paginating)
         self.recent_posts = deque([], maxlen=10)
 
 
@@ -71,9 +72,10 @@ class PalBot(commands.Bot):
     async def on_message_delete(self, message):
         remove = None
         # Consider iterating copy to prevent race condition
-        for user_msg, bot_msg in self.recent_posts:
+        for user_msg, bot_msg, pg in self.recent_posts:
             if message == user_msg:
-                remove = (user_msg, bot_msg)
+                remove = (user_msg, bot_msg, pg)
+                del(pg)
                 await bot_msg.delete()
                 break
         if remove:
@@ -81,8 +83,11 @@ class PalBot(commands.Bot):
 
     async def on_message_edit(self, before, after):
         # Consider iterating copy to prevent race condition
-        for user_msg, bot_msg in self.recent_posts:
+        for user_msg, bot_msg, pg in self.recent_posts:
             if before.id == user_msg.id:
+                if pg:
+                    pg.__del__()
+                    del(pg)
                 ctx = await self.get_context(after, cls=self.utils.MoreContext)
                 ctx.override_send_for_edit = (after, bot_msg)
                 await self.invoke(ctx)

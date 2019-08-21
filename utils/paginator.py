@@ -4,6 +4,8 @@ import asyncio
 class Paginator:
     def __init__(self, ctx, data, callback):
         self.bot = ctx.bot
+        self.ctx = ctx
+        self.waiting = None
         self.channel = ctx.channel
         self.callback = callback
         self.message = ctx.message
@@ -15,6 +17,13 @@ class Paginator:
                 '\N{BLACK LEFT-POINTING TRIANGLE}': self.previous_page,
                 '\N{BLACK RIGHT-POINTING TRIANGLE}': self.next_page,
                 }
+        print(id(self))
+
+    def __del__(self):
+        self.paginating = False
+        self.func = lambda:None
+        self.waiting = lambda:None
+        self.message = None
 
     async def next_page(self):
         await self.load_page(self.current_page + 1)
@@ -30,7 +39,7 @@ class Paginator:
             await self.message.edit(content=content, embed=embed)
             return
         else:
-            self.message = await self.channel.send(content=content, embed=embed)
+            self.message = await self.ctx.send(content=content, embed=embed, paginator=self)
             if not self.paginating:
                 return
             for emoji in self.interface.keys():
@@ -38,6 +47,9 @@ class Paginator:
 
 
     def react_check(self, reaction, user):
+        if not self.message:
+            self.func = lambda:None
+            return False
         if user is None or user.id != self.author.id:
             return False
         if reaction.message.id != self.message.id:
@@ -54,8 +66,10 @@ class Paginator:
         self.bot.loop.create_task(self.load_page(0, True))
         while self.paginating:
             try:
-                reaction, user = await self.bot.wait_for('reaction',
-                        check=self.react_check, timeout=300.0)
+                self.waiting = self.bot.wait_for('reaction',
+                                                check=self.react_check, 
+                                                timeout=300.0)
+                reaction, user = await self.waiting
             except asyncio.TimeoutError:
                 self.paginating = False
                 try:
