@@ -10,6 +10,8 @@ from pathlib import Path
 import datetime
 import sys, traceback
 import logging
+import sqlite3
+from collections import deque
 
 
 FORMAT = "[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s"
@@ -29,16 +31,32 @@ class PalBot(commands.Bot):
         self.moddir = "modules"
         self.config = __import__('config')
         self.utils = __import__('utils')
-#        self.lastresponses = deque((command, myresponse), maxlen=50))
+        # This contains a list of tuples where:
+        #  [0] = User's command Message obj
+        #  [1] = the bot's response Message obj
+        self.recent_posts = deque([], maxlen=10)
+
 
         for module in Path(self.moddir).glob('*.py'):
             try:
                 self.load_extension("{}.{}".format(self.moddir,module.stem))
             except Exception as e:
                 print(f'Failed to load cog {module}', file=sys.stderr)
-                print(e)
-                traceback.print_exc()
+                traceback.print_exception(type(e), e, e.__traceback__, file=sys.stderr)
 
+    async def on_command_error(self, ctx, error):
+        if isinstance(error, commands.CommandNotFound):
+            # shouldn't happen too often.. I think checking the sqlite is better than
+            # storing the entire command list in memory, even though it's likely small
+            conn = sqlite3.connect("customcommands.sqlite")
+            c = conn.cursor()
+            result = c.execute("SELECT cmd FROM commands WHERE cmd = (?)", [ctx.invoked_with]).fetchone()
+            if result:
+                return
+            self.logger.info(error)
+
+        print('Ignoring exception in command {}:'.format(ctx.command), file=sys.stderr)
+        traceback.print_exception(type(error), error, error.__traceback__, file=sys.stderr)
 
 
     async def on_ready(self):
@@ -49,7 +67,27 @@ class PalBot(commands.Bot):
     async def on_message(self, message):
         ctx = await self.get_context(message, cls=self.utils.MoreContext)
         await self.invoke(ctx)
+    
+    async def on_message_delete(self, message):
+        remove = None
+        # Consider iterating copy to prevent race condition
+        for user_msg, bot_msg in self.recent_posts:
+            if message == user_msg:
+                remove = (user_msg, bot_msg)
+                await bot_msg.delete()
+                break
+        if remove:
+            self.recent_posts.remove(remove)
 
+    async def on_message_edit(self, before, after):
+        # Consider iterating copy to prevent race condition
+        for user_msg, bot_msg in self.recent_posts:
+            if before.id == user_msg.id:
+                ctx = await self.get_context(after, cls=self.utils.MoreContext)
+                ctx.override_send_for_edit = (after, bot_msg)
+                await self.invoke(ctx)
+                break
+            
     def run(self):
         super().run(config.token, reconnect=True)
 

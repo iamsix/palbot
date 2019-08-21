@@ -179,6 +179,8 @@ class Trivia(commands.Cog):
             await ctx.send(f"Invalid input - input is format is `{ctx.prefix}{ctx.command} ##`")
         if isinstance(error, commands.MissingRequiredArgument):
             await ctx.send(error)
+        else:
+            raise(error)
 
     async def ask_question(self):
         clueid = str(random.randint(1, self.clue_count))
@@ -319,9 +321,9 @@ class Trivia(commands.Cog):
 
 
     async def failed_answer(self):
+        await self.after_question()
         out = f"FAIL! no one guessed the answer: **{self.answer}**"
         await self.question_channel.send(out)
-        await self.after_question()
         
     @commands.Cog.listener()
     async def on_message(self, message):
@@ -336,25 +338,25 @@ class Trivia(commands.Cog):
         self.bot.logger.info("{}: {} - {:10.4f}%".format(user, message.clean_content,ratio * 100))
         if ratio >= 0.88:
             tmr = "{:.2f}".format(time.time() - self.timestamp)
-            self.answer_timer.cancel()
+            self.answer_timer.cancel()            
 
             if user not in self.points:
                 self.points[user] = [0,0] # points, questions_answered
 
             self.points[user][0] += self.value
             self.points[user][1] += 1
-
+            await self.after_question()
+            
             out = (f"Winrar in {tmr} seconds! "
                    f"**{user}** [ ${self.points[user][0]} in {self.points[user][1]} ] "
                    f"got the answer: **{self.answer}**")
             
             await message.channel.send(out)
 
-            await self.after_question()
 
     async def after_question(self):
-        await self.save_scores()
         self.live_question = False
+        await self.save_scores()
         if self.stop_after_next:
             self.game_on = False
             if self.session[-2:] != "-0":
@@ -364,9 +366,7 @@ class Trivia(commands.Cog):
                 self.session = "{}-0".format(time.strftime("%Y-%m-%d"))
                 await self.load_scores()
         else:
-            self.delay_timer = asyncio.sleep(self.question_delay)
-            await self.delay_timer
-            self.bot.loop.create_task(self.ask_question())
+            self.bot.loop.create_task(self.run_later(self.question_delay, self.ask_question()))
 
 
     async def trivia_check(self, ctx, must_be_running=False, quiet=False):

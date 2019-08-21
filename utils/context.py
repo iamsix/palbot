@@ -2,11 +2,24 @@ import sqlite3
 from discord.ext import commands
 import asyncio
 from urllib.parse import quote as uriquote
+import traceback
+
 
 class MoreContext(commands.Context):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-
+        self.override_send_for_edit = None
+        
+    async def send(self, *args, **kwargs):
+        if not self.override_send_for_edit or not self.message.id == self.override_send_for_edit[0].id:
+            result = await super().send(*args, **kwargs)
+            self.bot.recent_posts.append((self.message, result))
+        else:
+            edit = self.override_send_for_edit[1]
+            self.override_send_for_edit = None
+            kwargs['content'] = args[0]
+            await edit.edit(**kwargs)
+        
     @property
     def author_info(self):
         return AuthorInfo(self.author)
@@ -21,6 +34,18 @@ class Location:
         self.country = country
         self.user_input_location = user_input_location
         #
+
+    @classmethod
+    async def convert(cls, ctx, address):
+        if not address and ctx.author_info.location:
+            return ctx.author_info.location
+        elif not address:
+            raise commands.MissingRequiredArgument
+        else:
+            loc = cls.from_google_geocode(ctx.bot, address)
+            if not loc:
+                raise commands.BadArgument
+            return loc
 
     @property
     def formatted_address(self):
@@ -43,7 +68,8 @@ class Location:
             return zone
 
 
-    async def from_google_geocode(bot, address):
+    @classmethod
+    async def from_google_geocode(cls, bot, address):
         url = "https://maps.googleapis.com/maps/api/geocode/json?address={}&key={}"
         url = url.format(uriquote(address), bot.config.gsearch2)
 
@@ -52,7 +78,7 @@ class Location:
             status = results_json['status']
 
             if status != "OK":
-                raise
+                return None
 
             city, state, country, poi = "","","", ""
 
@@ -72,7 +98,7 @@ class Location:
             lng = results_json['results'][0]['geometry']['location']['lng']
             lat = results_json['results'][0]['geometry']['location']['lat']
 
-            loc = Location(lat, lng, city, state, country, address)
+            loc = cls(lat, lng, city, state, country, address)
 
             return loc
 

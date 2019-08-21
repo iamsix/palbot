@@ -67,7 +67,7 @@ class Chat(commands.Cog):
         elif "shrug" in message.content:
             out = self.shrug()
         elif message.content[:1] in prefix:
-            cmd = message.content[1:].split(" ")[0][1:]
+            cmd = message.content[1:].split(" ")[0]
             out = await self.custom_command(cmd)
         if out:
             await message.channel.send(out)
@@ -88,6 +88,7 @@ class Chat(commands.Cog):
         else:
             return result[0].strip()
              
+
 
     @commands.command()
     @commands.has_role('Admins')

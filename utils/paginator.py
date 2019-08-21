@@ -55,7 +55,7 @@ class Paginator:
         while self.paginating:
             try:
                 reaction, user = await self.bot.wait_for('reaction',
-                        check=self.react_check, timeout=120.0)
+                        check=self.react_check, timeout=300.0)
             except asyncio.TimeoutError:
                 self.paginating = False
                 try:

@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 import asyncio
 import random
+import re
 
 
 class Randomizers(commands.Cog):
@@ -13,7 +14,7 @@ class Randomizers(commands.Cog):
         """bleeeh"""
         output = ""
         rand = random.randint(2, 10)
-        for n in range(0, rand):
+        for _ in range(0, rand):
             output += "ee" if random.randint(0, 5) == 0 else "e"
         await ctx.send(f"bl{output}h")
 
@@ -35,10 +36,52 @@ class Randomizers(commands.Cog):
         else:
             output = ""
             rand = random.randint(2, 10)
-            for n in range(0, rand):
+            for _ in range(0, rand):
                 output += "l"
                 output += "oo" if random.randint(0, 5) == 0 else "o"
         await ctx.send(output)
+
+    class Die:
+        die_regex = re.compile(r'(\d+)?d(\d+)([\+\-]\d+)?')
+        def __init__(self, die: str):
+            result = self.die_regex.match(die)
+            if not result:
+                raise commands.BadArgument
+            self.die = die
+            self.count = int(result.group(1)) if result.group(1) else 1
+            self.value = int(result.group(2)) if result.group(2) else 6
+            self.adjustment = int(result.group(3)) if result.group(3) else 0
+
+        def __str__(self):
+            return f"{self.count}d{self.value}"
+
+        @classmethod
+        async def convert(cls, ctx, die):
+            return cls(die)
+
+    @commands.command()
+    async def roll(self, ctx, *, die: Die = Die("1d6")):
+        """Roll a die such as 1d6"""
+        results = []
+        total = 0
+        for _ in range(0,die.count):
+            roll = random.randint(1,die.value)
+            total += roll
+            results.append(str(roll))
+        
+        out = f"Rolled {die}:: {', '.join(results)}"
+        if die.count > 1:
+            out += f" :: Total {total}"
+        await ctx.send(out)
+
+    @roll.error
+    async def roll_error(self, ctx, error):
+        if isinstance(error, commands.BadArgument):
+            await ctx.send(f"Invalid input - input is format is `{ctx.prefix}roll 1d6` or `2d20`, `5d12`, etc")
+        if isinstance(error, commands.MissingRequiredArgument):
+            await ctx.send(error)
+        else:
+            raise(error)
 
 
     @commands.command(name='error')

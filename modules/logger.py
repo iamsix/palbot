@@ -22,7 +22,11 @@ class Logger(commands.Cog):
         svr = message.channel.id
         nick = message.author.display_name
         nick = nick.replace(' ', '_').replace('!', "_")
-        line = line.format(timestamp, svr, nick, host, message.channel.name, say)
+        if message.channel.type != discord.ChannelType.text:
+            chan = self.bot.user.display_name
+        else:
+            chan = message.channel.name
+        line = line.format(timestamp, svr, nick, host, chan, say)
 
         F.write(line)
         F.flush()
