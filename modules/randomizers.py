@@ -78,8 +78,10 @@ class Randomizers(commands.Cog):
     async def roll_error(self, ctx, error):
         if isinstance(error, commands.BadArgument):
             await ctx.send(f"Invalid input - input is format is `{ctx.prefix}roll 1d6` or `2d20`, `5d12`, etc")
+            return
         if isinstance(error, commands.MissingRequiredArgument):
             await ctx.send(error)
+            return
         else:
             raise(error)
 

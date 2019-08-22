@@ -74,7 +74,6 @@ class Paginator:
                 try:
                     await self.message.clear_reactions()
                 except:
-                    print("failed to clear reactions")
                     pass
                 finally:
                     break

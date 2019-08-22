@@ -56,6 +56,13 @@ class PalBot(commands.Bot):
                 return
             self.logger.info(error)
 
+        if hasattr(ctx.command, 'on_error'):
+            return
+        cog = ctx.cog
+        if cog:
+            if commands.Cog._get_overridden_method(cog.cog_command_error) is not None:
+                return
+
         print('Ignoring exception in command {}:'.format(ctx.command), file=sys.stderr)
         traceback.print_exception(type(error), error, error.__traceback__, file=sys.stderr)
 

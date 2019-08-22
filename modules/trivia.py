@@ -222,18 +222,14 @@ class Trivia(commands.Cog):
         self.hints_given = 0
         if self.auto_hint:
             qtime = self.question_time/2
-            self.answer_timer = self.bot.loop.create_task(self.run_later(qtime, 
-                                                                         task=self.first_hint(),
-                                                                         loop=self.bot.loop))
+            self.answer_timer = asyncio.ensure_future(self.run_later(qtime, task=self.first_hint))
         else:
             qtime = self.question_time
-            self.answer_timer = self.bot.loop.create_task(self.run_later(qtime, 
-                                                                         task=self.failed_answer(),
-                                                                         loop=self.bot.loop))
+            self.answer_timer = asyncio.ensure_future(self.run_later(qtime, task=self.failed_answer))
 
-    async def run_later(self, sleep: int, task, loop=None):
-        await asyncio.sleep(sleep, loop=loop)
-        await task
+    async def run_later(self, sleep: int, task):
+        await asyncio.sleep(sleep)
+        await task()
 
     def clean_answer(self, answer):
         """gets rid of articles like 'The' Answer, 'An' Answer, 'A' cat, etc.
@@ -289,9 +285,7 @@ class Trivia(commands.Cog):
         self.hint = self.perc_hint(30)
         await self.question_channel.send(f"Hint1 ${self.value}: `{self.hint}`")
         qtime = round(self.question_time/6)
-        self.answer_timer = self.bot.loop.create_task(self.run_later(qtime, 
-                                                                     task=self.second_hint(),
-                                                                     loop=self.bot.loop))
+        self.answer_timer = asyncio.ensure_future(self.run_later(qtime, task=self.second_hint))
 
 
     async def second_hint(self):
@@ -300,9 +294,7 @@ class Trivia(commands.Cog):
         self.hint = self.perc_hint(45)
         await self.question_channel.send(f"Hint2 ${self.value}: `{self.hint}`")
         qtime = round(self.question_time/6)
-        self.answer_timer = self.bot.loop.create_task(self.run_later(qtime, 
-                                                                     task=self.third_hint(),
-                                                                     loop=self.bot.loop))
+        self.answer_timer = asyncio.ensure_future(self.run_later(qtime, task=self.third_hint))
 
 
     #Might make this show all vowels or all consonants rather than percent based
@@ -312,9 +304,7 @@ class Trivia(commands.Cog):
         self.hint = self.perc_hint(75)
         await self.question_channel.send(f"Hint3 ${self.value}: `{self.hint}`")
         qtime = round(self.question_time/6)
-        self.answer_timer = self.bot.loop.create_task(self.run_later(qtime, 
-                                                                     task=self.failed_answer(),
-                                                                     loop=self.bot.loop))
+        self.answer_timer = asyncio.ensure_future(self.run_later(qtime, task=self.failed_answer))
 
 
     def perc_hint(self, revealpercent):
@@ -365,6 +355,7 @@ class Trivia(commands.Cog):
 
 
     async def after_question(self):
+        self.answer_timer = None
         self.live_question = False
         await self.save_scores()
         if self.stop_after_next:
@@ -376,7 +367,7 @@ class Trivia(commands.Cog):
                 self.session = "{}-0".format(time.strftime("%Y-%m-%d"))
                 await self.load_scores()
         else:
-            self.bot.loop.create_task(self.run_later(self.question_delay, self.ask_question(), self.bot.loop))
+            asyncio.ensure_future(self.run_later(self.question_delay, self.ask_question))
 
 
     async def trivia_check(self, ctx, must_be_running=False, quiet=False):
