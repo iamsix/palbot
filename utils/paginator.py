@@ -17,7 +17,6 @@ class Paginator:
                 '\N{BLACK LEFT-POINTING TRIANGLE}': self.previous_page,
                 '\N{BLACK RIGHT-POINTING TRIANGLE}': self.next_page,
                 }
-        print(id(self))
 
     def __del__(self):
         self.paginating = False

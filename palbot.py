@@ -21,7 +21,7 @@ logging.basicConfig(filename='debug.log',level=logging.INFO, format=FORMAT)
 class PalBot(commands.Bot):
 
     def __init__(self):
-        super().__init__(command_prefix=["$"],
+        super().__init__(command_prefix=["!"],
                 description="https://github.com/iamsix/palbot/ by six",
                 pm_help=None, help_attrs=dict(hidden=True),
                 fetch_offline_members=False, case_insensitive=True)

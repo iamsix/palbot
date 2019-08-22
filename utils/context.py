@@ -13,7 +13,6 @@ class MoreContext(commands.Context):
     async def send(self, *args, **kwargs):
         paginator = kwargs.pop('paginator', None)
         if not self.override_send_for_edit or not self.message.id == self.override_send_for_edit[0].id:
-            print(paginator)
             result = await super().send(*args, **kwargs)
             self.bot.recent_posts.append((self.message, result, paginator))
             return result
