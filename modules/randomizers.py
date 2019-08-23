@@ -49,7 +49,7 @@ class Randomizers(commands.Cog):
                 raise commands.BadArgument
             self.die = die
             self.count = int(result.group(1)) if result.group(1) else 1
-            self.value = int(result.group(2)) if result.group(2) else 6
+            self.value = max(int(result.group(2)), 1) if result.group(2) else 6
             self.adjustment = int(result.group(3)) if result.group(3) else 0
 
         def __str__(self):
@@ -67,7 +67,12 @@ class Randomizers(commands.Cog):
         for _ in range(0,die.count):
             roll = random.randint(1,die.value)
             total += roll
-            results.append(str(roll))
+            if die.value == 2:
+                coins = {1: "heads", 2: "tails"}
+                results.append(f"{coins[roll]} ({roll})")
+            else:
+                results.append(str(roll))
+                
         
         out = f"Rolled {die}:: {', '.join(results)}"
         if die.count > 1:

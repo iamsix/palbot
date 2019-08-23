@@ -19,8 +19,12 @@ class OwnerCog(commands.Cog, name="Owner Commands"):
     def __init__(self, bot):
         self.bot = bot
 
+    @commands.command(hidden=True)
+    @commands.is_owner()
+    async def uptime(self, ctx):
+        await ctx.send(f"Uptime is {self.bot.uptime}")
 
-    @commands.command()
+    @commands.command(hidden=True)
     @commands.is_owner()
     async def die(self, ctx):
         await ctx.send("Goodbye.")

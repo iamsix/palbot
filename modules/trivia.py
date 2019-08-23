@@ -114,13 +114,15 @@ class Trivia(commands.Cog):
     @trivia.command(name='stop')
     async def stop_trivia(self, ctx):
         """Stop trivia after the next question/immediately if between questions"""
-        if not (await self.trivia_check(ctx, quiet=True)):
+        if not (await self.trivia_check(ctx, must_be_running=True, quiet=True)):
             return
         if self.game_on:
             self.stop_after_next = True
             if self.live_question:
                 await ctx.channel.send("Trivia will be stopped after current question")
             else:
+                self.answer_timer.cancel()
+                self.game_on = False
                 await ctx.channel.send("Trivia stopped")
 
     @trivia.command(name='score')
@@ -183,6 +185,8 @@ class Trivia(commands.Cog):
             raise(error)
 
     async def ask_question(self):
+        if not self.game_on:
+            return
         clueid = str(random.randint(1, self.clue_count))
         clue = self.clues_c.execute(CLUE_Q, [clueid]).fetchone()
 
@@ -321,6 +325,8 @@ class Trivia(commands.Cog):
 
 
     async def failed_answer(self):
+        if not self.live_question:
+            return
         await self.after_question()
         out = f"FAIL! no one guessed the answer: **{self.answer}**"
         await self.question_channel.send(out)
@@ -355,7 +361,6 @@ class Trivia(commands.Cog):
 
 
     async def after_question(self):
-        self.answer_timer = None
         self.live_question = False
         await self.save_scores()
         if self.stop_after_next:
@@ -367,7 +372,7 @@ class Trivia(commands.Cog):
                 self.session = "{}-0".format(time.strftime("%Y-%m-%d"))
                 await self.load_scores()
         else:
-            asyncio.ensure_future(self.run_later(self.question_delay, self.ask_question))
+            self.answer_timer = asyncio.ensure_future(self.run_later(self.question_delay, self.ask_question))
 
 
     async def trivia_check(self, ctx, must_be_running=False, quiet=False):
