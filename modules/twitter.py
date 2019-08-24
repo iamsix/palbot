@@ -38,9 +38,12 @@ class Twitter(commands.Cog):
     @commands.command(name='lasttweet')
     async def last_tweet(self, ctx, *, handle: str):
         """Show the last tweet of a twitter user"""
-        tweet = (await self.read_timeline(handle))[0]
-        parsed = self.parse_tweet(tweet)
-        await ctx.send("{author}: {text} ({ago})".format(**parsed))
+        tweet = await self.read_timeline(handle)
+        if tweet:
+            parsed = self.parse_tweet(tweet[0])
+            await ctx.send("{author}: {text} ({ago})".format(**parsed))
+        else:
+            await ctx.send(f"Failed to load tweets from twitter user @{handle}")
 
     @commands.command(hidden=True)
     async def trump(self, ctx):

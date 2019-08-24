@@ -21,13 +21,14 @@ class Media(commands.Cog):
     async def rt(self, ctx, *, movie_name: str):
         """Searches Flixster for a movie's Rotten Tomatoes score and critics consensus if available"""
         url = self.rt_search_url.format(uriquote(movie_name))
-        data = await self.json_from_flxurl(url)
+        # RT api is slow...
+        async with ctx.channel.typing():
+            data = await self.json_from_flxurl(url)
         movielist = []
         for movie in data:
             movielist.append(movie['id'])
         pages = Paginator(ctx, movielist, self.rt_output_callback)
         await pages.paginate()
-        #await ctx.send(await self.parse_rt(movie))
 
 
     async def rt_output_callback(self, data, pg_number):
@@ -41,6 +42,8 @@ class Media(commands.Cog):
         """used for any flixster url due to the special encoding"""
         async with self.bot.session.get(url) as resp:
             data = await resp.read()
+            # The built in aiohttp .json() doesn't like this json for some reason
+            # manual decode + json module is more forgiving
             return json.loads(data.decode('windows-1252', 'replace'))
 
     async def parse_rt_embed(self, movie):
@@ -164,8 +167,7 @@ class Media(commands.Cog):
 
         page = await self.bot.utils.bs_from_url(self.bot, urls[0])
 
-        data = json.loads(page.find('script',
-            type='application/ld+json').text)
+        data = json.loads(page.find('script', type='application/ld+json').text)
 
         self.bot.utils.dict_merge(mc_model, data)
 

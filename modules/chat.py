@@ -62,7 +62,7 @@ class Chat(commands.Cog):
     async def on_message(self, message):
         out = ''
         prefix = self.bot.command_prefix
-        if message.content.startswith('bot '):
+        if message.content.lower().startswith('bot '):
             out = f"{message.author.mention}: {self.decider(message.content[4:])}"
         elif "shrug" in message.content:
             out = self.shrug()
@@ -75,6 +75,12 @@ class Chat(commands.Cog):
     def shrug(self):
         return SHRUG.format(random.choice(FACES))
 
+    @commands.command(name="bot")
+    async def decide(self, ctx, *, line:str):
+        """Decide things"""
+        out = f"{ctx.author.mention}: {self.decider(line)}"
+        await ctx.send(out)
+
     def decider(self, msg):
         things = re.split(", or |, | or ", msg, flags=re.IGNORECASE)
         if len(things) > 1: 
@@ -82,7 +88,7 @@ class Chat(commands.Cog):
  
     async def custom_command(self, command):
         c = self.custom_command_cursor
-        result = c.execute("SELECT output FROM commands WHERE cmd = (?)", [command]).fetchone()
+        result = c.execute("SELECT output FROM commands WHERE cmd = (?)", [command.lower()]).fetchone()
         if not result:
             return
         else:
@@ -98,7 +104,7 @@ class Chat(commands.Cog):
         owner = str(ctx.author)
         c = self.custom_command_cursor
         conn = self.custom_command_conn
-        c.execute("INSERT INTO commands VALUES (?,?,?)", (cmd, output, owner))
+        c.execute("INSERT INTO commands VALUES (?,?,?)", (cmd.lower(), output, owner))
         conn.commit()
             
     @commands.command()
@@ -106,7 +112,7 @@ class Chat(commands.Cog):
     async def delcmd(self, ctx, cmd: str):
         c = self.custom_command_cursor
         conn = self.custom_command_conn
-        c.execute("DELETE FROM commands WHERE cmd = (?)", [cmd])
+        c.execute("DELETE FROM commands WHERE cmd = (?)", [cmd.lower()])
         conn.commit()
 
 def setup(bot):

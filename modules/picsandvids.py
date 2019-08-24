@@ -56,7 +56,9 @@ class Pics(commands.Cog):
         headers = {'User-agent': 'PalBot by /u/mrsix'}
         async with self.bot.session.get(url, headers=headers) as resp:
             data = await resp.json()
-
+        if 'data' not in data or not data['data']['children']:
+            await ctx.send(f"Failed to load pics for r/{subreddit}")
+            return
         catlist = []
         for cat in data['data']['children']:
             if 'jpg' in cat['data']['url'] or 'imgur.com' in cat['data']['url'] or 'gfycat.com' in cat['data']['url']:

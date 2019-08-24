@@ -62,9 +62,6 @@ class Internets(commands.Cog):
                     f"site:wikipedia.org {term}",
                     url_regex="wikipedia.org/wiki")
 
-        if url and "File:" in url[0]:
-            return
-        
         page, url = await self.bot.utils.bs_from_url(self.bot,
                 url[0], return_url=True)
         e = await self.parse_wiki_page(page, url)
@@ -72,7 +69,8 @@ class Internets(commands.Cog):
 
     async def parse_wiki_page(self, page, url):
         """Parse a beautifulsoup object and Yarl.URL object in to an embed"""
-        
+        pagetitle = page.title.get_text()
+        image = page.find(property="og:image")
         #Get rid of all tables before searching, they will cause failure
         tables = page.findAll('table')
         for table in tables:
@@ -96,18 +94,27 @@ class Internets(commands.Cog):
         
         text = html2text.html2text(str(pg), bodywidth=5000).strip()
         text = text.replace('](/wiki', f'](https://{url.host}/wiki')
-
-        try:
-            embed_url = str(url).replace("(", "\\(").replace(")","\\)")
-            embed_url = embed_url.replace("_","\\_")
-            text = re.sub(r"\*\*(.+?)\*\*", 
-                    r'**[\g<1>]' + f'({embed_url})**', text, 1)
-        except:
-            # TODO : Set a proper title in this case
-            pass
         text = re.sub(r'\[\d*?\]', '', text)
+        e = discord.Embed()
         
-        return discord.Embed(description=text)
+        embed_url = str(url).replace("(", "\\(").replace(")","\\)").replace("_","\\_")
+        embed_url = embed_url
+        link_first = re.sub(r"\*\*(.+?)\*\*", r'**[\g<1>]' + f'({embed_url})**', text, 1)
+        if link_first == text:
+            e.title = pagetitle
+            e.url = str(url)
+        else:
+            text = link_first
+
+        if image:
+            e.set_thumbnail(url=image.get("content"))
+        
+        e.description=text
+        
+        return e
+
+    def parse_wiki_file(self, page, url):
+        pass
         
     @commands.command()
     async def gwiki(self, ctx, *, searchterm: str):
@@ -140,13 +147,15 @@ class Internets(commands.Cog):
         params = {"appid": key, "format": 'plaintext', 'output': 'json',
                   "input": uriquote(query), 
                   "location": location, "latlong": f"{lat},{lng}"}
-
-        if ctx.invoked_with.lower() == "c":
-            result = await self.get_wolfram(url, params)
-        else:
-            result = await self.get_wolfram(url, params, full=True)
-        if result:
-            await ctx.send(result)
+        
+        # Wolfram api can take a while sometimes....
+        async with ctx.channel.typing():
+            if ctx.invoked_with.lower() == "c":
+                result = await self.get_wolfram(url, params)
+            else:
+                result = await self.get_wolfram(url, params, full=True)
+            if result:
+                await ctx.send(result)
 
     async def get_wolfram(self, url, params, *, full=False):
         """The recursive method used to look up wolfram data or woflram related data"""
