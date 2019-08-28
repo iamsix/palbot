@@ -179,6 +179,7 @@ class Trivia(commands.Cog):
     async def trivia_error(self, ctx, error):
         if isinstance(error, commands.BadArgument):
             await ctx.send(f"Invalid input - input is format is `{ctx.prefix}{ctx.command} ##`")
+            return
         if isinstance(error, commands.MissingRequiredArgument):
             await ctx.send(error)
         else:
@@ -394,6 +395,7 @@ class Trivia(commands.Cog):
 
     async def load_scores(self):
         self.points = {}
+        self.questions_asked_session = 0
         result = self.scores_c.execute("SELECT * FROM scores WHERE dateid = (?)", [self.session]).fetchone()
         if result:
             self.points = json.loads(result[2])

@@ -62,13 +62,12 @@ class Internets(commands.Cog):
                     f"site:wikipedia.org {term}",
                     url_regex="wikipedia.org/wiki")
 
-        page, url = await self.bot.utils.bs_from_url(self.bot,
-                url[0], return_url=True)
+        page, url = await self.bot.utils.bs_from_url(self.bot, url[0], return_url=True)
         e = await self.parse_wiki_page(page, url)
         await ctx.send(embed=e)
 
     async def parse_wiki_page(self, page, url):
-        """Parse a beautifulsoup object and Yarl.URL object in to an embed"""
+        """Parse a beautifulsoup object and Yarl.URL object (from bs4) in to an embed"""
         pagetitle = page.title.get_text()
         image = page.find(property="og:image")
         #Get rid of all tables before searching, they will cause failure
@@ -113,8 +112,6 @@ class Internets(commands.Cog):
         
         return e
 
-    def parse_wiki_file(self, page, url):
-        pass
         
     @commands.command()
     async def gwiki(self, ctx, *, searchterm: str):
@@ -182,9 +179,6 @@ class Internets(commands.Cog):
             rs = pods[0].replace("\n", " :: ")
             out = f"{ls} :: {rs}"
         return out
-
-
-
 
 
 

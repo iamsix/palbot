@@ -2,6 +2,8 @@ import discord
 from discord.ext import commands
 import asyncio
 import random
+import re
+from io import BytesIO
 
 from urllib.parse import quote as uriquote
 
@@ -139,8 +141,70 @@ class Vids(commands.Cog):
 
         await ctx.send(out)
 
-            
+    REDDIT_URL = re.compile(r'v\.redd\.it|reddit\.com/r/')
+    URL_REGEX = re.compile(r"(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>])*\))+(?:\(([^\s()<>])*\)|[^\s`!()\[\]{};:'\".,<>?«»“”‘’]))")
+    @commands.Cog.listener()
+    async def on_message(self, message):
+        match = self.REDDIT_URL.search(message.content)
+        if not match:
+            return
+        # This is a reddit url... but now I ned *only* the URL...
+        url = self.URL_REGEX.search(message.content).group(0)
+        if not url:
+            return
+        headers = {'User-agent': 'PalBot by /u/mrsix'}
+        if "v.redd.it" in url:
+            if url.lower().endswith("dashplaylist.mpd"):
+                url = url[:-16]
+            async with self.bot.session.get(url, headers=headers) as resp:
+                url = str(resp.url)
+        async with message.channel.typing():
+            pass
 
+        async with self.bot.session.get(url + '/.json', headers=headers) as resp:
+            if resp.status != 200:
+                return
+
+            data = await resp.json()
+            try:
+                submission = data[0]['data']['children'][0]['data']
+            except (KeyError, TypeError, IndexError):
+                return
+
+            try:
+                media = submission['media']['reddit_video']
+            except (KeyError, TypeError):
+                try:
+                    # maybe it's a cross post
+                    crosspost = submission['crosspost_parent_list'][0]
+                    media = crosspost['media']['reddit_video']
+                except (KeyError, TypeError, IndexError):
+                    # Not a reddit video.. don't care about it
+                    return
+
+            filename = submission.get('title', '')
+            if not filename:
+                filename = submission.get('name', 'redditvideo')
+            filename += ".mp4"
+        
+            fallback_url = media.get('fallback_url')
+            if not fallback_url:
+                return
+            
+            
+        filesize = message.guild.filesize_limit if message.guild else 8388608
+        async with self.bot.session.get(fallback_url, headers=headers) as resp:
+            if resp.status != 200:
+                return
+
+            if int(resp.headers['Content-Length']) >= filesize:
+                fs = int(resp.headers['Content-Length']) / 1024 / 1024
+                return await message.channel.send(f"Video is too big to be uploaded. ({fs:.1f}mb)")
+
+            data = await resp.read()
+            await message.channel.send(file=discord.File(BytesIO(data), filename=filename))
+
+            
 
 def setup(bot):
     bot.add_cog(Pics(bot))

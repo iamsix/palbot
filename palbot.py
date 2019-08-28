@@ -25,8 +25,8 @@ class PalBot(commands.Bot):
                 description="https://github.com/iamsix/palbot/ by six",
                 pm_help=None, help_attrs=dict(hidden=True),
                 fetch_offline_members=False, case_insensitive=True)
-        self.loop = asyncio.get_event_loop()
-        self.session = aiohttp.ClientSession(loop=self.loop)
+        
+        asyncio.ensure_future(self.async_init())
         self.logger = logging.getLogger("palbot")
         self.moddir = "modules"
         self.config = __import__('config')
@@ -36,6 +36,7 @@ class PalBot(commands.Bot):
         #  [1] = the bot's response Message obj
         #  [2] = Paginator (None if not paginating)
         self.recent_posts = deque([], maxlen=10)
+        
 
 
         for module in Path(self.moddir).glob('*.py'):
@@ -44,6 +45,10 @@ class PalBot(commands.Bot):
             except Exception as e:
                 print(f'Failed to load cog {module}', file=sys.stderr)
                 traceback.print_exception(type(e), e, e.__traceback__, file=sys.stderr)
+
+    async def async_init(self):
+        self.loop = asyncio.get_event_loop()
+        self.session = aiohttp.ClientSession(loop=self.loop)
 
     async def on_command_error(self, ctx, error):
         if isinstance(error, commands.CommandNotFound):
