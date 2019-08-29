@@ -106,7 +106,12 @@ class Food(commands.Cog):
                   'q': uriquote(beername)}
 
         async with self.bot.session.get(url, params=params) as resp:
+            if resp.status != 200:
+                return
             response = await resp.json()
+            if not response['response']['beers']['items']:
+                await ctx.send(f"Couldn't find a beer named `{beername}` on Untappd")
+                return
                 
         beerid = response['response']['beers']['items'][0]['beer']['bid']
         
@@ -120,7 +125,8 @@ class Food(commands.Cog):
         beer_abv = response['beer_abv']
         #beer_ibu = response['beer_ibu']
         beer_style = response['beer_style']
-        
+
+       
         beer_url = f"https://untappd.com/b/{response['beer_slug']}/{beerid}"
                 
         rating = int(round((float(response['rating_score'])/top_rating)*100, 0))
@@ -143,13 +149,17 @@ class Food(commands.Cog):
 
         cals = BeerCals(beer_abv).solve()
 
-        if cals:
-            cals = f" Est. calories (12oz): {cals}"
-
-        out = (f"Beer: {beer_name} - Grade: {rating} [{rating_word}, {rating_count:,} ratings] "
-               f"Style: {beer_style} ABV: {beer_abv}%{cals} [ <{beer_url}> ]")
+        e = discord.Embed(title=f"{beer_name} - {beer_style}", url=beer_url)
+        e.add_field(name="Grade", value=f"{rating} - {rating_word} ({rating_count:,} ratings)", inline=False)
         
-        await ctx.send(out)
+        if cals:
+            beer_abv = f"{beer_abv}% - Est. Calories (12oz): {cals}"
+
+        e.add_field(name="ABV", value=beer_abv, inline=False)
+        if 'beer_label' in response:
+            e.set_thumbnail(url=response['beer_label'])
+
+        await ctx.send(embed=e)
 
     @commands.command()
     async def drink(self, ctx, *, drink: str = ''):
@@ -188,6 +198,9 @@ class Food(commands.Cog):
         url = await self.bot.utils.google_for_urls(self.bot, 
                                             "site:distiller.com {}".format(uriquote(spirit)),
                                             url_regex="distiller.com/spirits/")
+        if not url:
+            await ctx.send(f"Unabled to find a spirit named `{spirit}` on Distiller")
+            return
 
         jsurl = url[0].replace('r.com/', 'r.com/api/')
         headers = {'User-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:57.0) Gecko/20100101 Firefox/57.0',
@@ -195,24 +208,26 @@ class Food(commands.Cog):
                    
         async with self.bot.session.get(jsurl, headers=headers) as resp:
             data = await resp.json()
-            print(data)
             data = data['spirit']
         
-        stlye = data['spirit_family']['name']
+        style = data['spirit_family']['name']
         name = data['name']
         exp_rate = data['expert_rating']
         pub_rate = data['average_rating']
         num_raters = data['total_num_of_ratings']
         abv = data['abv']
         description = data['description']
-        # I probably could have done this by passing **data to a format() instead...
-        # TODO Paginate this?
-        # TODO make a fancy embed
-        
-        out = (f"{stlye}: {name} - Expert rating: {exp_rate} - User rating: {pub_rate} "
-              f"({num_raters} ratings) ABV: {abv} - {description} [ <{url[0]}> ]")
 
-        await ctx.send(out)
+        # TODO Paginate this?
+        e = discord.Embed(title=f"{style}: {name}", url=url[0])
+        e.add_field(name="Rating", value=f"{exp_rate} / Users: {pub_rate} ({num_raters} ratings)")
+        e.add_field(name="ABV", value=abv)
+        e.set_footer(text=description)
+
+        if 'thumbnail' in data['image_urls']:
+            e.set_thumbnail(url=data['image_urls']['thumbnail'])
+
+        await ctx.send(embed=e)
 
 
     CUISINE = {"african": 1,"indian": 2,"french": 3,"british": 4,"european": 5,

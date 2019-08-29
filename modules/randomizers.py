@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 import asyncio
 import random
+from statistics import mode, StatisticsError
 import re
 
 
@@ -71,12 +72,23 @@ class Randomizers(commands.Cog):
                 coins = {1: "heads", 2: "tails"}
                 results.append(f"{coins[roll]} ({roll})")
             else:
-                results.append(str(roll))
+                results.append(roll)
                 
         
-        out = f"Rolled {die}:: {', '.join(results)}"
+        out = f"Rolled {die}:: {', '.join(map(str, results))}"
         if die.count > 1:
-            out += f" :: Total {total}"
+            try:
+                winner = f" - Most common roll: {mode(results)}"
+            except StatisticsError:
+                if die.value == 2:
+                    winner = " - Tie"
+                else:
+                    winner = ""
+            if die.value != 2:
+                highest = f" - Highest roll: {max(results)}"
+            else:
+                highest = ""
+            out += f" :: Total {total}{winner}{highest}"
         await ctx.send(out)
 
     @roll.error

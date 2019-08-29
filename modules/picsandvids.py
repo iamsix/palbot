@@ -63,15 +63,24 @@ class Pics(commands.Cog):
             return
         catlist = []
         for cat in data['data']['children']:
-            if 'jpg' in cat['data']['url'] or 'imgur.com' in cat['data']['url'] or 'gfycat.com' in cat['data']['url']:
-                pic_title = cat['data']['title']
-                pic_title = pic_title.replace('\n', '')
-                if cat['data']['over_18']:
-                    pic_title = "\002NSFW\002 " + pic_title 
-                catlist.append(f'<{cat["data"]["url"]}> - {pic_title}')
+            url = cat['data']['url']
+            if '.gifv' not in url and ('.jpg' in url or '.gif' in url or ".png" in url or ".jpeg" in url):
+                if cat['data']['over_18'] and not ctx.channel.is_nsfw():
+                    continue
+                catlist.append(cat['data'])
         
-        cats = random.sample(catlist, 2)
-        await ctx.send(" :: ".join(cats))
+        if catlist:
+            pages = self.bot.utils.Paginator(ctx, catlist, self.reddit_pics_callback)
+            await pages.paginate()
+        else:
+            await ctx.send(f"Couldn't find any suitable pics in r/{subreddit}")
+    
+    async def reddit_pics_callback(self, data, pg):
+        url = "https://reddit.com" + data[pg]['permalink']
+        e = discord.Embed(title=data[pg]['title'], url=url)
+        e.set_image(url=data[pg]['url'])
+        e.set_footer(text=f"Result {pg+1} of {len(data)}")
+        return None, e
 
         
 

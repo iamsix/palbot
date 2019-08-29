@@ -30,6 +30,8 @@ async def google_for_urls(bot, search_term, *, url_regex=None, return_full_data=
             return
         if return_full_data:
             return json['items']
+        if 'items' not in json:
+            return None
             
         results = []
         for result in json['items']:

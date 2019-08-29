@@ -35,7 +35,7 @@ class Games(commands.Cog):
             url += f"&set={cset}"
 
         headers = {'User-agent': 'Palbot for discord/2.0'}
-        async with self.bot.session.get(url) as resp:
+        async with self.bot.session.get(url, headers=headers) as resp:
             data = await resp.json()
             cards = data['cards']
         
@@ -96,8 +96,7 @@ class Games(commands.Cog):
                     if g['status'] == "IN_PROGRESS":
                         game = g['number']
                 if game:
-                    status = "Map {} of {}".format(game,
-                            match['conclusionValue'])
+                    status = "Map {} of {}".format(game, match['conclusionValue'])
                 else:
                     status = "Intermission"
                 fmt = "{} {} - {} {} ({})"

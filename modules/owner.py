@@ -2,6 +2,7 @@ from discord.ext import commands
 from pathlib import Path
 from importlib import reload
 import sys, traceback
+from utils.time import human_timedelta
 
 
 class UsefulEvents(commands.Cog):
@@ -22,7 +23,8 @@ class OwnerCog(commands.Cog, name="Owner Commands"):
     @commands.command(hidden=True)
     @commands.is_owner()
     async def uptime(self, ctx):
-        await ctx.send(f"Uptime is {self.bot.uptime}")
+        ago = human_timedelta(self.bot.uptime)
+        await ctx.send(f"Startup at {self.bot.uptime} : {ago}")
 
     @commands.command(hidden=True)
     @commands.is_owner()

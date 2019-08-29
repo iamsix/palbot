@@ -27,6 +27,9 @@ class Media(commands.Cog):
         movielist = []
         for movie in data:
             movielist.append(movie['id'])
+        if not movielist:
+            await ctx.send(f"Couldn't find a movie named `{movie_name}` on Flixster")
+            return
         pages = Paginator(ctx, movielist, self.rt_output_callback)
         await pages.paginate()
 
@@ -116,6 +119,10 @@ class Media(commands.Cog):
         urls = await self.bot.utils.google_for_urls(self.bot,
                 "site:imdb.com inurl:com/title " + movie_name,
                 url_regex="imdb.com/title/tt\\d{7}/")
+
+        if not urls:
+            await ctx.send(f"Couldn't find a movie named `{movie_name}` on IMDb")
+            return
 
         page = await self.bot.utils.bs_from_url(self.bot, urls[0])
 

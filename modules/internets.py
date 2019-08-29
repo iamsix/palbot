@@ -153,6 +153,8 @@ class Internets(commands.Cog):
                 result = await self.get_wolfram(url, params, full=True)
             if result:
                 await ctx.send(result)
+            else:
+                await ctx.send("Wolfram didn't undestand that")
 
     async def get_wolfram(self, url, params, *, full=False):
         """The recursive method used to look up wolfram data or woflram related data"""
