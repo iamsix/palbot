@@ -59,7 +59,7 @@ class User(commands.Cog):
         await self.show_age(ctx, day=day)
 
     async def show_age(self, ctx, *, day: HumanTime = None):
-        if not ctx.author_info.birthday:
+        if not ctx.author_info.birthday or not ctx.author_info.timezone:
             utz = pytz.utc
         else:
             utz = pytz.timezone(ctx.author_info.timezone)

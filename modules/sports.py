@@ -66,7 +66,7 @@ class Sports(commands.Cog):
                                         home['score'],home['team']['teamName'],
                                         status)
             
-            elif code == "S":
+            elif code == "S" or code == "P":
                 #Scheduled
                 starttime = datetime.datetime.strptime(game['gameDate'], "%Y-%m-%dT%H:%M:%SZ")
                 starttime = starttime.replace(tzinfo=pytz.utc).astimezone(tz=date.tzinfo)

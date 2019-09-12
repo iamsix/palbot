@@ -62,15 +62,19 @@ class Chat(commands.Cog):
     async def on_message(self, message):
         out = ''
         prefix = self.bot.command_prefix
-        if message.content.lower().startswith('bot '):
-            out = f"{message.author.mention}: {self.decider(message.content[4:])}"
-        elif "shrug" in message.content:
+        lower = message.content.lower()
+        if lower.startswith('bot '):
+            decide = self.decider(message.content[4:])
+            if decide:
+                out = f"{message.author.mention}: {decide}"
+        elif "shrug" in lower:
             out = self.shrug()
         elif message.content[:1] in prefix:
-            cmd = message.content[1:].split(" ")[0]
+            cmd = lower[1:].split(" ")[0]
             out = await self.custom_command(cmd)
         if out:
-            await message.channel.send(out)
+            ctx = await self.bot.get_context(message, cls=self.bot.utils.MoreContext)
+            await ctx.send(out)
 
     def shrug(self):
         return SHRUG.format(random.choice(FACES))

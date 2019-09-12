@@ -42,6 +42,15 @@ class Randomizers(commands.Cog):
                 output += "oo" if random.randint(0, 5) == 0 else "o"
         await ctx.send(output)
 
+    @commands.command()
+    async def ziti(self, ctx):
+        """skrrt"""
+        output = ""
+        rand = random.randint(2, 19)
+        for _ in range(0, rand):
+            output += "rr" if random.randint(0, 5) == 0 else "r"
+        await ctx.send(f"sk{output}t")
+
     class Die:
         die_regex = re.compile(r'(\d+)?d(\d+)([\+\-]\d+)?')
         def __init__(self, die: str):

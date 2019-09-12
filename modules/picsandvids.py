@@ -52,7 +52,7 @@ class Pics(commands.Cog):
                     'sloths': 'sloths',
                     'rats': 'rats'}
         if not subreddit:
-            subreddit = reddits[ctx.invoked_with]
+            subreddit = reddits[ctx.invoked_with.lower()]
         url = f"http://www.reddit.com/r/{subreddit}/.json"
 
         headers = {'User-agent': 'PalBot by /u/mrsix'}
@@ -77,7 +77,7 @@ class Pics(commands.Cog):
     
     async def reddit_pics_callback(self, data, pg):
         url = "https://reddit.com" + data[pg]['permalink']
-        e = discord.Embed(title=data[pg]['title'], url=url)
+        e = discord.Embed(title=data[pg]['title'][:255], url=url)
         e.set_image(url=data[pg]['url'])
         e.set_footer(text=f"Result {pg+1} of {len(data)}")
         return None, e
@@ -112,7 +112,7 @@ class Vids(commands.Cog):
 
         url = "https://www.googleapis.com/youtube/v3/videos"
         params = {'part': "snippet,contentDetails,statistics",
-                  'hl' : 'en', 'id': yt_id,  'key': key}
+                'hl' : 'en', 'id': yt_id,  'key': key, 'regionCode': 'US'}
         async with self.bot.session.get(url, params=params) as resp:
             ytjson = await resp.json()
             if ytjson['items']:
@@ -170,11 +170,14 @@ class Vids(commands.Cog):
         async with message.channel.typing():
             pass
 
-        async with self.bot.session.get(url + '/.json', headers=headers) as resp:
+        url = url[:url.rfind("/")] + "/.json"
+        async with self.bot.session.get(url, headers=headers) as resp:
             if resp.status != 200:
                 return
-
-            data = await resp.json()
+            try:
+                data = await resp.json()
+            except Exception as e:
+                print("Redditvideo json error on", url, e)
             try:
                 submission = data[0]['data']['children'][0]['data']
             except (KeyError, TypeError, IndexError):
@@ -205,13 +208,15 @@ class Vids(commands.Cog):
         async with self.bot.session.get(fallback_url, headers=headers) as resp:
             if resp.status != 200:
                 return
+            
+            ctx = await self.bot.get_context(message, cls=self.bot.utils.MoreContext)
 
             if int(resp.headers['Content-Length']) >= filesize:
                 fs = int(resp.headers['Content-Length']) / 1024 / 1024
-                return await message.channel.send(f"Video is too big to be uploaded. ({fs:.1f}mb)")
+                return await ctx.send(f"Video is too big to be uploaded. ({fs:.1f}mb)")
 
             data = await resp.read()
-            await message.channel.send(file=discord.File(BytesIO(data), filename=filename))
+            await ctx.send(file=discord.File(BytesIO(data), filename=filename))
 
             
 

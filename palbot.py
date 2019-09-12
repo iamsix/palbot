@@ -23,8 +23,7 @@ class PalBot(commands.Bot):
     def __init__(self):
         super().__init__(command_prefix=["!"],
                 description="https://github.com/iamsix/palbot/ by six",
-                pm_help=None, help_attrs=dict(hidden=True),
-                fetch_offline_members=False, case_insensitive=True)
+                dm_help=None, fetch_offline_members=False, case_insensitive=True)
         
         asyncio.ensure_future(self.async_init())
         self.logger = logging.getLogger("palbot")
@@ -56,7 +55,7 @@ class PalBot(commands.Bot):
             # storing the entire command list in memory, even though it's likely small
             conn = sqlite3.connect("customcommands.sqlite")
             c = conn.cursor()
-            result = c.execute("SELECT cmd FROM commands WHERE cmd = (?)", [ctx.invoked_with]).fetchone()
+            result = c.execute("SELECT cmd FROM commands WHERE cmd = (?)", [ctx.invoked_with.lower()]).fetchone()
             if result:
                 return
             self.logger.info(error)
