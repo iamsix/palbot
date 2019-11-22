@@ -59,6 +59,7 @@ class Media(commands.Cog):
                 },
             'reviews': {
                 'rottenTomatoes': {
+                    'certifiedFresh': '',
                     'rating': '',
                     'consensus': ''
                 },
@@ -86,8 +87,14 @@ class Media(commands.Cog):
 
         tomato_rating = movie_model['reviews']['rottenTomatoes']['rating']
         num_reviews = movie_model['reviews']['criticsNumReviews']
+        if movie_model['reviews']['rottenTomatoes']['certifiedFresh']:
+            icon = '<:rtcertified:623695619017539584> '
+        elif tomato_rating and int(tomato_rating) > 60:
+            icon = '\N{TOMATO} '
+        else:
+            icon = '<:rtrotten:623695558141411329> '
 
-        tomato = "{rating}{reviews}".format(
+        tomato = "{icon}{rating}{reviews}".format(icon=icon,
             rating = f"{tomato_rating}%" if tomato_rating else '',
             reviews = f" ({num_reviews} reviews)" if num_reviews else '')
 

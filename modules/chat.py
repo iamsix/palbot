@@ -64,7 +64,7 @@ class Chat(commands.Cog):
         prefix = self.bot.command_prefix
         lower = message.content.lower()
         if lower.startswith('bot '):
-            decide = self.decider(message.content[4:])
+            decide = self.decider(message.clean_content[4:])
             if decide:
                 out = f"{message.author.mention}: {decide}"
         elif "shrug" in lower:

@@ -127,7 +127,10 @@ class Vids(commands.Cog):
         pubdate = ytjson['snippet']['publishedAt'][:10]
         likes = int(ytjson['statistics'].get('likeCount', 0))
         dislikes = int(ytjson['statistics'].get('dislikeCount', 0))
-        rating = "{0:.1f}/10".format((likes / (likes + dislikes)) * 10)
+        if likes and dislikes:
+            rating = "{0:.1f}/10".format((likes / (likes + dislikes)) * 10)
+        else:
+            rating = "N/A"
         viewcount = int(ytjson['statistics']['viewCount'])
 
         duration = ytjson['contentDetails']['duration'][2:].lower()

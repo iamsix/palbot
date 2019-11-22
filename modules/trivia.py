@@ -43,6 +43,7 @@ class Trivia(commands.Cog):
         self.question_limit = 10
         self.auto_hint = True
         self.points = {}
+        self.hard_mode = False
         self.session = "{}-0".format(time.strftime("%Y-%m-%d"))
 
         self.answer_timer = None
@@ -80,7 +81,7 @@ class Trivia(commands.Cog):
         self.question_channel = ctx.channel
         self.game_on = True
         self.questions_asked = 0
-        self.question_limit = num_questions
+        self.question_limit = max(1,min(num_questions, 100))
         self.stop_after_next = False
         self.session = "{}-0".format(time.strftime("%Y-%m-%d"))
         await self.load_scores()
@@ -148,6 +149,14 @@ class Trivia(commands.Cog):
             return
         self.question_delay = max(min(time, 60), 2)
         await ctx.channel.send(f"Delay time between questions set to: {self.question_delay} seconds")
+
+    @trivia.command(name='hard')
+    async def hard_mode(self, ctx):
+        """Set hard mode (no hints)"""
+        self.hard_mode = not self.hard_mode
+        self.auto_hint = not self.hard_mode #disable auto hint in hard mode
+        await ctx.channel.send(f"Hard mode has been set to: {self.hard_mode}")
+
 
     @trivia.command(name='help', hidden=True)
     async def trivia_help(self, ctx):
@@ -218,7 +227,9 @@ class Trivia(commands.Cog):
             question_number = self.questions_asked_session
         
         self.question = (f"**Question** {question_number}: ${self.value}. [ {clue[1]} ] {question}"
-                         f"{links}\nHint: `{self.hint}`")
+                         f"{links}")
+        if not self.hard_mode:
+            self.question += '\nHint: `{self.hint}`'
 
         await self.question_channel.send(self.question)
 
@@ -261,6 +272,10 @@ class Trivia(commands.Cog):
 
         if not (await self.trivia_check(ctx, must_be_running=True)) or not self.live_question:
             #await ctx.channel.send("There's no qestion to give a hint for...")
+            return
+
+        if self.hard_mode:
+            await ctx.channel.send("No hints in hard mode!")
             return
         
         if self.auto_hint:

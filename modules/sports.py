@@ -45,14 +45,12 @@ class Sports(commands.Cog):
                 await ctx.send(f"No games found for {date.date()}")
                 return
             data = data['dates'][0]['games']
-
         games = []
         for game in data:
             home = game['teams']['home']
             away = game['teams']['away']
-            if away['team']['id'] not in self.MLB_TEAMS and home['team']['id'] not in self.MLB_TEAMS:
-                continue
-            
+        #    if away['team']['id'] not in self.MLB_TEAMS and home['team']['id'] not in self.MLB_TEAMS:
+         #       continue
             code = game['status']['codedGameState']
             if code == "I" or code == "F" or code == "O":
                 # In progress, Final/Over (whatever the difference is...)
@@ -83,6 +81,8 @@ class Sports(commands.Cog):
 
         if games:
             await ctx.send(" | ".join(games))
+        else:
+            await ctx.send(f"No games found for {date.date()}")
 
     NBA_TEAMS = {
         "ATL" : "Hawks",
@@ -136,6 +136,7 @@ class Sports(commands.Cog):
             
             if game['statusNum'] == 1:
                 # Game is scheduled in the future
+                # TODO localize startTimeUTC  "2019-10-25T23:00:00.000Z"
                 gametxt = "{} @ {} ({})"
                 gametxt = gametxt.format(team(game['vTeam']['triCode']),
                                         team(game['hTeam']['triCode']),
@@ -150,8 +151,8 @@ class Sports(commands.Cog):
                     status = "Final"
                     
                 gametxt = gametxt.format(team(game['vTeam']['triCode']),
-                                        team(game['vTeam']['score']),
-                                        team(game['hTeam']['score']),
+                                        game['vTeam']['score'],
+                                        game['hTeam']['score'],
                                         team(game['hTeam']['triCode']),
                                         status)
             games.append(gametxt)
@@ -235,7 +236,6 @@ class Sports(commands.Cog):
 
         async with self.bot.session.get(**r) as resp:
             data = await resp.json()
-
         games = []
         for game in data['data']:
             starttime = datetime.datetime.strptime(game['gameTime'][:-3]+"00",
@@ -243,21 +243,8 @@ class Sports(commands.Cog):
             if starttime.date() != date.date():
                 continue
             phase = game['gameStatus']['phase']
-            if phase == "INGAME" or phase == "FINAL":
-                if game['gameStatus']['phase'] == "INGAME":
-                    status = "{} Q{}".format(game['gameStatus']['gameClock'],
-                                            game['gameStatus']['period'])
-                else:
-                    status = "FINAL"
 
-                fmt = "{} {} - {} {} ({})"
-                out = fmt.format(game['visitorTeam']['nickName'],
-                                game['visitorTeamScore']['pointsTotal'],
-                                game['homeTeamScore']['pointsTotal'],
-                                game['homeTeam']['nickName'],
-                                status)
-
-            elif phase == "PREGAME":
+            if phase == "PREGAME":
                 # 2019-08-01T17:00:00.000-07:00 note the improper : in the GMT offset
                 starttime = datetime.datetime.strptime(game['gameTime'][:-3]+"00",
                                                 "%Y-%m-%dT%H:%M:%S.%f%z")
@@ -266,8 +253,21 @@ class Sports(commands.Cog):
                 out = "{} @ {} ({} {})".format(game['visitorTeam']['nickName'],
                                             game['homeTeam']['nickName'],
                                             starttime, date.tzname())
+            
             else:
-                continue
+                if game['gameStatus']['phase'] == "INGAME":
+                    status = "{} Q{}".format(game['gameStatus']['gameClock'],
+                                            game['gameStatus']['period'])
+                else:
+                    status = game['gameStatus']['phase']
+
+                fmt = "{} {} - {} {} ({})"
+                out = fmt.format(game['visitorTeam']['nickName'],
+                                game['visitorTeamScore']['pointsTotal'],
+                                game['homeTeamScore']['pointsTotal'],
+                                game['homeTeam']['nickName'],
+                                status)
+
 
             games.append(out)
 

@@ -78,6 +78,7 @@ class PalBot(commands.Bot):
 
     async def on_message(self, message):
         ctx = await self.get_context(message, cls=self.utils.MoreContext)
+        ctx.session = self.session
         await self.invoke(ctx)
     
     async def on_message_delete(self, message):

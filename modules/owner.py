@@ -28,6 +28,12 @@ class OwnerCog(commands.Cog, name="Owner Commands"):
 
     @commands.command(hidden=True)
     @commands.is_owner()
+    async def nick(self, ctx, *, nick):
+        await ctx.guild.me.edit(nick=nick)
+
+
+    @commands.command(hidden=True)
+    @commands.is_owner()
     async def die(self, ctx):
         await ctx.send("Goodbye.")
         await self.bot.close()

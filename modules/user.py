@@ -60,6 +60,9 @@ class User(commands.Cog):
 
     async def show_age(self, ctx, *, day: HumanTime = None):
         if not ctx.author_info.birthday or not ctx.author_info.timezone:
+            if not day:
+                await ctx.send("Ned to enter a birthday such as 1985-11-24")
+                return
             utz = pytz.utc
         else:
             utz = pytz.timezone(ctx.author_info.timezone)
