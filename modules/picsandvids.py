@@ -144,9 +144,11 @@ class Vids(commands.Cog):
             category = catjson['items'][0]['snippet']['title']
 
         out = ""
-        if 'contentRating' in ytjson['contentDetails']:
+        if 'contentRating' in ytjson['contentDetails'] and \
+          ytjson['contentDetails']['contentRating']:
+            print(ytjson['contentDetails'])
             out = "**NSFW** : "
-            link = f"<{link}>"
+            link = f"|| {link} ||"
 
         out += (f"{title} [{category}] :: Length: {duration} - Rating: {rating} - "
                 f"{viewcount:,} views - {uploader} on {pubdate} - {link}")
@@ -170,8 +172,6 @@ class Vids(commands.Cog):
                 url = url[:-16]
             async with self.bot.session.get(url, headers=headers) as resp:
                 url = str(resp.url)
-        async with message.channel.typing():
-            pass
 
         url = url[:url.rfind("/")] + "/.json"
         async with self.bot.session.get(url, headers=headers) as resp:
@@ -207,6 +207,9 @@ class Vids(commands.Cog):
                 return
             
             
+        async with message.channel.typing():
+            pass
+
         filesize = message.guild.filesize_limit if message.guild else 8388608
         async with self.bot.session.get(fallback_url, headers=headers) as resp:
             if resp.status != 200:

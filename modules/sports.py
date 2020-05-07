@@ -180,8 +180,8 @@ class Sports(commands.Cog):
             return
         
         for game in data['dates'][0]['games']:
-    
-            if game['status']['statusCode'] == "1" or game['status']['statusCode'] == "2":
+            gamestatus = game['status']['statusCode'] 
+            if gamestatus == "1" or gamestatus == "2" or gamestatus == "9":
                 # game is scheduled in future
                 starttime = datetime.datetime.strptime(game['gameDate'], "%Y-%m-%dT%H:%M:%SZ")
                 starttime = starttime.replace(tzinfo=pytz.utc).astimezone(tz=date.tzinfo)
@@ -191,6 +191,8 @@ class Sports(commands.Cog):
                 gametxt = "{} @ {} ({} {})".format(game['teams']['away']['team']['teamName'],
                                                 game['teams']['home']['team']['teamName'],
                                                 starttime, tzname)
+                if gamestatus == "9":
+                    gametxt += " Postponed"
             else:
                 # game finished or currently on
                 away = '{} {}'.format(game['teams']['away']['team']['teamName'],

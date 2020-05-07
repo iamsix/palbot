@@ -73,7 +73,7 @@ class Weather(commands.Cog):
                     "Cloud Cover: {cloud_cover} / High: {high_f} Low: {low_f} / "
                     "Outlook: {outlook_imperial}").format(**data)
         else:
-            out += ("{condition} {icon} / {temp_c} ({temp_f}){feels_like_c} / "
+            out += ("{condition} {icon} / {temp_c} ({temp_f}){feels_like_c} / Dewpoint: {dewpoint_c} / "
                     "Humidity: {humidity} / Wind: {wind_direction} at {wind_speed_km} / "
                     "Cloud Cover: {cloud_cover} / High: {high_c} Low: {low_c} / "
                     "Outlook: {outlook_metric}").format(**data)
@@ -105,7 +105,7 @@ class Weather(commands.Cog):
         wind_direction = f"{wind_arrow} {units.bearing_to_compass(wind_direction)}"
         wind_speed_km = f"{units.mi_to_km(current['windSpeed'])} km/h"
         wind_speed_mi = f"{int(round(current['windSpeed'], 0))} mph"
-
+        
         try:
             outlook_imp = f"{data['minutely']['summary']} {data['daily']['summary']}"
         except:
@@ -122,6 +122,9 @@ class Weather(commands.Cog):
         high_c = f"{units.f_to_c(data['daily']['data'][0]['temperatureMax'])}°C"
         high_f = f"{int(round(data['daily']['data'][0]['temperatureMax'],0))}°F"
 
+        dewpoint_c = f"{units.f_to_c(current['dewPoint'])}°C"
+        dewpoint_f = f"{int(round(current['dewPoint'],0))}°F"
+        
         weather = {'condition': current['summary'],
                    'icon': current['icon'],
                    'humidity' : f"{int(100*current['humidity'])}%",
@@ -138,7 +141,9 @@ class Weather(commands.Cog):
                    'low_c' : low_c,
                    'low_f' : low_f,
                    'high_c' : high_c,
-                   'high_f' : high_f
+                   'high_f' : high_f,
+                   'dewpoint_c' : dewpoint_c,
+                   'dewpoint_f' : dewpoint_f,
                    }
         return weather
 

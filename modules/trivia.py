@@ -154,8 +154,14 @@ class Trivia(commands.Cog):
     async def hard_mode(self, ctx):
         """Set hard mode (no hints)"""
         self.hard_mode = not self.hard_mode
-        self.auto_hint = not self.hard_mode #disable auto hint in hard mode
+        #self.auto_hint = not self.hard_mode #disable auto hint in hard mode
         await ctx.channel.send(f"Hard mode has been set to: {self.hard_mode}")
+
+    @trivia.command(name='autohint')
+    async def auto_hint(self, ctx):
+        """Set hard mode (no hints)"""
+        self.auto_hint = not self.auto_hint
+        await ctx.channel.send(f"Auto Hint has been set to: {self.auto_hint}")
 
 
     @trivia.command(name='help', hidden=True)
@@ -226,10 +232,12 @@ class Trivia(commands.Cog):
         if self.session[-2:] == "-0":
             question_number = self.questions_asked_session
         
+        wordcount = len(self.hint.split(" "))
         self.question = (f"**Question** {question_number}: ${self.value}. [ {clue[1]} ] {question}"
+                         f" [{wordcount}]"
                          f"{links}")
         if not self.hard_mode:
-            self.question += '\nHint: `{self.hint}`'
+            self.question += f'\nHint: `{self.hint}`'
 
         await self.question_channel.send(self.question)
 
@@ -274,9 +282,9 @@ class Trivia(commands.Cog):
             #await ctx.channel.send("There's no qestion to give a hint for...")
             return
 
-        if self.hard_mode:
-            await ctx.channel.send("No hints in hard mode!")
-            return
+#        if self.hard_mode:
+#            await ctx.channel.send("No hints in hard mode!")
+#            return
         
         if self.auto_hint:
             if  self.hints_given == 0:
@@ -294,7 +302,7 @@ class Trivia(commands.Cog):
         
         self.value = round(self.value / 2)
         self.hint = self.perc_hint(30)
-        await ctx.channel.send("Hint ${self.value}: `{self.hint}")
+        await ctx.channel.send(f"Hint ${self.value}: `{self.hint}`")
 
 
     #The different hint levels are separate functions only because I

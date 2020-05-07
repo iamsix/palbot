@@ -196,7 +196,7 @@ class Food(commands.Cog):
     async def spirits(self, ctx, *, spirit: str):
         """Search Distiller.com for a <spirit> and return some information about it"""
         url = await self.bot.utils.google_for_urls(self.bot, 
-                                            "site:distiller.com {}".format(uriquote(spirit)),
+                                            "site:distiller.com {}".format(spirit),
                                             url_regex="distiller.com/spirits/")
         if not url:
             await ctx.send(f"Unabled to find a spirit named `{spirit}` on Distiller")

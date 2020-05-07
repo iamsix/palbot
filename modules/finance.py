@@ -155,10 +155,11 @@ class Finance(commands.Cog):
         url = f"https://autoc.finance.yahoo.com/autoc?query={uriquote(name)}&region=1&lang=en&guccounter=1"
         async with self.bot.session.get(url) as resp:
             data = await resp.json()
-            for stock in data['ResultSet']['Result']:
-                if stock['type'] == 'S':
-                    symbol = stock['symbol']
-                    break
+            symbol = data['ResultSet']['Result'][0]['symbol']
+#            for stock in data['ResultSet']['Result']:
+#                if stock['type'] == 'S':
+#                    symbol = stock['symbol']
+#                    break
         if not symbol:
             await ctx.send(f"Unable to find a stonk named `{name}`")
             return
@@ -169,7 +170,7 @@ class Finance(commands.Cog):
             data = data["quoteResponse"]["result"][0]
 
         outstr = "{}{}: {} {} :: Today's change: {:.2f} ({:.2f}%)"
-        longn = ' ({})'.format(data['longName']) if 'longName' in data else ''
+        longn = ' ({})'.format(data['shortName']) if 'shortName' in data else ''
         outstr = outstr.format(data['symbol'], longn, data['regularMarketPrice'], data['currency'],
                             float(data['regularMarketChange']), float(data['regularMarketChangePercent']))
         
