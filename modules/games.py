@@ -96,10 +96,12 @@ class Games(commands.Cog):
                     if g['status'] == "IN_PROGRESS":
                         game = g['number']
                 if game:
-                    status = "Map {} of {}".format(game, match['conclusionValue'])
+                    status = "Map {} ({} {})".format(game, 
+                                                   match['conclusionStrategy'],  
+                                                   match['conclusionValue'])
                 else:
                     status = "Intermission"
-                fmt = "{} {} - {} {} ({})"
+                fmt = "{} {} - {} {} - {}"
                 output = fmt.format(match['competitors'][0]['name'],
                                     match['scores'][0]['value'],
                                     match['scores'][1]['value'],

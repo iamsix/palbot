@@ -78,14 +78,20 @@ class Twitter(commands.Cog):
         for twitter_nick in subs:      
             if twitter_nick not in self.last_checked:
                     self.last_checked[twitter_nick] = datetime.utcnow()   
-            tweets = await self.read_timeline(twitter_nick, count=3)              
+            self.bot.logger.info(f"Starting tweet loop. Last checked: {self.last_checked}")
+            tweets = await self.read_timeline(twitter_nick, count=3)
+            self.bot.logger.debug(f"Raw tweetsdata: {tweets}")
+            if not tweets:
+                continue
             text = ""
             data = None
             # Newest tweets first, so reverse
             for tweet in reversed(tweets):
                 data = self.parse_tweet(tweet)
+                self.bot.logger.debug(f"I have data {data}")
                 if data['updated'] > self.last_checked[twitter_nick]:
                     text += data['text'] + "\n"
+            self.bot.logger.debug(f"I have a tweet: {text}")
             for channel in subs[twitter_nick]:
                 # a count of 3 per minute seems to work.... 
                 if data and text.strip():

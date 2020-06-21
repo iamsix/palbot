@@ -156,10 +156,6 @@ class Finance(commands.Cog):
         async with self.bot.session.get(url) as resp:
             data = await resp.json()
             symbol = data['ResultSet']['Result'][0]['symbol']
-#            for stock in data['ResultSet']['Result']:
-#                if stock['type'] == 'S':
-#                    symbol = stock['symbol']
-#                    break
         if not symbol:
             await ctx.send(f"Unable to find a stonk named `{name}`")
             return
@@ -168,15 +164,18 @@ class Finance(commands.Cog):
         async with self.bot.session.get(url) as resp:
             data = await resp.json()
             data = data["quoteResponse"]["result"][0]
-
-        outstr = "{}{}: {} {} :: Today's change: {:.2f} ({:.2f}%)"
+        
+        downup = "\N{CHART WITH UPWARDS TREND}" if data['regularMarketChange'] > 0 else "\N{CHART WITH DOWNWARDS TREND}"
+        outstr = "{}{}: {} {} :: Today's change: {:.2f} ({:.2f}%) {}"
         longn = ' ({})'.format(data['shortName']) if 'shortName' in data else ''
         outstr = outstr.format(data['symbol'], longn, data['regularMarketPrice'], data['currency'],
-                            float(data['regularMarketChange']), float(data['regularMarketChangePercent']))
+                               float(data['regularMarketChange']), float(data['regularMarketChangePercent']),
+                               downup)
         
         if 'postMarketPrice' in data and (data['marketState'] == "CLOSED" or "POST" in data['marketState']):
-            outstr += " :: After Hours: {:.2f} - Change: {:.2f}".format(data['postMarketPrice'],
-                                                                        data['postMarketChange'])
+            pdu = "\N{CHART WITH UPWARDS TREND}" if data['postMarketChange'] > 0 else "\N{CHART WITH DOWNWARDS TREND}"
+            outstr += " :: After Hours: {:.2f} - Change: {:.2f} {}".format(data['postMarketPrice'],
+                                                                        data['postMarketChange'], pdu)
 
         await ctx.send(html.unescape(outstr))
 
