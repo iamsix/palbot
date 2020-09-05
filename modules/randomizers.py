@@ -239,7 +239,7 @@ class Randomizers(commands.Cog):
     "Barbecued", "Flame-broiled", "Aged", "Fermented", "Spiced", "Spicy", "Hot", "Chilled", "Salted", "Stuffed", 
     "Sweet and Sour", "Creamy", "Dried", "Roasted", "Dry-roasted", "Pan-fried", "Deep-fried", "Savory", "Sweet", 
     "Yellowed", "Greenish", "Beige", "Orange", "Reddish", "Brown", "Colorful", "Delicious", "Sumptuous", "Decadent", 
-    "Fragrant", "Tepid", "Steaming", "Sizzling"]
+    "Fragrant", "Tepid", "Steaming", "Sizzling", "Chipped"]
     
     wfl_foods = ["Yam", "Carrot", "Rhubarb", "Spinach", "Bell Pepper", "Mushroom", "Kale", "Chard", "Garlic", "Squash", 
     "Pumpkin", "Rice", "Oatmeal", "Walnut", "Peanut", "Almond", "Hazelnut", "Pine Nut", "Lemon", "Lime", "Grape", 
@@ -248,7 +248,8 @@ class Randomizers(commands.Cog):
     "Tofu", "Head Cheese", "Liver", "Cod", "Ham", "Bacon", "Turkey", "Goat", "Pulled Pork", "Pastrami", "Roast Beef", 
     "Mystery Meat", "Lunch Meat", "Meat", "Salmon", "Trout", "Tuna", "Swordfish", "Sea Urchin", "Oyster", "Clam", 
     "Mussel", "Scallop", "Shellfish", "Abalone", "Seaweed", "Mustard", "Ketchup", "Cheese", "Cardamom", "Coriander", 
-    "Turmeric", "Rutabaga", "Muskrat", "Beaver", "Bass", "Spam", "Cheese", "Cheddar"]
+    "Turmeric", "Rutabaga", "Muskrat", "Beaver", "Bass", "Spam", "Cheese", "Cheddar", "Pulled Pork", "Cole Slaw",
+    "Cilantro Avocado", "Plantain"]
     
     wfl_withs = ["with", "with", "with a side of", "tossed with", "topped with", "served with", "on a bed of"]
 
@@ -256,7 +257,7 @@ class Randomizers(commands.Cog):
     "Stew", "Soup", "Stroganoff", "Tarts", "Balls", "Bread", "Flatbread", "Fritters", "Souffle", "Omelette", "Sushi",
     "Roll", "Burger", "Sandwich", "Pudding", "Shish-Kebab", "Pizza", "Pasta", "Pilaf", "Scramble", "Paste", "Pie",
     "Cookies", "Scones", "Cake", "Brownies", "Pastry", "Muffins", "Smoothie", "Milkshake", "Salad", "Chutney", "Jam", 
-    "Fondue", "Jerky", "Beverage", "Drink", "Juice", "Drippings", "Gravy", "Gravy"]
+    "Fondue", "Jerky", "Juice", "Drippings", "Gravy", "Gravy", "Chips", "Cream"]
 
 
 

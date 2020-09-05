@@ -31,12 +31,12 @@ class MoreContext(commands.Context):
         return AuthorInfo(self.author)
 
 
-class myHelp(commands.HelpCommand):
-    def __init__(self):
-        super().__init__(command_attrs={
-            'cooldown': commands.Cooldown(1, 3.0, commands.BucketType.member),
-            'help': 'Shows help about the bot, a command, or a category'
-        })
+#class myHelp(commands.HelpCommand):
+#    def __init__(self):
+#        super().__init__(command_attrs={
+#            'cooldown': commands.Cooldown(1, 3.0, commands.BucketType.member),
+#            'help': 'Shows help about the bot, a command, or a category'
+#        })
 
 #@dataclass
 class Location:

@@ -59,10 +59,10 @@ class User(commands.Cog):
         await self.show_age(ctx, day=day)
 
     async def show_age(self, ctx, *, day: HumanTime = None):
-        if not ctx.author_info.birthday or not ctx.author_info.timezone:
-            if not day:
-                await ctx.send("Need to enter a birthday such as 1985-11-24")
-                return
+        if not ctx.author_info.birthday and not day:
+            await ctx.send("Need to enter a birthday such as 1985-11-24")
+            return
+        if not ctx.author_info.timezone:
             utz = pytz.utc
         else:
             utz = pytz.timezone(ctx.author_info.timezone)
@@ -87,6 +87,15 @@ class User(commands.Cog):
         if isinstance(error, commands.MissingRequiredArgument):
             await ctx.send(error)
 
+
+    @commands.command()
+    async def beats(self, ctx):
+        now = datetime.datetime.utcnow()
+        beats = (((now.minute+1) * 60) + ((now.hour+1) * 3600)) / 86.4
+        await ctx.send(f'@{beats:.2f}')
+
+
+        # ((UTC+1minutes * 60) + (UTC+1hours * 3600)) / 86.4
 
     @commands.command()
     async def time(self, ctx):

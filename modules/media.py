@@ -132,8 +132,8 @@ class Media(commands.Cog):
             return
 
         page = await self.bot.utils.bs_from_url(self.bot, urls[0])
-
-        data = json.loads(page.find('script', type='application/ld+json').text)
+        
+        data = json.loads(page.find('script', type='application/ld+json').string)
 
         self.bot.utils.dict_merge(imdb_m, data)
 
@@ -181,7 +181,7 @@ class Media(commands.Cog):
 
         page = await self.bot.utils.bs_from_url(self.bot, urls[0])
 
-        data = json.loads(page.find('script', type='application/ld+json').text)
+        data = json.loads(page.find('script', type='application/ld+json').string)
 
         self.bot.utils.dict_merge(mc_model, data)
 

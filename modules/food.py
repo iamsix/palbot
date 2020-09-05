@@ -4,6 +4,7 @@ from discord.ext import commands
 import re
 from urllib.parse import quote as uriquote
 import json
+import html2text
 
 
 class BeerCals:
@@ -244,28 +245,23 @@ class Food(commands.Cog):
 
     @commands.command(name='wfd')
     async def get_recipe(self, ctx, inpt: str = ""):
-        """Get a random recipe from reciperoulette.tv"""
+        """Get a random recipe from spoontacular"""
+        #TODO This API has a lot of options that can be implemented
+        # cuisines/ingredients/etc
 
-        url = "http://www.reciperoulette.tv/getRecipeInfo"
+        url = "https://api.spoonacular.com/recipes/random"
+        params = {"apiKey": self.bot.config.spoontacular_key}
 
-        inpt = inpt.lower().strip()
-        ingdt = ""
-        cusine = ""
-        
-        if inpt in self.CUISINE:
-            cusine = self.CUISINE[inpt]
-        if inpt in self.INGREDIENTS:
-            ingdt = self.INGREDIENTS[inpt]
-        post = {'ingdt': ingdt, 'diet': '', 'cusine': cusine}
+        async with self.bot.session.get(url, params=params) as resp:
+            data = await resp.json()
+            data = data['recipes'][0]
 
-        async with self.bot.session.post(url, data=post) as resp:
-            data = await resp.read()
-            data = json.loads(data)
+        e = discord.Embed(title=data['title'], url=data['spoonacularSourceUrl'])
+        e.set_thumbnail(url=data['image'])
+        text = html2text.html2text(data['summary'], bodywidth=5000).strip()
+        e.description=text
 
-        out = "{} - {} : <http://www.reciperoulette.tv/#{}>"
-        out = out.format(data['name'], data['description'], data['id'])
-        
-        await ctx.send(out)
+        await ctx.send(embed=e)
     
 
 def setup(bot):

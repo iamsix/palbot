@@ -23,7 +23,8 @@ class PalBot(commands.Bot):
     def __init__(self):
         super().__init__(command_prefix=["!"],
                 description="https://github.com/iamsix/palbot/ by six",
-                dm_help=None, fetch_offline_members=False, case_insensitive=True)
+                fetch_offline_members=False, case_insensitive=True,
+                help_command=commands.DefaultHelpCommand(dm_help=None))
         
         asyncio.ensure_future(self.async_init())
         self.logger = logging.getLogger("palbot")
