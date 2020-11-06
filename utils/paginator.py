@@ -53,7 +53,6 @@ class Paginator:
             return False
         if reaction.message.id != self.message.id:
             return False
-
         for emoji in self.interface.keys():
             if reaction.emoji == emoji:
                 self.func = self.interface[emoji]

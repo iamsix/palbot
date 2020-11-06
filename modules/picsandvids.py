@@ -4,6 +4,8 @@ import asyncio
 import random
 import re
 from io import BytesIO
+import youtube_dl
+import os
 
 from urllib.parse import quote as uriquote
 
@@ -25,7 +27,9 @@ class Pics(commands.Cog):
             params['safe'] = "medium"
         
         async with self.bot.session.get(url, params=params) as resp:
+#            print(resp.url)
             data = await resp.json()
+#            print(data)
             if 'items' not in data:
                 await ctx.send(f"There are no images of `{search}` on Google Image Search")
                 return
@@ -98,7 +102,7 @@ class Vids(commands.Cog):
         key = self.bot.config.gsearch2
         url = "https://www.googleapis.com/youtube/v3/search"
         params = {'part' : 'snippet', 'q': uriquote(search), 'type': 'video',
-                  'maxResults': 1, 'key' : key}
+                  'maxResults': 1, 'key' : key, 'regionCode': 'US'}
         
         async with self.bot.session.get(url, params=params) as resp:
             data = await resp.json()
@@ -156,23 +160,56 @@ class Vids(commands.Cog):
         await ctx.send(out)
 
     REDDIT_URL = re.compile(r'v\.redd\.it|reddit\.com/r/')
+    IG_URL = re.compile(r'instagram.com\/p\/')
     URL_REGEX = re.compile(r"(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>])*\))+(?:\(([^\s()<>])*\)|[^\s`!()\[\]{};:'\".,<>?«»“”‘’]))")
     @commands.Cog.listener()
     async def on_message(self, message):
-        match = self.REDDIT_URL.search(message.content)
-        if not match:
-            return
+        
+        reddit = self.REDDIT_URL.search(message.content)
+        if reddit:
+            url = self.URL_REGEX.search(message.content).group(0)
+            if not url:
+                return
+            await self.reddit_video(message, url)
+    #    ig = self.IG_URL.search(message.content)
+    #    if ig:
+    #        url = self.URL_REGEX.search(message.content).group(0)
+    #        if not url:
+    #            return
+    #        await self.ig_url(message, url)
+
+    async def ig_url(self, message, url):
+        page = await self.bot.utils.bs_from_url(self.bot, url)
+        title = page.find(property="og:title").get("content")
+        picture = page.find(property="og:image").get("content")
+        e = discord.Embed(title=title, url=url)
+        e.set_image(url=picture)
+        ctx = await self.bot.get_context(message, cls=self.bot.utils.MoreContext)
+        await ctx.send(embed=e)
+
+
+    async def reddit_video(self, message, url):
+        if "sound" in message.content.lower():
+            newdownloader = True
+        else:
+            newdownloader = False
+        mpdurl = ""
         # This is a reddit url... but now I ned *only* the URL...
-        url = self.URL_REGEX.search(message.content).group(0)
-        if not url:
-            return
+        
         headers = {'User-agent': 'PalBot by /u/mrsix'}
         if "v.redd.it" in url:
+            url = url.split('?')[0]
             if url.lower().endswith("dashplaylist.mpd"):
                 url = url[:-16]
+            if url.lower().endswith("hlsplaylist.m3u8"):
+                url = url[:-16]
+#            else:
+#                url = url[:url.rfind("/")]
+
             async with self.bot.session.get(url, headers=headers) as resp:
                 url = str(resp.url)
-
+        if url.lower().startswith("https://www.reddit.com/over18?dest="):
+            url = url[35:]
         url = url[:url.rfind("/")] + "/.json"
         async with self.bot.session.get(url, headers=headers) as resp:
             if resp.status != 200:
@@ -201,6 +238,8 @@ class Vids(commands.Cog):
             if not filename:
                 filename = submission.get('name', 'redditvideo')
             filename += ".mp4"
+            if newdownloader:
+                mpdurl = submission['url'] + "/DASHPlaylist.mpd"
         
             fallback_url = media.get('fallback_url')
             if not fallback_url:
@@ -209,6 +248,29 @@ class Vids(commands.Cog):
             
         async with message.channel.typing():
             pass
+
+        if newdownloader and mpdurl:
+            def my_hook(d):
+                if d['status'] == 'finished':
+                    print(d['filename'])
+
+            ydl_opts = {
+                    'outtmpl': '/tmp/rvidtest.%(ext)s',
+                    'progress_hooks': [my_hook],                    
+                    }
+            with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([mpdurl])
+            # Terrible impl
+            rvid = open('/tmp/rvidtest.mp4', 'rb')        
+            ctx = await self.bot.get_context(message, cls=self.bot.utils.MoreContext)
+            try:
+                await ctx.send(file=discord.File(rvid, filename=filename))
+            except:
+                await ctx.send("Failed to upload, file is probably too big")
+            finally:
+                os.remove('/tmp/rvidtest.mp4')
+
+            return
 
         filesize = message.guild.filesize_limit if message.guild else 8388608
         async with self.bot.session.get(fallback_url, headers=headers) as resp:

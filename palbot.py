@@ -17,20 +17,25 @@ from collections import deque
 FORMAT = "[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s"
 logging.basicConfig(filename='debug.log',level=logging.INFO, format=FORMAT)
 
+intents = discord.Intents.default()
+intents.members = True
 
 class PalBot(commands.Bot):
 
     def __init__(self):
         super().__init__(command_prefix=["!"],
                 description="https://github.com/iamsix/palbot/ by six",
-                fetch_offline_members=False, case_insensitive=True,
-                help_command=commands.DefaultHelpCommand(dm_help=None))
+                case_insensitive=True,
+                help_command=commands.DefaultHelpCommand(dm_help=None),
+                intents=intents)
         
         asyncio.ensure_future(self.async_init())
         self.logger = logging.getLogger("palbot")
         self.moddir = "modules"
         self.config = __import__('config')
         self.utils = __import__('utils')
+        print(self.intents)
+        print(self.intents.members)
         # This contains a list of tuples where:
         #  [0] = User's command Message obj
         #  [1] = the bot's response Message obj

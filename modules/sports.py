@@ -59,9 +59,11 @@ class Sports(commands.Cog):
                      status = "{} {}".format(game['linescore']['inningState'],
                                             self.bot.utils.ordinal(game['linescore']['currentInning']))
                 
-                o = "{} {} - {} {} ({})".format(
-                                        away['team']['teamName'],away['score'],
-                                        home['score'],home['team']['teamName'],
+                o = "{} {} - {} {} | {}".format(
+                                        away['team']['teamName'].ljust(9),
+                                        str(away['score']).rjust(2),
+                                        str(home['score']).ljust(2),
+                                        home['team']['teamName'].ljust(9),
                                         status)
             
             elif code == "S" or code == "P":
@@ -71,8 +73,9 @@ class Sports(commands.Cog):
                 tzname = starttime.tzname()
                 starttime = starttime.strftime('%I:%M%p').lstrip('0').replace(':00', '')
 
-                o = "{} @ {} ({} {})".format(away['team']['teamName'],
-                                            home['team']['teamName'],
+                o = "{} @    {} | {} {}".format(
+                                            away['team']['teamName'].ljust(12),
+                                            home['team']['teamName'].ljust(9),
                                             starttime, tzname)
             else:
                 continue
@@ -80,7 +83,7 @@ class Sports(commands.Cog):
             games.append(o)
 
         if games:
-            await ctx.send(" | ".join(games))
+            await ctx.send("```{}```".format("\n".join(games)))
         else:
             await ctx.send(f"No games found for {date.date()}")
 
@@ -137,28 +140,30 @@ class Sports(commands.Cog):
             if game['statusNum'] == 1:
                 # Game is scheduled in the future
                 # TODO localize startTimeUTC  "2019-10-25T23:00:00.000Z"
-                gametxt = "{} @ {} ({})"
-                gametxt = gametxt.format(team(game['vTeam']['triCode']),
-                                        team(game['hTeam']['triCode']),
-                                        game['startTimeEastern'].replace(':00', ''))
+                gametxt = "{} @     {} | {}"
+                gametxt = gametxt.format(
+                        team(game['vTeam']['triCode']).ljust(17),
+                        team(game['hTeam']['triCode']).ljust(13),
+                        game['startTimeEastern'].replace(':00', ''))
     
             else:
                 # game is finished or currently on
-                gametxt = "{} {} - {} {} ({})"
+                gametxt = "{} {} - {} {} | {}"
                 if game['statusNum'] == 2: 
                     status = "{} Q{}".format(game['clock'], game['period']['current'])
                 else:
                     status = "Final"
                     
-                gametxt = gametxt.format(team(game['vTeam']['triCode']),
-                                        game['vTeam']['score'],
-                                        game['hTeam']['score'],
-                                        team(game['hTeam']['triCode']),
-                                        status)
+                gametxt = gametxt.format(
+                        team(game['vTeam']['triCode']).ljust(13),
+                        str(game['vTeam']['score']).rjust(3),
+                        str(game['hTeam']['score']).ljust(3),
+                        team(game['hTeam']['triCode']).ljust(13),
+                        status)
             games.append(gametxt)
         
         if games:
-            await ctx.send(" | ".join(games))
+            await ctx.send("```{}```".format("\n".join(games)))
         else:
             await ctx.send(f"No games found for {date.date()}")
         
@@ -188,31 +193,35 @@ class Sports(commands.Cog):
                 tzname = starttime.tzname()
                 starttime = starttime.strftime('%I:%M%p').lstrip('0').replace(':00', '')
 
-                gametxt = "{} @ {} ({} {})".format(game['teams']['away']['team']['teamName'],
-                                                game['teams']['home']['team']['teamName'],
-                                                starttime, tzname)
+                gametxt = "{} @    {} | {} {}".format(
+                    game['teams']['away']['team']['teamName'].ljust(17),
+                    game['teams']['home']['team']['teamName'].ljust(14),
+                    starttime, tzname)
                 if gamestatus == "9":
                     gametxt += " Postponed"
             else:
                 # game finished or currently on
-                away = '{} {}'.format(game['teams']['away']['team']['teamName'],
-                                    game['linescore']['teams']['away']['goals'])
+                away = '{} {}'.format(
+                    game['teams']['away']['team']['teamName'].ljust(14),
+                    str(game['linescore']['teams']['away']['goals']).rjust(2))
                 
-                home = '{} {}'.format(game['linescore']['teams']['home']['goals'],
-                                    game['teams']['home']['team']['teamName'])
+                home = '{} {}'.format(
+                    str(game['linescore']['teams']['home']['goals']).ljust(2),
+                    game['teams']['home']['team']['teamName'].ljust(14))
                                     
-                status = '{} {}'.format(game['linescore']['currentPeriodTimeRemaining'],
-                                        game['linescore']['currentPeriodOrdinal'])
+                status = '{} {}'.format(
+                    game['linescore']['currentPeriodTimeRemaining'],
+                    game['linescore']['currentPeriodOrdinal'])
                                         
                 if game['status']['statusCode'] == "7":
                     status = status.replace("3rd", "").strip()
                     
-                gametxt = "{} - {} ({})".format(away, home, status)
+                gametxt = "{} - {} | {}".format(away, home, status)
                 
             games.append(gametxt)
         
         if games:
-            await ctx.send(" | ".join(games))
+            await ctx.send("```{}```".format("\n".join(games)))
 
 
     @commands.command()
@@ -252,9 +261,10 @@ class Sports(commands.Cog):
                                                 "%Y-%m-%dT%H:%M:%S.%f%z")
                 starttime = starttime.astimezone(tz=date.tzinfo)
                 starttime = starttime.strftime('%-I:%M%p').replace(':00', '')
-                out = "{} @ {} ({} {})".format(game['visitorTeam']['nickName'],
-                                            game['homeTeam']['nickName'],
-                                            starttime, date.tzname())
+                out = "{} @    {} | {} {}".format(
+                        game['visitorTeam']['nickName'].ljust(16),
+                        game['homeTeam']['nickName'].ljust(13),
+                        starttime, date.tzname())
             
             else:
                 if game['gameStatus']['phase'] == "INGAME":
@@ -263,18 +273,18 @@ class Sports(commands.Cog):
                 else:
                     status = game['gameStatus']['phase']
 
-                fmt = "{} {} - {} {} ({})"
-                out = fmt.format(game['visitorTeam']['nickName'],
-                                game['visitorTeamScore']['pointsTotal'],
-                                game['homeTeamScore']['pointsTotal'],
-                                game['homeTeam']['nickName'],
-                                status)
+                fmt = "{} {} - {} {} | {}"
+                out = fmt.format(game['visitorTeam']['nickName'].ljust(13),
+                        str(game['visitorTeamScore']['pointsTotal']).rjust(2),
+                        str(game['homeTeamScore']['pointsTotal']).ljust(2),
+                        game['homeTeam']['nickName'].ljust(13),
+                        status)
 
 
             games.append(out)
 
         if games:
-            await ctx.send(" | ".join(games))
+            await ctx.send("```{}```".format("\n".join(games)))
 
 
 

@@ -109,7 +109,7 @@ class Weather(commands.Cog):
         try:
             outlook_imp = f"{data['minutely']['summary']} {data['daily']['summary']}"
         except:
-            outlook_imp = f"{data['hourly']['summary']} {data['daily']['summary']}"
+            outlook_imp = f"{data['hourly'].get('summary', '')} {data['daily'].get('summary', '')}"
         outlook_metric = units.imperial_string_to_metric(outlook_imp)
 
         temp_c = f"{units.f_to_c(current['temperature'])}°C"
