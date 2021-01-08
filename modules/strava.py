@@ -70,6 +70,7 @@ class Strava(commands.Cog):
             recent_ride = data[0]
             recent_ride = await self.strava_get_ride_extended_info(recent_ride['id'])
             if recent_ride:
+                self.bot.logger.debug(recent_ride)
                 measurements = await self.strava_get_measurement_pref(user)
                 return self.parse_strava_ride(recent_ride, user, measurements)
             else:
@@ -111,7 +112,7 @@ class Strava(commands.Cog):
         
         
         out = f"{name} near {location} on {time_start} [ <http://www.strava.com/activities/{ride_id}> ]\n"
-        out += f"Ride Stats: {distance} in {moving_time} | {avg_speed} average / {max_speed} max | {climbed} climbed"
+        out += f"{recent_ride['type']} Stats: {distance} in {moving_time} | {avg_speed} average / {max_speed} max | {climbed} climbed"
 
         if 'average_watts' in recent_ride:
             out += f" | {int(recent_ride['average_watts'])} watts average power"

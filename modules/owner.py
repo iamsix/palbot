@@ -3,7 +3,7 @@ from pathlib import Path
 from importlib import reload
 import sys, traceback
 from utils.time import human_timedelta
-
+import logging
 
 class UsefulEvents(commands.Cog):
     def __init__(self, bot):
@@ -37,6 +37,30 @@ class OwnerCog(commands.Cog, name="Owner Commands"):
     async def die(self, ctx):
         await ctx.send("Goodbye.")
         await self.bot.close()
+
+    @commands.command(hidden=True)
+    @commands.is_owner()
+    async def loglevel(self, ctx, level):
+        disclog = logging.getLogger('discord')
+        if level.lower() == 'info':
+            self.bot.logger.setLevel(logging.INFO)
+            disclog.setLevel(logging.INFO)
+        elif level.lower() == 'debug':
+            self.bot.logger.setLevel(logging.DEBUG)
+            disclog.setLevel(logging.DEBUG)
+        elif level.lower() == 'warning':
+            self.bot.logger.setLevel(logging.WARNING)
+            disclog.setLevel(logging.WARNING)
+        elif level.lower() == 'error':
+            self.bot.logger.setLevel(logging.ERROR)
+            disclog.logger.setLevel(logging.ERROR)
+        elif level.lower() == 'critical':
+            self.bot.logger.setLevel(logging.CRITICAL)
+            disclog.setLevel(logging.CRITICAL)
+        else:
+            await ctx.send("Invalid logging level")
+            return
+        await ctx.send(f"Logging has been set to {level} {self.bot.logger.getEffectiveLevel()}")
 
     @commands.command(name='infotest', hidden=True)
     async def infotest(self, ctx):

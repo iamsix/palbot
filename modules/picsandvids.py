@@ -250,6 +250,12 @@ class Vids(commands.Cog):
             pass
 
         if newdownloader and mpdurl:
+            # If I'm going to do this muxing manually I might as well parse
+            # the mpd url myself directly
+            # baseurl (v.redd.it/hash) /audio or /DASH_480 etc
+            # check video size and assume audio will fit.
+            # https://stackoverflow.com/questions/61602547/how-to-use-python-subprocess-with-bytes-instead-of-files
+            # 
             def my_hook(d):
                 if d['status'] == 'finished':
                     print(d['filename'])

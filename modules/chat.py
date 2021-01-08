@@ -27,12 +27,47 @@ class Chat(commands.Cog):
         if not result:
             cursor.execute("CREATE TABLE 'commands' ('cmd' TEXT UNIQUE ON CONFLICT REPLACE, 'output' TEXT, 'owner' TEXT);")
             self.custom_command_conn.commit()
+    
+    REPOST = ['\N{REGIONAL INDICATOR SYMBOL LETTER R}',
+              '\N{REGIONAL INDICATOR SYMBOL LETTER E}',
+              '\N{REGIONAL INDICATOR SYMBOL LETTER P}',
+              '\N{REGIONAL INDICATOR SYMBOL LETTER O}',
+              '\N{REGIONAL INDICATOR SYMBOL LETTER S}',
+              '\N{REGIONAL INDICATOR SYMBOL LETTER T}',]
+
+    @commands.Cog.listener()
+    async def on_reaction_add(self, reaction, user):
+        if reaction.emoji == '\N{BLACK UNIVERSAL RECYCLING SYMBOL}\N{VARIATION SELECTOR-16}':
+            for letter in self.REPOST:
+                await reaction.message.add_reaction(letter)
+            
 
     @commands.command(name='qp')
     async def quickpoll(self, ctx):
         """Add a Checkmark and X to your post for a quick yes-no poll"""
         await ctx.message.add_reaction('\N{WHITE HEAVY CHECK MARK}')
         await ctx.message.add_reaction('\N{CROSS MARK}')
+
+    @commands.command()
+    async def poll(self, ctx, *, msg):
+         """Create a poll using reactions.
+                 !poll 1. cats 2. dogs 3. birds
+
+                 !poll what's for lunch?
+                 1) pizza
+                 2) chicken
+                 3) starvation
+         """
+         options = re.split("(\d\.|\d\))", msg)
+         emoji = ['1⃣', '2⃣', '3⃣', '4⃣', '5⃣', '6⃣', '7⃣', '8⃣', '9⃣']
+         for opt in options[1:]:
+             try:
+                 number = int(opt[0])
+                 await ctx.message.add_reaction(emoji[number-1])
+             except:
+                 pass
+            
+
 
     @commands.command()
     async def translate(self, ctx, *, phrase: str):
@@ -60,6 +95,8 @@ class Chat(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message):
+        self.bot.logger.debug(message)
+        self.bot.logger.debug(message.content)
         out = ''
         prefix = self.bot.command_prefix
         lower = message.content.lower()

@@ -148,7 +148,7 @@ class Finance(commands.Cog):
         conn.commit()
         conn.close()
     
-    @commands.command(aliases=['stonks'])
+    @commands.command(aliases=['stonks', 'stocks'])
     async def stock (self, ctx, name: str):
         """Look up a stock and show its current price, change, etc"""
         symbol = ""
