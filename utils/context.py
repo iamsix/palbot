@@ -116,6 +116,28 @@ class Location:
 
             return loc
 
+    @classmethod
+    async def get_location_by_latlon(cls, bot, lat, lon):
+        location_string = None
+        url = f"https://www.mapquestapi.com/geocoding/v1/reverse?key={bot.config.mapquest_key}&location={lat}%2C{lon}&outFormat=json&thumbMaps=false"
+        async with bot.session.get(url) as resp:
+            if resp.status == 200:
+                resp_json = await resp.json()
+                if len(resp_json['results']) > 0 and len(resp_json['results'][0]['locations']) > 0:
+                    location = resp_json['results'][0]['locations'][0]
+                else:
+                    print(f"Mapquest did not return at least one location for coordinates: {lat},{lon}")
+                    return None
+                try:
+                    city = location['adminArea5']
+                    state = location['adminArea3']
+                    if city not in [None, ""] and state not in [None, ""]:
+                        location_string = f"{city}, {state}"
+                except KeyError as e:
+                    print(f"Mapquest API did not return proper response: {e} is missing")
+            else:
+                print(f"get_location_by_latlon error: {resp.status}")
+        return location_string
 
 class AuthorInfo:
     def __init__(self, user):

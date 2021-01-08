@@ -33,3 +33,5 @@ twitter_token = "abc123"
 # Format is {'twitterHandle' : [chanid, chanid2, chanid3]}
 # this will likely change
 twitter_subscriptions = {'twitter' : [123]}
+
+mapquest_key = "abc123"
