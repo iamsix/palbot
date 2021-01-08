@@ -72,21 +72,25 @@ class Strava(commands.Cog):
             if recent_ride:
                 self.bot.logger.debug(recent_ride)
                 measurements = await self.strava_get_measurement_pref(user)
-                return self.parse_strava_ride(recent_ride, user, measurements)
+                return await self.parse_strava_ride(recent_ride, user, measurements)
             else:
                 return f"Sorry {user}, an error has occured attempting to retrieve the most recent ride's details"
         else:
             return f"Sorry {user}, no rides have been recorded yet. Remember, if it's not on Strava, it didn't happen."
 
-
-    def parse_strava_ride(self, recent_ride, athlete_id=None, measurement_pref=None):
+    async def parse_strava_ride(self, recent_ride, athlete_id=None, measurement_pref=None):
         #if the athlete ID is missing we can default to mph
         moving_time = str(datetime.timedelta(seconds=recent_ride['moving_time']))
         ride_datetime = time.strptime(recent_ride['start_date_local'], "%Y-%m-%dT%H:%M:%SZ")
         time_start = time.strftime("%B %d, %Y at %I:%M %p", ride_datetime)
 
         name = recent_ride['name']
-        location = f"{recent_ride['location_city']}, {recent_ride['location_state']}"
+        location = None
+
+        if recent_ride['location_city'] is None or recent_ride['location_state'] is None:
+            location = await self.bot.utils.Location.get_location_by_latlon(self.bot, recent_ride['start_latitude'], recent_ride['start_longitude'])
+        else:
+            location = f"{recent_ride['location_city']}, {recent_ride['location_state']}"
         ride_id = recent_ride['id']
 
         # Try to get the average heart rate
@@ -110,8 +114,11 @@ class Strava(commands.Cog):
         # Figure out if we need to add average watts to the string.
         # Users who don't have a weight won't have average watts.
         
-        
-        out = f"{name} near {location} on {time_start} [ <http://www.strava.com/activities/{ride_id}> ]\n"
+        near = ""
+        if location is not None:
+            near = f"near {location} "
+
+        out = f"{name} {near}on {time_start} [ <http://www.strava.com/activities/{ride_id}> ]\n"
         out += f"{recent_ride['type']} Stats: {distance} in {moving_time} | {avg_speed} average / {max_speed} max | {climbed} climbed"
 
         if 'average_watts' in recent_ride:
