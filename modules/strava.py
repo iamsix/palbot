@@ -119,7 +119,13 @@ class Strava(commands.Cog):
             near = f"near {location} "
 
         out = f"{name} {near}on {time_start} [ <http://www.strava.com/activities/{ride_id}> ]\n"
-        out += f"{recent_ride['type']} Stats: {distance} in {moving_time} | {avg_speed} average / {max_speed} max | {climbed} climbed"
+        if recent_ride['type'].lower() == "run":
+            avg_pace = self.meters_per_second_to_minutes_per_mile(recent_ride['average_speed'])
+            out += f"{recent_ride['type']} Stats: {distance} in {moving_time} | Avg pace: {avg_pace} /mi | {climbed} climbed"
+            if avg_hr:
+                out += f" | Avg HR: {int(avg_hr)} bpm"
+        else:
+            out += f"{recent_ride['type']} Stats: {distance} in {moving_time} | {avg_speed} average / {max_speed} max | {climbed} climbed"
 
         if 'average_watts' in recent_ride:
             out += f" | {int(recent_ride['average_watts'])} watts average power"
@@ -158,6 +164,12 @@ class Strava(commands.Cog):
                 return True
             else:
                 return False
+
+    def meters_per_second_to_minutes_per_mile(self, mps):
+        if mps == 0:
+            return 0
+        secs_per_mile = round(1/(0.000621371 * float(mps)), 1)
+        return time.strftime("%M:%S", time.gmtime(secs_per_mile))
 
     def meters_per_second_to_miles_per_hour(self, mps):
         """ Converts meters per second to miles per hour, who the fuck uses this to measure bike speed? Idiots. """
