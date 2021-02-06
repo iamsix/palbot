@@ -56,7 +56,7 @@ class Internets(commands.Cog):
     async def wikipedia(self, ctx, *, term:str = ""):
         """Search for a term on wikipedia and return a snippet"""
         if not term:
-             url = "http://en.wikipedia.org/wiki/Special:Random"
+             url = ["http://en.wikipedia.org/wiki/Special:Random"]
         else:
             url = await self.bot.utils.google_for_urls(self.bot,
                     f"site:wikipedia.org {term}",
@@ -155,7 +155,7 @@ class Internets(commands.Cog):
             if result:
                 await ctx.send(result)
             else:
-                await ctx.send("Wolfram didn't undestand that")
+                await ctx.send("Wolfram didn't understand that")
 
     async def get_wolfram(self, url, params, *, full=False):
         """The recursive method used to look up wolfram data or woflram related data"""

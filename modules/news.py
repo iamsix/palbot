@@ -32,7 +32,8 @@ class News(commands.Cog):
         """
         Gets presidential approval ratings from fivethirtyeight
         """
-        data_url = "https://projects.fivethirtyeight.com/trump-approval-data/approval_topline.csv"
+        data_url = "https://projects.fivethirtyeight.com/biden-approval-data/approval_topline.csv"
+        url = 'https://projects.fivethirtyeight.com/biden-approval-rating/'
         async with self.bot.session.get(data_url) as resp:
             data = await resp.read()
 
@@ -44,9 +45,9 @@ class News(commands.Cog):
                 if row['subgroup'] == "All polls":
                     break
 
-            output = "President: {} Approval: {}% Disapproval: {}% Date: {} [ <https://goo.gl/vva6Vy> ]"
+            output = "President: {} Approval: {}% Disapproval: {}% Date: {} [ <{}> ]"
             output = output.format(row['president'], round(float(row['approve_estimate']), 1),
-                                   round(float(row['disapprove_estimate']), 1), row['modeldate'])
+                                   round(float(row['disapprove_estimate']), 1), row['modeldate'], url)
             await ctx.send(output)
     
 

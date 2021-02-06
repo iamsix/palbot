@@ -5,6 +5,7 @@ import re
 import sqlite3
 from urllib.parse import quote as uriquote
 import html
+from utils.formats import millify
 
 
 CURR = ["AUD", "BRL", "CAD", "CHF", "CLP", "CNY", "CZK", "DKK", "EUR", 
@@ -152,23 +153,30 @@ class Finance(commands.Cog):
     async def stock (self, ctx, name: str):
         """Look up a stock and show its current price, change, etc"""
         symbol = ""
+
         url = f"https://autoc.finance.yahoo.com/autoc?query={uriquote(name)}&region=1&lang=en&guccounter=1"
         async with self.bot.session.get(url) as resp:
             data = await resp.json()
-            symbol = data['ResultSet']['Result'][0]['symbol']
-        if not symbol:
-            await ctx.send(f"Unable to find a stonk named `{name}`")
-            return
+            try:
+                symbol = data['ResultSet']['Result'][0]['symbol']
+            except:
+                symbol = name
 
         url = f"http://query1.finance.yahoo.com/v7/finance/quote?symbols={symbol}"
         async with self.bot.session.get(url) as resp:
             data = await resp.json()
+            if not data["quoteResponse"]["result"]:
+                await ctx.send(f"Unable to find a stonk named `{name}`")
+                return
             data = data["quoteResponse"]["result"][0]
+
+        cap = int(data.get('marketCap', 0))
+        cap = millify(cap) if cap else "N/A"
         
         downup = "\N{CHART WITH UPWARDS TREND}" if data['regularMarketChange'] > 0 else "\N{CHART WITH DOWNWARDS TREND}"
-        outstr = "{}{}: {} {} :: Today's change: {:.2f} ({:.2f}%) {}"
+        outstr = "{}{}: {} {} :: Cap {} :: Today's change: {:.2f} ({:.2f}%) {}"
         longn = ' ({})'.format(data['shortName']) if 'shortName' in data else ''
-        outstr = outstr.format(data['symbol'], longn, data['regularMarketPrice'], data['currency'],
+        outstr = outstr.format(data['symbol'], longn, data['regularMarketPrice'], data['currency'], cap,
                                float(data['regularMarketChange']), float(data['regularMarketChangePercent']),
                                downup)
         

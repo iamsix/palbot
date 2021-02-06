@@ -4,6 +4,7 @@ from importlib import reload
 import sys, traceback
 from utils.time import human_timedelta
 import logging
+import discord
 
 class UsefulEvents(commands.Cog):
     def __init__(self, bot):
@@ -25,6 +26,12 @@ class OwnerCog(commands.Cog, name="Owner Commands"):
     async def uptime(self, ctx):
         ago = human_timedelta(self.bot.uptime)
         await ctx.send(f"Startup at {self.bot.uptime} : {ago}")
+
+    @commands.command(hidden=True)
+    @commands.is_owner()
+    async def playing(self, ctx, *, playing: str):
+        await ctx.bot.change_presence(activity=discord.Game(name=playing))
+
 
     @commands.command(hidden=True)
     @commands.is_owner()

@@ -1,3 +1,6 @@
+import math
+
+
 class plural:
     def __init__(self, value):
         self.value = value
@@ -8,6 +11,15 @@ class plural:
         if abs(v) != 1:
             return f'{v} {plural}'
         return f'{v} {singular}'
+
+millnames = ['',' K',' M',' B',' T']
+def millify(n):
+    n = float(n)
+    millidx = max(0,min(len(millnames)-1,
+        int(math.floor(0 if n == 0 else math.log10(abs(n))/3))))
+
+    return '{:.2f}{}'.format(n / 10**(3 * millidx), millnames[millidx])
+
 
 def human_join(seq, delim=', ', final='or'):
     size = len(seq)

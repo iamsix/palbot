@@ -48,9 +48,7 @@ class Twitter(commands.Cog):
     @commands.command(hidden=True)
     async def trump(self, ctx):
         """Show trump's most recent words of wisdom"""
-        tweet = (await self.read_timeline('realDonaldTrump'))[0]
-        parsed = self.parse_tweet(tweet)
-        await ctx.send("{author}: {text} ({ago})".format(**parsed))
+        await self.last_tweet(ctx, handle='realDonaldTrump')
 
         
     def parse_tweet(self, tweet):
