@@ -22,7 +22,7 @@ class Pics(commands.Cog):
 
         url = 'https://www.googleapis.com/customsearch/v1'
         params = {'key': self.bot.config.gsearch2, 'cx': self.bot.config.gsearchcx,
-                   'q': uriquote(search), 'searchType': 'image'}
+                   'q': search, 'searchType': 'image'}
         if not ctx.channel.is_nsfw():
             params['safe'] = "medium"
         
@@ -101,7 +101,7 @@ class Vids(commands.Cog):
         """Search for a youtube video and return some info along with an embedded link"""
         key = self.bot.config.gsearch2
         url = "https://www.googleapis.com/youtube/v3/search"
-        params = {'part' : 'snippet', 'q': uriquote(search), 'type': 'video',
+        params = {'part' : 'snippet', 'q': search, 'type': 'video',
                   'maxResults': 1, 'key' : key, 'regionCode': 'US'}
         
         async with self.bot.session.get(url, params=params) as resp:
@@ -192,7 +192,7 @@ class Vids(commands.Cog):
         if "sound" in message.content.lower():
             newdownloader = True
         else:
-            newdownloader = False
+            newdownloader = True
         mpdurl = ""
         # This is a reddit url... but now I ned *only* the URL...
         

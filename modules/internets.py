@@ -143,9 +143,10 @@ class Internets(commands.Cog):
 
         url = "http://api.wolframalpha.com/v2/query"
         params = {"appid": key, "format": 'plaintext', 'output': 'json',
-                  "input": uriquote(query), 
+                  "input": query, 
                   "location": location, "latlong": f"{lat},{lng}"}
-        
+       
+        print(params)
         # Wolfram api can take a while sometimes....
         async with ctx.channel.typing():
             if ctx.invoked_with.lower() == "c":

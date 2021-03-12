@@ -215,7 +215,7 @@ class Media(commands.Cog):
         key = self.bot.config.goodreadskey
         
         url = f"https://www.goodreads.com/search.xml"
-        params = {'key': key, 'q': uriquote(book)}
+        params = {'key': key, 'q': book}
 
         async with self.bot.session.get(url, params=params) as resp:
             response = await resp.read()

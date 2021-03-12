@@ -32,6 +32,17 @@ class OwnerCog(commands.Cog, name="Owner Commands"):
     async def playing(self, ctx, *, playing: str):
         await ctx.bot.change_presence(activity=discord.Game(name=playing))
 
+    @commands.command(hidden=True)
+    @commands.is_owner()
+    async def watching(self, ctx, *, watching: str):
+        await ctx.bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name=watching))
+
+    @commands.command(hidden=True)
+    @commands.is_owner()
+    async def say(self, ctx, guild: int, *, message: str):
+        chan = self.bot.get_channel(guild)
+        await chan.send(message)
+        
 
     @commands.command(hidden=True)
     @commands.is_owner()

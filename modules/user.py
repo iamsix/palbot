@@ -30,7 +30,7 @@ class User(commands.Cog):
 
     @commands.group(name="set", case_insensitive=True)
     async def _set (self, ctx):
-        """Set some useful user-related variables to the bot for conveneint command usage"""
+        """Use '!help set' for more info. Lets you set user related information for convenience"""
         pass
 
     @_set.command(name='location')
@@ -42,7 +42,7 @@ class User(commands.Cog):
         await ctx.send(f"{ctx.author.mention} location set to: {loc.formatted_address} and timezone set to {ctx.author_info.timezone}")
 
     
-    @_set.command(name='last.fm')
+    @_set.command(name='last.fm', aliases=['np', 'lastfm'])
     async def _set_lastfm(self, ctx, user: str):
         """Set your last.fm user name for !np"""
         ctx.author_info.lastfm = user
@@ -133,7 +133,7 @@ class User(commands.Cog):
         """Show the users last played song from last.fm"""
         user = user or ctx.author_info.lastfm
         if not user:
-            await ctx.send("No user found - usage is `np <user>` or set one with `set last.fm <user>`")
+            await ctx.send("No user found - usage is `np <user>` or set one with `!set last.fm <user>`")
             return
 
         url = "http://ws.audioscrobbler.com/2.0/"
@@ -167,7 +167,7 @@ class User(commands.Cog):
 
         ytkey = self.bot.config.gsearch2
         url = "https://www.googleapis.com/youtube/v3/search"
-        params = {'part' : 'snippet', 'q': uriquote(f"{artist} - {trackname}"), 'type': 'video',
+        params = {'part' : 'snippet', 'q': f"{artist} - {trackname}", 'type': 'video',
                   'maxResults': 1, 'key' : ytkey}
         async with self.bot.session.get(url, params=params) as resp:
             data = await resp.json()

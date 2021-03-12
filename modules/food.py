@@ -104,7 +104,7 @@ class Food(commands.Cog):
 
         url = "https://api.untappd.com/v4/search/beer"
         params = {'client_id': clientid, 'client_secret': clientsecret,
-                  'q': uriquote(beername)}
+                  'q': beername}
 
         async with self.bot.session.get(url, params=params) as resp:
             if resp.status != 200:

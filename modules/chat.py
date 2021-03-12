@@ -84,7 +84,7 @@ class Chat(commands.Cog):
             tl = "en"
 
         url = "https://translate.googleapis.com/translate_a/single"
-        params = {'client': 'gtx', 'sl': sl, 'tl': tl, 'dt': 't', "q": uriquote(phrase)}
+        params = {'client': 'gtx', 'sl': sl, 'tl': tl, 'dt': 't', "q": phrase}
         ua = "Mozilla/5.0 (X11; CrOS x86_64 12239.19.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.38 Safari/537.36"
         headers = {'User-Agent': ua}
         async with self.bot.session.get(url, headers=headers, params=params) as resp:
