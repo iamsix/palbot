@@ -66,15 +66,16 @@ class Weather(commands.Cog):
             data['feels_like_c'] = f" / Feels Like: {data['feels_like_c']}"
         data['icon'] = WEMOJI.get(data['icon'], '')
 
+
         out = f"{loc.formatted_address} / "
         if loc.country == "United States":
             out += ("{condition} {icon} / {temp_f} ({temp_c}){feels_like_f} / "
-                    "Humidity: {humidity} / Wind: {wind_direction} at {wind_speed_mi} / "
+                    "Humidity: {humidity} / Wind: {wind_direction} at {wind_speed_mi} gusting to {wind_gust_mi} / "
                     "Cloud Cover: {cloud_cover} / High: {high_f} Low: {low_f} / "
                     "Outlook: {outlook_imperial}").format(**data)
         else:
             out += ("{condition} {icon} / {temp_c} ({temp_f}){feels_like_c} / Dewpoint: {dewpoint_c} / "
-                    "Humidity: {humidity} / Wind: {wind_direction} at {wind_speed_km} / "
+                    "Humidity: {humidity} / Wind: {wind_direction} at {wind_speed_km} gusting to {wind_gust_km} / "
                     "Cloud Cover: {cloud_cover} / High: {high_c} Low: {low_c} / "
                     "Outlook: {outlook_metric}").format(**data)
 
@@ -91,7 +92,7 @@ class Weather(commands.Cog):
         e.add_field(name="Humidity", value=data['humidity'])
         e.add_field(name="High", value=f"{data['high_c']} / {data['high_f']}")
         e.add_field(name="Low", value=f"{data['low_c']} / {data['low_f']}")
-        e.add_field(name="Wind", value="{wind_direction} at {wind_speed_km} / {wind_speed_mi}".format(**data))
+        e.add_field(name="Wind", value="{wind_direction} at {wind_speed_km} / {wind_speed_mi} gusting to {wind_gust_km} / {wind_gust_mi}".format(**data))
         return e
 
     
@@ -106,6 +107,9 @@ class Weather(commands.Cog):
         wind_speed_km = f"{units.mi_to_km(current['windSpeed'])} km/h"
         wind_speed_mi = f"{int(round(current['windSpeed'], 0))} mph"
         
+        wind_gust_km = f"{units.mi_to_km(current['windGust'])} km/h"
+        wind_gust_mi = f"{int(round(current['windGust'], 0))} mph"
+
         try:
             outlook_imp = f"{data['minutely']['summary']} {data['daily']['summary']}"
         except:
@@ -132,6 +136,8 @@ class Weather(commands.Cog):
                    'wind_direction': wind_direction,
                    'wind_speed_km' : wind_speed_km,
                    'wind_speed_mi' : wind_speed_mi,
+                   'wind_gust_km': wind_gust_km,
+                   'wind_gust_mi': wind_gust_mi,
                    'outlook_imperial': outlook_imp,
                    'outlook_metric' : outlook_metric,
                    'temp_c' : temp_c,
