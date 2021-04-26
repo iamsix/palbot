@@ -9,7 +9,7 @@ import xml.etree.ElementTree as ET
 import tempfile
 
 from urllib.parse import quote as uriquote
-
+import html
 
 class Pics(commands.Cog):
     def __init__(self, bot):
@@ -82,7 +82,7 @@ class Pics(commands.Cog):
     
     async def reddit_pics_callback(self, data, pg):
         url = "https://reddit.com" + data[pg]['permalink']
-        e = discord.Embed(title=data[pg]['title'][:255], url=url)
+        e = discord.Embed(title=html.unescape(data[pg]['title'][:255]), url=url)
         e.set_image(url=data[pg]['url'])
         e.set_footer(text=f"Result {pg+1} of {len(data)}")
         return None, e
@@ -191,7 +191,6 @@ class Vids(commands.Cog):
 
     async def reddit_video(self, message, url):
         # This is a reddit url... but now I ned *only* the URL...
-        
         headers = {'User-agent': 'PalBot by /u/mrsix'}
         if "v.redd.it" in url:
             url = url.split('?')[0]
@@ -199,8 +198,8 @@ class Vids(commands.Cog):
                 url = url[:-16]
             if url.lower().endswith("hlsplaylist.m3u8"):
                 url = url[:-16]
-            else:
-                url = url[:url.rfind("/")]
+#            else:
+#                url = url[:url.rfind("/")]
 
             async with self.bot.session.get(url, headers=headers) as resp:
                 url = str(resp.url)
@@ -317,32 +316,6 @@ class Vids(commands.Cog):
                 await ctx.send(file=discord.File(BytesIO(viddata), filename=filename))
 
 
-def mux_video(video: bytes, audio: bytes)-> bytes or None:
-    command = f"ffmpeg "
-    ffmpeg_cmd = subprocess.Popen(
-        shlex.split(command),
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        shell=False
-    )
-    b = b''
-    # write bytes to processe's stdin and close the pipe to pass
-    # data to piped process
-    ffmpeg_cmd.stdin.write(input_bytes)
-    ffmpeg_cmd.stdin.close()
-    while True:
-        output = ffmpeg_cmd.stdout.read()
-        if len(output) > 0:
-            b += output
-        else:
-            error_msg = ffmpeg_cmd.poll()
-            if error_msg is not None:
-                break
-    return b         
-
-
-
-            
 
 def setup(bot):
     bot.add_cog(Pics(bot))

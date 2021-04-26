@@ -5,6 +5,7 @@ import re
 from urllib.parse import quote as uriquote
 import datetime
 import pytz
+import json
 
 from poe import Client
 import poe.utils as poeutils
@@ -78,55 +79,44 @@ class Games(commands.Cog):
     async def owl(self, ctx):
         """Show the live overwatch league matches and scores"""
 
-        url = "https://api.overwatchleague.com/live-match"
-        async with self.bot.session.get(url) as resp:
-            data = await resp.json()
-            data = data['data']
+        if ctx.author_info.timezone:
+            now = datetime.datetime.now(pytz.timezone(ctx.author_info.timezone))
+            nowtz = pytz.timezone(ctx.author_info.timezone)
+        else:
+            now = datetime.datetime.now(pytz.timezone("US/Eastern"))
+            nowtz = pytz.timezone("US/Eastern")
 
-        tz = ctx.author_info.timezone if ctx.author_info.timezone else "US/Eastern"
 
-        output = ""
-        if data['liveMatch']:
-            match = data['liveMatch']
-            if match['status'] == "PENDING":
-                output = self.format_pending_game(match, tz)
-            else:
-                game = None
-                for g in match['games']:
-                    if g['status'] == "IN_PROGRESS":
-                        game = g['number']
-                if game:
-                    status = "Map {} ({} {})".format(game, 
-                                                   match['conclusionStrategy'],  
-                                                   match['conclusionValue'])
-                else:
-                    status = "Intermission"
-                fmt = "{} {} - {} {} - {}"
-                output = fmt.format(match['competitors'][0]['name'],
-                                    match['scores'][0]['value'],
-                                    match['scores'][1]['value'],
-                                    match['competitors'][1]['name'],
-                                    status)
-        if data['nextMatch']:
-            match = data['nextMatch']
-            output += " | {}".format(self.format_pending_game(match, tz))
-        
-        if output:
-            await ctx.send(output)
+        url = "https://overwatchleague.com/en-us/schedule"
+        page = await self.bot.utils.bs_from_url(self.bot, url)
+        jsonhtml = page.find('script', id='__NEXT_DATA__')
+        data = json.loads(jsonhtml.string)
+#        matches = data['props']['pageProps']['blocks'][0]['owlHeader']['scoreStripList']['scoreStrip']['matches']
+        matches = data['props']['pageProps']['blocks'][2]['schedule']['tableData']['events'][0]['matches']
 
-    def format_pending_game(self, match, tz):
-        starttime = datetime.datetime \
-                            .strptime(match['startDate'],
-                                    "%Y-%m-%dT%H:%M:%S.%fZ") \
-                            .replace(tzinfo=pytz.utc) \
-                            .astimezone(tz=pytz.timezone(tz))
+        out = []
+        for match in matches:
+            date = datetime.datetime.fromtimestamp(match['startDate']/1000, tz=nowtz)
+            if date.date() != now.date():
+                continue
+            teams = match['competitors']
+            line = ""
+            if match['status'] == 'PENDING':
+                line = f"{teams[0]['name']} - {teams[1]['name']} : {date.strftime('%-I:%M%p')}"
+            if match['status'] == 'IN_PROGRESS':
+                line = f"{teams[0]['name']} {match['scores'][0]} - {match['scores'][1]} {teams[1]['name']} : Live"
+            if match['status'] == 'CONCLUDED':
+                line = f"{teams[0]['name']} {match['scores'][0]} - {match['scores'][1]} {teams[1]['name']} : End"
+            if line:
+                out.append(line)
 
-        status = starttime.strftime('%-d %b at %-I:%M%p').replace(':00', '')
+        if out:
+            await ctx.send("```{}```".format("\n".join(out)))
+        else:
+            await ctx.send("Either there's no games today or the OWL site broke this")
 
-        fmt = "{} vs {} ({} {})"
-        return fmt.format(match['competitors'][0]['name'],
-                                match['competitors'][1]['name'],
-                                status, starttime.tzname())
+
+
 
 
 def setup(bot):

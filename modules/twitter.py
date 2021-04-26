@@ -40,8 +40,10 @@ class Twitter(commands.Cog):
         """Show the last tweet of a twitter user"""
         tweet = await self.read_timeline(handle)
         if tweet:
-            parsed = self.parse_tweet(tweet[0])
-            await ctx.send("{author}: {text} ({ago})".format(**parsed))
+            #parsed = self.parse_tweet(tweet[0])
+            e = self.embed_tweet(tweet[0])
+            await ctx.send(embed=e)
+            #await ctx.send("{author}: {text} ({ago})".format(**parsed))
         else:
             await ctx.send(f"Failed to load tweets from twitter user @{handle}")
 
@@ -50,8 +52,24 @@ class Twitter(commands.Cog):
         """Show trump's most recent words of wisdom"""
         await self.last_tweet(ctx, handle='realDonaldTrump')
 
+    # TODO Handle retweets better
+
+    def embed_tweet(self, tweet):
+        handle = tweet['user']['screen_name']
+        link = f"https://twitter.com/{handle}/status/{tweet['id']}"
+        e = discord.Embed(title='Tweet', url=link, color=0x1da1f2)
+        author = f"{tweet['user']['name']} (@{handle})"
+        aurl = f"https://twitter.com/{handle}"
+        e.set_author(name=author, url=aurl, icon_url=tweet['user']['profile_image_url_https'])
+        e.description = html.unescape(tweet['full_text'].strip())
         
+        ts = datetime.strptime(tweet['created_at'], "%a %b %d %H:%M:%S +0000 %Y")
+        e.timestamp = ts
+
+        return e
+
     def parse_tweet(self, tweet):
+        print(tweet)
         updated = datetime.strptime(tweet['created_at'], "%a %b %d %H:%M:%S +0000 %Y")
         ago = human_timedelta(updated, brief=True)
         author = tweet['user']['screen_name']

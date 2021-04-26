@@ -19,8 +19,49 @@ WEMOJI ={
     "snow": "\N{SNOWFLAKE}",
     "sleet": "\N{SNOWFLAKE}\N{CLOUD WITH RAIN}",
     "wind": "\N{DASH SYMBOL}",
-    "fog": "\N{FOG}"
-} 
+    "fog": "\N{FOG}",
+        1 : "\N{BLACK SUN WITH RAYS}",
+        2 : "\N{WHITE SUN WITH SMALL CLOUD}",
+        3 : "\N{WHITE SUN BEHIND CLOUD}",
+        4 : "\N{WHITE SUN WITH SMALL CLOUD}",
+        5 : "\N{BLACK SUN WITH RAYS}\N{FOG}",
+        6 : "\N{WHITE SUN BEHIND CLOUD}",
+        7 : "\N{CLOUD}",
+        8 : "\N{CLOUD}",
+        11: "\N{FOG}",
+        12: "\N{CLOUD WITH RAIN}",
+        13: "\N{WHITE SUN BEHIND CLOUD WITH RAIN}",
+        14: "\N{WHITE SUN BEHIND CLOUD WITH RAIN}",
+        15: "\N{THUNDER CLOUD AND RAIN}",
+        16: "\N{WHITE SUN BEHIND CLOUD}\N{THUNDER CLOUD AND RAIN}",
+        17: "\N{WHITE SUN BEHIND CLOUD}\N{THUNDER CLOUD AND RAIN}",
+        18: "\N{CLOUD WITH RAIN}",
+        19: "\N{DASH SYMBOL}\N{SNOWFLAKE}",
+        20: "\N{DASH SYMBOL}\N{SNOWFLAKE}\N{WHITE SUN BEHIND CLOUD}",
+        21: "\N{DASH SYMBOL}\N{SNOWFLAKE}\N{WHITE SUN BEHIND CLOUD}",
+        22: "\N{SNOWFLAKE}",
+        23: "\N{SNOWFLAKE}\N{WHITE SUN BEHIND CLOUD}",
+        24: "\N{ICE CUBE}",
+        25: "\N{SNOWFLAKE}\N{CLOUD WITH RAIN}",
+        26: "\N{ICE CUBE}\N{CLOUD WITH RAIN}",
+        29: "\N{SNOWFLAKE}\N{CLOUD WITH RAIN}",
+        30: "\N{OVERHEATED FACE}",
+        31: "\N{FREEZING FACE}",
+        31: "\N{FREEZING FACE}",
+        32: "\N{DASH SYMBOL}",
+        33: "\N{CRESCENT MOON}",
+        34: "\N{CRESCENT MOON}\N{CLOUD}",
+        35: "\N{CRESCENT MOON}\N{CLOUD}",
+        36: "\N{CRESCENT MOON}\N{CLOUD}",
+        37: "\N{CRESCENT MOON}\N{FOG}",
+        38: "\N{CRESCENT MOON}\N{CLOUD}",
+        39: "\N{CRESCENT MOON}\N{CLOUD WITH RAIN}",
+        40: "\N{CRESCENT MOON}\N{CLOUD WITH RAIN}",
+        41: "\N{CRESCENT MOON}\N{THUNDER CLOUD AND RAIN}",
+        42: "\N{CRESCENT MOON}\N{THUNDER CLOUD AND RAIN}",
+        43: "\N{CRESCENT MOON}\N{DASH SYMBOL}\N{SNOWFLAKE}",
+        44: "\N{CRESCENT MOON}\N{SNOWFLAKE}",
+    }
 
 
 class Weather(commands.Cog):
@@ -33,7 +74,7 @@ class Weather(commands.Cog):
             if loc:
                 return loc
             else:
-                await ctx.send("I don't have a location for you - use `set location <location>` to set one")
+                await ctx.send("I don't have a location for you - use `!set location <location>` to set one")
         else:
             return await self.bot.utils.Location.from_google_geocode(self.bot, location)
 
@@ -62,20 +103,22 @@ class Weather(commands.Cog):
             data['feels_like_f'] = ''
             data['feels_like_c'] = ''
         else:
-            data['feels_like_f'] = f" / Feels Like: {data['feels_like_f']}"
-            data['feels_like_c'] = f" / Feels Like: {data['feels_like_c']}"
+            data['feels_like_f'] = f" / RealFeel™: {data['feels_like_f']}"
+            data['feels_like_c'] = f" / RealFeel™: {data['feels_like_c']}"
+
+        
         data['icon'] = WEMOJI.get(data['icon'], '')
 
 
         out = f"{loc.formatted_address} / "
         if loc.country == "United States":
             out += ("{condition} {icon} / {temp_f} ({temp_c}){feels_like_f} / "
-                    "Humidity: {humidity} / Wind: {wind_direction} at {wind_speed_mi} gusting to {wind_gust_mi} / "
+                    "Humidity: {humidity} / Wind: {wind_direction} at {wind_speed_mi} / "
                     "Cloud Cover: {cloud_cover} / High: {high_f} Low: {low_f} / "
                     "Outlook: {outlook_imperial}").format(**data)
         else:
             out += ("{condition} {icon} / {temp_c} ({temp_f}){feels_like_c} / Dewpoint: {dewpoint_c} / "
-                    "Humidity: {humidity} / Wind: {wind_direction} at {wind_speed_km} gusting to {wind_gust_km} / "
+                    "Humidity: {humidity} / Wind: {wind_direction} at {wind_speed_km} / "
                     "Cloud Cover: {cloud_cover} / High: {high_c} Low: {low_c} / "
                     "Outlook: {outlook_metric}").format(**data)
 
@@ -84,15 +127,15 @@ class Weather(commands.Cog):
     async def fio_embed(self, data, loc):
         e = discord.Embed(title=f"{loc.formatted_address} - {data['condition']}")
         e.set_footer(text=self.bot.utils.units.imperial_string_to_metric(data['outlook_imperial'], both=True))
-        wicons = "https://raw.githubusercontent.com/iamsix/palbot/rewrite/utils/wicons/{}.png"
-        e.set_thumbnail(url=wicons.format(data['icon'].lower()))
+        wicon = f"https://raw.githubusercontent.com/iamsix/palbot/rewrite/utils/wicons/{data['icon']}.png".lower()
+        e.set_thumbnail(url=wicon)
         e.add_field(name="Temp", value=f"{data['temp_c']} / {data['temp_f']}")
         if data['feels_like_f'] != data['temp_f']:
-            e.add_field(name="Feels Like", value=f"{data['feels_like_c']} / {data['feels_like_f']}")
+            e.add_field(name="RealFeel™", value=f"{data['feels_like_c']} / {data['feels_like_f']}")
         e.add_field(name="Humidity", value=data['humidity'])
         e.add_field(name="High", value=f"{data['high_c']} / {data['high_f']}")
         e.add_field(name="Low", value=f"{data['low_c']} / {data['low_f']}")
-        e.add_field(name="Wind", value="{wind_direction} at {wind_speed_km} / {wind_speed_mi} gusting to {wind_gust_km} / {wind_gust_mi}".format(**data))
+        e.add_field(name=f"Wind {data['wind_direction']}", value="{wind_speed_km}\n{wind_speed_mi}".format(**data))
         return e
 
     
@@ -106,9 +149,9 @@ class Weather(commands.Cog):
         wind_direction = f"{wind_arrow} {units.bearing_to_compass(wind_direction)}"
         wind_speed_km = f"{units.mi_to_km(current['windSpeed'])} km/h"
         wind_speed_mi = f"{int(round(current['windSpeed'], 0))} mph"
-        
-        wind_gust_km = f"{units.mi_to_km(current['windGust'])} km/h"
-        wind_gust_mi = f"{int(round(current['windGust'], 0))} mph"
+        if current['windGust'] - 5 >  current['windSpeed']:
+            wind_speed_km += f" gusting to {units.mi_to_km(current['windGust'])} km/h"
+            wind_speed_mi += f" gusting to {int(round(current['windGust'], 0))} mph"
 
         try:
             outlook_imp = f"{data['minutely']['summary']} {data['daily']['summary']}"
@@ -136,8 +179,6 @@ class Weather(commands.Cog):
                    'wind_direction': wind_direction,
                    'wind_speed_km' : wind_speed_km,
                    'wind_speed_mi' : wind_speed_mi,
-                   'wind_gust_km': wind_gust_km,
-                   'wind_gust_mi': wind_gust_mi,
                    'outlook_imperial': outlook_imp,
                    'outlook_metric' : outlook_metric,
                    'temp_c' : temp_c,
@@ -153,11 +194,101 @@ class Weather(commands.Cog):
                    }
         return weather
 
+
+    @commands.command(name='aw', aliases=['paw'])
+    async def accuweather(self, ctx, *, location:str = ""):
+        """Show a weather report from accuweather for <location>
+           Can be invoked without location if you have done a `set location`"""
+        key = self.bot.config.accuweather_key
+        loc = await self.locatamatron(ctx, location)
+        if not loc:
+            return
+        
+
+        locurl = f"http://api.accuweather.com/locations/v1/search?q={loc.city},{loc.country}&apikey={key}"
+        async with self.bot.session.get(locurl) as resp:
+            data = await resp.json()
+            accu_loc = data[0]['Key']
+
+        url = f'http://api.accuweather.com/localweather/v1/{accu_loc}.json?apikey={key}&details=true'
+        async with self.bot.session.get(url) as resp:
+            data = await resp.json()
+            weather = self.parse_accu(data)
+            if ctx.invoked_with.lower() == "aw":
+                await ctx.send(await self.fio_text(weather, loc))
+            else:
+                await ctx.send(embed=await self.fio_embed(weather, loc))
+    
+    def parse_accu(self, data):
+        units = self.bot.utils.units
+        current = data['CurrentConditions']
+        forecast = data['ForecastSummary']['DailyForecasts']
+    
+        wind_direction = current['Wind']['Direction']['Degrees']
+        wind_arrow = units.bearing_to_arrow(wind_direction)
+        wind_direction = f"{wind_arrow} {units.bearing_to_compass(wind_direction)}"
+
+        windspeed = current['Wind']['Speed']['Value']
+        gustspeed = current['WindGust']['Speed']['Value']
+
+        wind_speed_km = f"{units.mi_to_km(windspeed)} km/h"
+        wind_speed_mi = f"{int(round(windspeed, 0))} mph"
+        if gustspeed - 5 > windspeed:
+            wind_speed_km += f" gusting to {units.mi_to_km(gustspeed)} km/h"
+            wind_speed_mi += f" gusting to {int(round(gustspeed, 0))} mph"
+
+        summary = f"{forecast[0]['Day']['LongPhrase']} in the day, "
+        summary += f"{forecast[0]['Night']['LongPhrase']} at night."
+        outlook_imp = f"{summary} {data['ForecastSummary']['Headline']['Text']}"
+        outlook_metric = units.imperial_string_to_metric(outlook_imp)
+
+        temp_c = f"{units.f_to_c(current['Temperature']['Value'])}°C"
+        temp_f = f"{int(round(current['Temperature']['Value'],0))}°F"
+        feels_like_c = f"{units.f_to_c(current['RealFeelTemperature']['Value'])}°C"
+        feels_like_f = f"{int(round(current['RealFeelTemperature']['Value'],0))}°F"
+
+        low_c = f"{units.f_to_c(forecast[0]['Temperature']['Minimum']['Value'])}°C"
+        low_f = f"{int(round(forecast[0]['Temperature']['Minimum']['Value'],0))}°F"
+        high_c = f"{units.f_to_c(forecast[0]['Temperature']['Maximum']['Value'])}°C"
+        high_f = f"{int(round(forecast[0]['Temperature']['Maximum']['Value'],0))}°F"
+        
+        dewpoint_c = f"{units.f_to_c(current['DewPoint']['Value'])}°C"
+        dewpoint_f = f"{int(round(current['DewPoint']['Value'],0))}°F"
+ 
+        weather = {
+                'condition' : current['WeatherText'],
+                'icon' : current['WeatherIcon'],
+                'humidity' : f"{current['RelativeHumidity']}%",
+                'cloud_cover' : f"{current['CloudCover']}%",
+                'wind_direction': wind_direction,
+                'wind_speed_km' : wind_speed_km,
+                'wind_speed_mi' : wind_speed_mi,
+                'outlook_imperial': outlook_imp,
+                'outlook_metric' : outlook_metric,
+                'temp_c' : temp_c,
+                'temp_f' : temp_f,
+                'feels_like_c' : feels_like_c,
+                'feels_like_f' : feels_like_f,
+                'low_c' : low_c,
+                'low_f' : low_f,
+                'high_c' : high_c,
+                'high_f' : high_f,
+                'dewpoint_c' : dewpoint_c,
+                'dewpoint_f' : dewpoint_f,
+                }
+
+        return weather
+
+
+
+
+
     @commands.command(name='aqi')
     async def get_aqi(self, ctx, *, location: str = ''):
         """Show the air quality index of <location>
            Can be invoked without location if you have a set location"""
         loc = await self.locatamatron(ctx, location)
+        
         if not loc:
             return
 

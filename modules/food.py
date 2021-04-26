@@ -193,7 +193,7 @@ class Food(commands.Cog):
                                 drink["strInstructions"])
         await ctx.send(output)
 
-    @commands.command(aliases=['liquor'])
+    @commands.command(aliases=['liquor', 'booze'])
     async def spirits(self, ctx, *, spirit: str):
         """Search Distiller.com for a <spirit> and return some information about it"""
         url = await self.bot.utils.google_for_urls(self.bot, 
