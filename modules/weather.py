@@ -127,7 +127,8 @@ class Weather(commands.Cog):
     async def fio_embed(self, data, loc):
         e = discord.Embed(title=f"{loc.formatted_address} - {data['condition']}")
         e.set_footer(text=self.bot.utils.units.imperial_string_to_metric(data['outlook_imperial'], both=True))
-        wicon = f"https://raw.githubusercontent.com/iamsix/palbot/rewrite/utils/wicons/{data['icon']}.png".lower()
+        wicon = f"https://raw.githubusercontent.com/iamsix/palbot/master/utils/wicons/{data['icon']}.png".lower()
+        print(wicon)
         e.set_thumbnail(url=wicon)
         e.add_field(name="Temp", value=f"{data['temp_c']} / {data['temp_f']}")
         if data['feels_like_f'] != data['temp_f']:
