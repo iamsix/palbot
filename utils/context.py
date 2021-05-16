@@ -93,7 +93,6 @@ class Location:
 
             if status != "OK":
                 return None
-
             city, state, country, poi = "","","", ""
 
             for component in results_json['results'][0]['address_components']:

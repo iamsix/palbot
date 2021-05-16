@@ -174,6 +174,8 @@ class Finance(commands.Cog):
         cap = millify(cap) if cap else "N/A"
         
         downup = "\N{CHART WITH UPWARDS TREND}" if data['regularMarketChange'] > 0 else "\N{CHART WITH DOWNWARDS TREND}"
+        if  float(data['regularMarketChangePercent']) > 20.0:
+            downup += "\N{ROCKET}"
         outstr = "{}{}: {} {} :: Cap: {} :: Today's change: {:.2f} ({:.2f}%) {}"
         longn = ' ({})'.format(data['shortName']) if 'shortName' in data else ''
         outstr = outstr.format(data['symbol'], longn, data['regularMarketPrice'], data['currency'], cap,

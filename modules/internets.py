@@ -146,7 +146,7 @@ class Internets(commands.Cog):
                   "input": query, 
                   "location": location, "latlong": f"{lat},{lng}"}
        
-        print(params)
+        # print(params)
         # Wolfram api can take a while sometimes....
         async with ctx.channel.typing():
             if ctx.invoked_with.lower() == "c":

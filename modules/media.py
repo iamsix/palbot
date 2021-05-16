@@ -125,7 +125,7 @@ class Media(commands.Cog):
 
         urls = await self.bot.utils.google_for_urls(self.bot,
                 "site:imdb.com inurl:com/title " + movie_name,
-                url_regex="imdb.com/title/tt\\d{7}/")
+                url_regex="imdb.com/title/tt\\d+/")
 
         if not urls:
             await ctx.send(f"Couldn't find a movie named `{movie_name}` on IMDb")

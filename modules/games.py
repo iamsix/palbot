@@ -6,6 +6,7 @@ from urllib.parse import quote as uriquote
 import datetime
 import pytz
 import json
+from utils.time import HumanTime
 
 from poe import Client
 import poe.utils as poeutils
@@ -75,17 +76,19 @@ class Games(commands.Cog):
 
         await ctx.send(file=discord.File(image_fp, result.name + ".png"))
 
-    @commands.command()
-    async def owl(self, ctx):
-        """Show the live overwatch league matches and scores"""
-
-        if ctx.author_info.timezone:
-            now = datetime.datetime.now(pytz.timezone(ctx.author_info.timezone))
-            nowtz = pytz.timezone(ctx.author_info.timezone)
+    async def friendly_date(self, ctx, date):
+        if not date:
+            if ctx.author_info.timezone:
+                return datetime.datetime.now(pytz.timezone(ctx.author_info.timezone))
+            else:
+                return datetime.datetime.now(pytz.timezone("US/Eastern"))
         else:
-            now = datetime.datetime.now(pytz.timezone("US/Eastern"))
-            nowtz = pytz.timezone("US/Eastern")
+            return date.dt
 
+    @commands.command()
+    async def owl(self, ctx, *, date: HumanTime = None):
+        """Show the live overwatch league matches and scores"""
+        now = await self.friendly_date(ctx, date)
 
         url = "https://overwatchleague.com/en-us/schedule"
         page = await self.bot.utils.bs_from_url(self.bot, url)
@@ -96,7 +99,7 @@ class Games(commands.Cog):
 
         out = []
         for match in matches:
-            date = datetime.datetime.fromtimestamp(match['startDate']/1000, tz=nowtz)
+            date = datetime.datetime.fromtimestamp(match['startDate']/1000, tz=now.tzinfo)
             if date.date() != now.date():
                 continue
             teams = match['competitors']
@@ -113,7 +116,7 @@ class Games(commands.Cog):
         if out:
             await ctx.send("```{}```".format("\n".join(out)))
         else:
-            await ctx.send("Either there's no games today or the OWL site broke this")
+            await ctx.send(f"Either there's no games on {now.date()} or the OWL site broke this")
 
 
 
