@@ -42,6 +42,17 @@ class Randomizers(commands.Cog):
                 output += "oo" if random.randint(0, 5) == 0 else "o"
         await ctx.send(output)
 
+    
+    @commands.command(name="8=D")
+    async def eightd(self, ctx):
+        output = "8"
+        rand = random.randint(2, 10)
+        for _ in range(0, rand):
+            output += "==" if random.randint(0, 5) == 0 else "="
+        output += "D"
+        await ctx.send(output)
+
+
     @commands.command()
     async def ziti(self, ctx):
         """skrrt"""

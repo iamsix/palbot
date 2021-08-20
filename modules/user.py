@@ -124,7 +124,7 @@ class User(commands.Cog):
             now = datetime.datetime.now()
 
         fmt = "Current time: %-I:%M:%S %p %Z | %A, %B %-d, %Y"
-        time = now.strftime(fmt) + "\nhttps://i.imgur.com/HHCethk.gif"
+        time = now.strftime(fmt) + "\nhttps://tenor.com/view/judge-judy-gif-5714654"
         await ctx.send(time)
         
 

@@ -18,9 +18,12 @@ class Finance(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-
     @commands.command()
     async def coin(self, ctx, *, line: str):
+        await self.stock(ctx, line + "-usd")
+
+    @commands.command()
+    async def oldcoin(self, ctx, *, line: str):
         """Look up a cryptocurrency such as Bitcoin
         Optionally specify a quantity such as `0.6 ETH`
         Optionally specify a conversion value such as `2 BTC in ETH` or `ETH in CAD`"""
@@ -152,13 +155,14 @@ class Finance(commands.Cog):
     @commands.command(aliases=['stonks', 'stocks'])
     async def stock (self, ctx, name: str):
         """Look up a stock and show its current price, change, etc"""
-        symbol = ""
+        symbol = name
 
-        url = f"https://autoc.finance.yahoo.com/autoc?query={uriquote(name)}&region=1&lang=en&guccounter=1"
+        url = f'https://query1.finance.yahoo.com/v1/finance/search?q={uriquote(name)}&lang=en-US&region=US&newsCount=0'
+
         async with self.bot.session.get(url) as resp:
-            data = await resp.json()
             try:
-                symbol = data['ResultSet']['Result'][0]['symbol']
+                data = await resp.json()
+                symbol = data['quotes'][0]['symbol']
             except:
                 symbol = name
 

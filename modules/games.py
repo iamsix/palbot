@@ -107,6 +107,9 @@ class Games(commands.Cog):
             if match['status'] == 'PENDING':
                 line = f"{teams[0]['name']} - {teams[1]['name']} : {date.strftime('%-I:%M%p')}"
             if match['status'] == 'IN_PROGRESS':
+                if not match['scores']:
+                    # TODO look for the IsEncore thing and make a special status for it
+                    continue
                 line = f"{teams[0]['name']} {match['scores'][0]} - {match['scores'][1]} {teams[1]['name']} : Live"
             if match['status'] == 'CONCLUDED':
                 line = f"{teams[0]['name']} {match['scores'][0]} - {match['scores'][1]} {teams[1]['name']} : End"

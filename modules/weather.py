@@ -119,6 +119,11 @@ class Weather(commands.Cog):
         else:
             return await self.bot.utils.Location.from_google_geocode(self.bot, location)
 
+    @commands.command()
+    async def wq(self, ctx, *, location:str = ""):
+        ctx.invoked_with = "w"
+        await self.forecast_io(ctx, location=location)
+        await self.get_aqi(ctx, location=location)
 
     @commands.command(name='w', aliases=['pw'])
     async def forecast_io(self, ctx, *, location:str = ""):

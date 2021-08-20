@@ -5,6 +5,7 @@ import re
 from urllib.parse import quote as uriquote
 import json
 import html2text
+import random
 
 
 class BeerCals:
@@ -244,19 +245,39 @@ class Food(commands.Cog):
                 "beef": 59, "turkey": 98}
 
     @commands.command(name='wfd')
-    async def get_recipe(self, ctx, inpt: str = ""):
+    async def get_recipe(self, ctx, *, inpt: str = ""):
         """Get a random recipe from spoontacular"""
         #TODO This API has a lot of options that can be implemented
         # cuisines/ingredients/etc
 
-        url = "https://api.spoonacular.com/recipes/random"
         params = {"apiKey": self.bot.config.spoontacular_key}
+        
+        if inpt:
+            params['titleMatch'] = inpt
+            url = 'https://api.spoonacular.com/recipes/complexSearch'
+            async with self.bot.session.get(url, params=params) as resp:
+                res = await resp.json()
+                if not res['results']:
+                    await ctx.send(f"No recipes with `{inpt}` found")
+                    return
+                res = random.choice(res['results'])
+                rid = res['id']
 
-        async with self.bot.session.get(url, params=params) as resp:
-            data = await resp.json()
-            data = data['recipes'][0]
+            url = f'https://api.spoonacular.com/recipes/{rid}/information'
+            async with self.bot.session.get(url, params=params) as resp:
+                data = await resp.json()
 
-        e = discord.Embed(title=data['title'], url=data['spoonacularSourceUrl'])
+        else:
+            url = "https://api.spoonacular.com/recipes/random"
+            async with self.bot.session.get(url, params=params) as resp:
+                data = await resp.json()
+                data = data['recipes'][0]
+        
+        try:
+            recipeurl = data['spoonacularSourceUrl']
+        except KeyError:
+            recipeurl = data['sourceUrl']
+        e = discord.Embed(title=data['title'], url=recipeurl)
         e.set_thumbnail(url=data['image'])
         text = html2text.html2text(data['summary'], bodywidth=5000).strip()
         e.description=text
