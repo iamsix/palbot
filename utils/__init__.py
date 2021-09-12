@@ -43,8 +43,9 @@ async def google_for_urls(bot, search_term, *, url_regex=None, return_full_data=
 
         return results
 
-async def bs_from_url(bot, url, return_url=False):
-    headers = {'User-Agent': 'Mozilla/5.0 PalBot'}
+async def bs_from_url(bot, url, return_url=False, *, headers={}):
+    if not headers:
+        headers = {'User-Agent': 'Mozilla/5.0 PalBot'}
     async with bot.session.get(url, headers=headers) as resp:
         assert "text" in resp.headers['Content-Type']
         data = await resp.read()

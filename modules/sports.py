@@ -229,62 +229,44 @@ class Sports(commands.Cog):
         """Show today's NFL games with score, status
            While a date can be provided the API is weird and only works for the current week?"""
 
+        url = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard'
         date = await self.sports_date(ctx, date)
-        r = {'url' : 'https://api.nfl.com/v1/reroute',
-            'data' : {'grant_type': 'client_credentials'},
-            'headers' : {'x-domain-id': '100'}}
-
-        async with self.bot.session.post(**r) as resp:
+        async with self.bot.session.get(url) as resp:
             data = await resp.json()
-            access_token = data['access_token']
 
-        url = ("https://api.nfl.com/v1/games"
-                        "?fs={id,gameTime,gameStatus,"
-                        "homeTeam{id,abbr,nickName},visitorTeam{id,abbr,nickName},"
-                        "homeTeamScore,visitorTeamScore}")
-        
-        r = {'url': url, 'headers': {'authorization': 'Bearer ' + access_token}, 'timeout': 3}
-
-        async with self.bot.session.get(**r) as resp:
-            data = await resp.json()
         games = []
-        for game in data['data']:
-            starttime = datetime.datetime.strptime(game['gameTime'][:-3]+"00",
-                                        "%Y-%m-%dT%H:%M:%S.%f%z")
+        for game in data['events']:
+            starttime = datetime.datetime.strptime(game['date'], "%Y-%m-%dT%H:%MZ")
+            starttime = starttime.replace(tzinfo=pytz.utc).astimezone(tz=date.tzinfo)
             if starttime.date() != date.date():
                 continue
-            phase = game['gameStatus']['phase']
 
-            if phase == "PREGAME":
-                # 2019-08-01T17:00:00.000-07:00 note the improper : in the GMT offset
-                starttime = datetime.datetime.strptime(game['gameTime'][:-3]+"00",
-                                                "%Y-%m-%dT%H:%M:%S.%f%z")
-                starttime = starttime.astimezone(tz=date.tzinfo)
-                starttime = starttime.strftime('%-I:%M%p').replace(':00', '')
-                out = "{} @    {} | {} {}".format(
-                        game['visitorTeam']['nickName'].ljust(16),
-                        game['homeTeam']['nickName'].ljust(13),
-                        starttime, date.tzname())
-            
+            home = game['competitions'][0]['competitors'][0]
+            away = game['competitions'][0]['competitors'][1]
+            status = game['status']['type']['description']
+
+
+            if status == "Scheduled":
+                homet = home['team']['shortDisplayName'].ljust(11)
+                awayt = away['team']['shortDisplayName'].ljust(14)
+                gstart = starttime.strftime('%-I:%M%p').replace(':00', '')
+                out = f"{awayt} @    {homet} | {gstart} {date.tzname()}"
             else:
-                if game['gameStatus']['phase'] == "INGAME":
-                    status = "{} Q{}".format(game['gameStatus']['gameClock'],
-                                            game['gameStatus']['period'])
-                else:
-                    status = game['gameStatus']['phase']
-
-                fmt = "{} {} - {} {} | {}"
-                out = fmt.format(game['visitorTeam']['nickName'].ljust(13),
-                        str(game['visitorTeamScore']['pointsTotal']).rjust(2),
-                        str(game['homeTeamScore']['pointsTotal']).ljust(2),
-                        game['homeTeam']['nickName'].ljust(13),
-                        status)
-
+                homet = home['team']['shortDisplayName'].ljust(11)
+                awayt = away['team']['shortDisplayName'].ljust(11)
+                ascore = away['score'].rjust(2)
+                hscore = home['score'].rjust(2)
+                period = self.bot.utils.ordinal(game['status']['period'])
+                if status == "In Progress":
+                    status = f"{game['status']['displayClock']} {period}"
+                out = f"{awayt} {ascore} - {hscore} {homet} | {status}"
 
             games.append(out)
 
         if games:
             await ctx.send("```{}```".format("\n".join(games)))
+        else:
+            await ctx.send(f"No games found for {date.date()}")
 
 
 

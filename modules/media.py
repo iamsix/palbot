@@ -131,6 +131,7 @@ class Media(commands.Cog):
             await ctx.send(f"Couldn't find a movie named `{movie_name}` on IMDb")
             return
 
+        headers = {'User-Agent': "Mozilla/5.0 (X11; Linux x86_64; rv:91.0) Gecko/20100101 Firefox/91.0"}
         page = await self.bot.utils.bs_from_url(self.bot, urls[0])
         
         data = json.loads(page.find('script', type='application/ld+json').string)
