@@ -1,12 +1,15 @@
 import discord
 from discord.ext import commands
 import asyncio
+import aiohttp
 import random
 import re
+from yarl import URL
 from io import BytesIO
 import subprocess
 import xml.etree.ElementTree as ET
 import tempfile
+from datetime import datetime
 
 from urllib.parse import quote as uriquote
 import html
@@ -28,6 +31,11 @@ class Pics(commands.Cog):
             params['safe'] = "medium"
         
         async with self.bot.session.get(url, params=params) as resp:
+            if resp.status != 200:
+                print(f"google image search ", resp.status)
+                print(await resp.read())
+                return
+
 #            print(resp.url)
             data = await resp.json()
 #            print(data)
@@ -58,9 +66,10 @@ class Pics(commands.Cog):
                     'rats': 'rats'}
         if not subreddit:
             subreddit = reddits[ctx.invoked_with.lower()]
-        url = f"http://www.reddit.com/r/{subreddit}/.json"
+        url = f"https://oauth.reddit.com/r/{subreddit}/?raw_json=1&api_type=json"
 
-        headers = {'User-agent': 'PalBot by /u/mrsix'}
+        token = await reddittoken(self)
+        headers = {'User-Agent': 'Palbot/1.0 by u/mrsix', 'Authorization': "bearer " + token}
         async with self.bot.session.get(url, headers=headers) as resp:
             data = await resp.json()
         if 'data' not in data or not data['data']['children']:
@@ -106,6 +115,10 @@ class Vids(commands.Cog):
                   'maxResults': 1, 'key' : key, 'regionCode': 'US'}
         
         async with self.bot.session.get(url, params=params) as resp:
+            if resp.status != 200:
+                print(f"!yt ", resp.status)
+                print(await resp.read())
+                return
             data = await resp.json()
             if data['items']:
                 yt_id = data['items'][0]['id']['videoId']
@@ -172,12 +185,12 @@ class Vids(commands.Cog):
             if not url:
                 return
             await self.reddit_video(message, url)
-    #    ig = self.IG_URL.search(message.content)
-    #    if ig:
-    #        url = self.URL_REGEX.search(message.content).group(0)
-    #        if not url:
-    #            return
-    #        await self.ig_url(message, url)
+        ig = self.IG_URL.search(message.content)
+        if ig:
+            url = self.URL_REGEX.search(message.content).group(0)
+            if not url:
+                return
+            await self.ig_url(message, url)
 
     async def ig_url(self, message, url):
         page = await self.bot.utils.bs_from_url(self.bot, url)
@@ -191,7 +204,8 @@ class Vids(commands.Cog):
 
     async def reddit_video(self, message, url):
         # This is a reddit url... but now I ned *only* the URL...
-        headers = {'User-agent': 'PalBot by /u/mrsix'}
+        token = await reddittoken(self)
+        headers = {'User-Agent': 'Palbot/1.0 by u/mrsix', 'Authorization': "bearer " + token}
         if "v.redd.it" in url:
             url = url.split('?')[0]
             if url.lower().endswith("dashplaylist.mpd"):
@@ -205,9 +219,14 @@ class Vids(commands.Cog):
                 url = str(resp.url)
         if url.lower().startswith("https://www.reddit.com/over18?dest="):
             url = url[35:]
+#        url = url.replace("www", "oauth")
         url = url[:url.rfind("/")] + "/.json"
+        url = URL(url)
+        url = url.with_host("oauth.reddit.com")
         async with self.bot.session.get(url, headers=headers) as resp:
             if resp.status != 200:
+                print(f"reddit get {url} = ", resp.status)
+                print(await resp.read())
                 return
             try:
                 data = await resp.json()
@@ -314,6 +333,34 @@ class Vids(commands.Cog):
 
             else:
                 await ctx.send(file=discord.File(BytesIO(viddata), filename=filename))
+
+
+# This should probably be inside the confi.py file or something...
+rtoken = {'timestamp': 0, 'token': ""}
+async def reddittoken(self):
+        if int(datetime.now().timestamp()) - rtoken['timestamp'] < 3600:
+            return rtoken['token']
+
+        un = self.bot.config.reddituser
+        pw = self.bot.config.redditpw
+        cid = self.bot.config.redditclient
+        secret = self.bot.config.redditsecret
+
+        auth = aiohttp.helpers.BasicAuth(cid, secret)
+        data = {"grant_type": "password", "username": un, "password": pw}
+        headers = {"User-Agent": "Palbot/0.1 by mrsix"}
+        url = 'https://www.reddit.com/api/v1/access_token'
+        async with self.bot.session.post(url, auth=auth, headers=headers, data=data) as resp:
+            data = await resp.json()
+            rtoken['timestamp'] = int(datetime.now().timestamp())
+            rtoken['token'] = data['access_token']
+
+        return rtoken['token']
+            
+
+
+
+
 
 
 

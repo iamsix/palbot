@@ -158,7 +158,7 @@ class Weather(commands.Cog):
 
         out = f"{loc.formatted_address} / "
         if loc.country == "United States":
-            out += ("{condition} {icon} / {temp_f} ({temp_c}){feels_like_f} / "
+            out += ("{condition} {icon} / {temp_f} ({temp_c}){feels_like_f} / Dewpoint: {dewpoint_f} / "
                     "Humidity: {humidity} / Wind: {wind_direction} at {wind_speed_mi} / "
                     "Cloud Cover: {cloud_cover} / High: {high_f} Low: {low_f} / "
                     "Outlook: {outlook_imperial}").format(**data)

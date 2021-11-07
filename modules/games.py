@@ -96,6 +96,8 @@ class Games(commands.Cog):
         data = json.loads(jsonhtml.string)
 #        matches = data['props']['pageProps']['blocks'][0]['owlHeader']['scoreStripList']['scoreStrip']['matches']
         matches = data['props']['pageProps']['blocks'][2]['schedule']['tableData']['events'][0]['matches']
+        if len(data['props']['pageProps']['blocks'][2]['schedule']['tableData']['events']) == 2:
+            matches.extend(data['props']['pageProps']['blocks'][2]['schedule']['tableData']['events'][1]['matches'])
 
         out = []
         for match in matches:

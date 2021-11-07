@@ -5,6 +5,7 @@ from utils.paginator import Paginator
 import json
 import asyncio
 import xml.dom.minidom
+import html
 
 
 class Media(commands.Cog):
@@ -132,14 +133,15 @@ class Media(commands.Cog):
             return
 
         headers = {'User-Agent': "Mozilla/5.0 (X11; Linux x86_64; rv:91.0) Gecko/20100101 Firefox/91.0"}
-        page = await self.bot.utils.bs_from_url(self.bot, urls[0])
+        page = await self.bot.utils.bs_from_url(self.bot, urls[0], headers=headers)
         
         data = json.loads(page.find('script', type='application/ld+json').string)
 
         self.bot.utils.dict_merge(imdb_m, data)
 
         movie_title = f"{imdb_m['name']} ({imdb_m['datePublished'][:4]})"
-        desc = imdb_m['description']
+        movie_title = html.unescape(movie_title)
+        desc = html.unescape(imdb_m['description'])
 
         e = discord.Embed(title=movie_title, description=desc, url=urls[0])
 
@@ -210,7 +212,7 @@ class Media(commands.Cog):
 
         await ctx.send(embed=e)
 
-    @commands.command(name='gr')
+    @commands.command(name='gr', aliases=['book'])
     async def get_goodreads_book_rating(self, ctx, *, book: str):
         """Find a <book> on goodreads.com and return some rating info and a link"""
         key = self.bot.config.goodreadskey
