@@ -14,20 +14,18 @@ class Media(commands.Cog):
         self.bot = bot
 
 
-    rt_search_url = "http://api.flixster.com/android/api/v14/movies.json?cbr=1&filter={}"
-    rt_movie_url = "http://api.flixster.com/android/api/v1/movies/{}.json"
-
-
     @commands.command(name='rt')
     async def rt(self, ctx, *, movie_name: str):
         """Searches Flixster for a movie's Rotten Tomatoes score and critics consensus if available"""
-        url = self.rt_search_url.format(uriquote(movie_name))
-        # RT api is slow...
-        async with ctx.channel.typing():
-            data = await self.json_from_flxurl(url)
-        movielist = []
-        for movie in data:
-            movielist.append(movie['id'])
+        # this uses a private API so the URL isn't published.
+        # see a previous version of this file for an older semi-public API
+        # however it seems to fail on newer movies unfortunately
+        url = self.bot.config.rt_url_1 + movie_name
+        url += self.bot.config.rt_url_2
+        headers = self.bot.config.rt_headers
+        async with self.bot.session.get(url, headers=headers) as resp:
+            data = await resp.json()
+        movielist = data['data']['search']['movies']
         if not movielist:
             await ctx.send(f"Couldn't find a movie named `{movie_name}` on Flixster")
             return
@@ -36,77 +34,49 @@ class Media(commands.Cog):
 
 
     async def rt_output_callback(self, data, pg_number):
-        flxurl = self.rt_movie_url.format(data[pg_number])
-        movie = await self.json_from_flxurl(flxurl)
+        movie = data[pg_number]
         out = await self.parse_rt_embed(movie)
-#        out.set_footer(text=f"Result {pg_number+1} of {len(data)}")
         return None, out
 
-    async def json_from_flxurl(self, url):
-        """used for any flixster url due to the special encoding"""
-        async with self.bot.session.get(url) as resp:
-            data = await resp.read()
-            # The built in aiohttp .json() doesn't like this json for some reason
-            # manual decode + json module is more forgiving
-            return json.loads(data.decode('windows-1252', 'replace'))
-
     async def parse_rt_embed(self, movie):
+        self.bot.logger.debug(movie)
+        year = movie['releaseDate'] or ''
+        title = f"{movie['name']} ({year[:4]})"
+        e = discord.Embed(title=title)
+        if movie['posterImage']:
+            e.set_thumbnail(url=movie['posterImage']['url'])
+        # Google is beter at searching than RT so sometimes this doesn't match
+        # however the API has no direct link to the rt webpageh
+        url = await self.bot.utils.google_for_urls(self.bot, 
+                f"site:rottentomatoes.com {title}")
+        e.url = url[0]
 
-        movie_model = {
-            'title': '',
-            'urls': [],
-            'theaterReleaseDate':{
-                'year': ''
-                },
-            'reviews': {
-                'rottenTomatoes': {
-                    'certifiedFresh': '',
-                    'rating': '',
-                    'consensus': ''
-                },
-                'criticsNumReviews': '',
-                'flixster': {
-                    'popcornScore': ''
-                }
-            },
-            'poster': {
-                'thumbnail': ''
-            }
-        }
+        if movie['tomatoRating']:
+            description = movie['tomatoRating']['consensus'] or ''
+            description = self.bot.utils.remove_html_tags(description)
+            e.description = description
 
-        self.bot.utils.dict_merge(movie_model, movie)
+            tomato_rating = movie['tomatoRating']['tomatometer']
+            num_reviews = movie['tomatoRating']['ratingCount']
+        
+            if "certifiedfresh" in movie['tomatoRating']['iconImage']['url']:
+                icon = '<:rtcertified:623695619017539584> '
+            elif tomato_rating and int(tomato_rating) >= 60:
+                icon = '\N{TOMATO} '
+            else:
+                icon = '<:rtrotten:623695558141411329> '
 
-        title = f"{movie_model['title']} ({movie_model['theaterReleaseDate']['year']})"
-        description = self.bot.utils.remove_html_tags(movie_model['reviews']['rottenTomatoes']['consensus'])
+            tomato = "{icon}{rating}{reviews}".format(icon=icon,
+                rating = f"{tomato_rating}%" if tomato_rating else '',
+                reviews = f" ({num_reviews} reviews)" if num_reviews else '')
 
-        e = discord.Embed(title=title, description=description)
+            embed_fields = {"Tomatometer": tomato,
+                            "User Score": movie['userRating']['dtlLikedScore']}
 
-        for urls in movie_model['urls']:
-            if urls.get('type', '') == 'rottentomatoes':
-                e.url = urls['url'].replace('?lsrc=mobile','')
-        e.set_thumbnail(url=movie_model['poster']['thumbnail'])
-
-        tomato_rating = movie_model['reviews']['rottenTomatoes']['rating']
-        num_reviews = movie_model['reviews']['criticsNumReviews']
-        if movie_model['reviews']['rottenTomatoes']['certifiedFresh']:
-            icon = '<:rtcertified:623695619017539584> '
-        elif tomato_rating and int(tomato_rating) > 60:
-            icon = '\N{TOMATO} '
-        else:
-            icon = '<:rtrotten:623695558141411329> '
-
-        tomato = "{icon}{rating}{reviews}".format(icon=icon,
-            rating = f"{tomato_rating}%" if tomato_rating else '',
-            reviews = f" ({num_reviews} reviews)" if num_reviews else '')
-
-        embed_fields = {"Tomatometer": tomato,
-                        "User Score": movie_model['reviews']['flixster']['popcornScore']}
-
-        for k,v in embed_fields.items():
-            if str(v).strip():
-                e.add_field(name=k, value=str(v))
+            for k,v in embed_fields.items():
+                if str(v).strip():
+                    e.add_field(name=k, value=str(v))
         return e
-
 
 
     @commands.command(name='imdb')

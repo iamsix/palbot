@@ -185,12 +185,12 @@ class Vids(commands.Cog):
             if not url:
                 return
             await self.reddit_video(message, url)
-        ig = self.IG_URL.search(message.content)
-        if ig:
-            url = self.URL_REGEX.search(message.content).group(0)
-            if not url:
-                return
-            await self.ig_url(message, url)
+        #ig = self.IG_URL.search(message.content)
+        #if ig:
+        #    url = self.URL_REGEX.search(message.content).group(0)
+        #    if not url:
+        #        return
+        #    await self.ig_url(message, url)
 
     async def ig_url(self, message, url):
         page = await self.bot.utils.bs_from_url(self.bot, url)
