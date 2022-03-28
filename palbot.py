@@ -29,7 +29,6 @@ class PalBot(commands.Bot):
                 help_command=commands.DefaultHelpCommand(dm_help=None),
                 intents=intents)
         
-        asyncio.ensure_future(self.async_init())
         self.logger = logging.getLogger("palbot")
         self.moddir = "modules"
         self.config = __import__('config')
@@ -78,6 +77,7 @@ class PalBot(commands.Bot):
 
 
     async def on_ready(self):
+        await self.async_init()
         if not hasattr(self, 'uptime'):
             self.uptime = datetime.datetime.utcnow()
         print(f'Ready: {self.user} (ID: {self.user.id})')

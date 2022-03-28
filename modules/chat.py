@@ -142,6 +142,9 @@ class Chat(commands.Cog):
     async def addcmd(self, ctx, cmd, *, output: str):
         """Adds a custom command to the bot that will output whatever is in the <output> field"""
         #Currently hard insert so can be used to edit too
+        if cmd in [c.name for c in self.bot.commands]:
+            await ctx.send("No shadowing real commands.")
+            return
         owner = str(ctx.author)
         c = self.custom_command_cursor
         conn = self.custom_command_conn
