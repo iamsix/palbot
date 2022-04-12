@@ -70,8 +70,13 @@ class Media(commands.Cog):
                 rating = f"{tomato_rating}%" if tomato_rating else '',
                 reviews = f" ({num_reviews} reviews)" if num_reviews else '')
 
+            if 'userRating' in movie and movie['userRating']:
+                user = movie['userRating'].get('dtlLikedScore', "")
+            else:
+                user = ""
+
             embed_fields = {"Tomatometer": tomato,
-                            "User Score": movie['userRating']['dtlLikedScore']}
+                            "User Score": user}
 
             for k,v in embed_fields.items():
                 if str(v).strip():

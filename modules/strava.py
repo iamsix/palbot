@@ -80,6 +80,8 @@ class Strava(commands.Cog):
 
     async def parse_strava_ride(self, recent_ride, athlete_id=None, measurement_pref=None):
         #if the athlete ID is missing we can default to mph
+
+        self.bot.logger.debug("Strava recent ride:", recent_ride)
         moving_time = str(datetime.timedelta(seconds=recent_ride['moving_time']))
         ride_datetime = time.strptime(recent_ride['start_date_local'], "%Y-%m-%dT%H:%M:%SZ")
         time_start = time.strftime("%B %d, %Y at %I:%M %p", ride_datetime)
@@ -88,7 +90,10 @@ class Strava(commands.Cog):
         location = None
 
         if recent_ride['location_city'] is None or recent_ride['location_state'] is None:
-            location = await self.bot.utils.Location.get_location_by_latlon(self.bot, recent_ride['start_latitude'], recent_ride['start_longitude'])
+            try:
+                location = await self.bot.utils.Location.get_location_by_latlon(self.bot, recent_ride['start_latlng'][0], recent_ride['start_latlng'][1])
+            except:
+                location = "Unknown"
         else:
             location = f"{recent_ride['location_city']}, {recent_ride['location_state']}"
         ride_id = recent_ride['id']

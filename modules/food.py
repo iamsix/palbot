@@ -146,8 +146,10 @@ class Food(commands.Cog):
             rating_word = "okay"
         elif 60 <= rating <=69:
             rating_word = "poor"
-        elif rating < 60:
+        elif 0 < rating < 60:
             rating_word = "awful"
+        else:
+            rating_word ="none"
 
         cals = BeerCals(beer_abv).solve()
 

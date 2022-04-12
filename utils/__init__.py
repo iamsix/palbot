@@ -4,6 +4,7 @@ from urllib.parse import quote as uriquote
 import asyncio
 from bs4 import BeautifulSoup
 import collections
+from collections.abc import Mapping
 from utils.context import MoreContext
 from utils.context import Location
 from utils.paginator import Paginator
@@ -58,7 +59,7 @@ async def bs_from_url(bot, url, return_url=False, *, headers={}):
 def dict_merge(dct, merge_dct):
     for k, v in merge_dct.items():
         if (k in dct and isinstance(dct[k], dict)
-                and isinstance(merge_dct[k], collections.Mapping)):
+                and isinstance(merge_dct[k], Mapping)):
             dict_merge(dct[k], merge_dct[k])
         else:
             dct[k] = merge_dct[k]
