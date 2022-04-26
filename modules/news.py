@@ -16,7 +16,7 @@ class News(commands.Cog):
         if not query:
             url = "https://news.google.com/news/rss/?hl=en"
         else:
-            url = "https://news.google.com/news/rss/search/section/q/{0}/{0}?hl=e".format(uriquote(query))
+            url = "https://news.google.com/news/rss/search/section/q/{0}/{0}?hl=en".format(uriquote(query))
 
         async with self.bot.session.get(url) as resp:
             data = await resp.read()

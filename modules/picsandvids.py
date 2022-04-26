@@ -174,6 +174,7 @@ class Vids(commands.Cog):
         await ctx.send(out)
 
     REDDIT_URL = re.compile(r'v\.redd\.it|reddit\.com/r/')
+    REDDIT_GIF = re.compile(r'preview.redd.it/.+\.gif\?format=mp4')
     IG_URL = re.compile(r'instagram.com\/p\/')
     URL_REGEX = re.compile(r"(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>])*\))+(?:\(([^\s()<>])*\)|[^\s`!()\[\]{};:'\".,<>?«»“”‘’]))")
     @commands.Cog.listener()
@@ -185,6 +186,13 @@ class Vids(commands.Cog):
             if not url:
                 return
             await self.reddit_video(message, url)
+        redgif = self.REDDIT_GIF.search(message.content)
+        if redgif:
+            url = self.URL_REGEX.search(message.content).group(0)
+            if not url:
+                return
+            await self.reddit_gif(message, url)
+
         #ig = self.IG_URL.search(message.content)
         #if ig:
         #    url = self.URL_REGEX.search(message.content).group(0)
@@ -201,9 +209,25 @@ class Vids(commands.Cog):
         ctx = await self.bot.get_context(message, cls=self.bot.utils.MoreContext)
         await ctx.send(embed=e)
 
+    async def reddit_gif(self, message, url):
+        ctx = await self.bot.get_context(message, cls=self.bot.utils.MoreContext)
+        filesize = message.guild.filesize_limit if message.guild else 8388608
+        vid = None
+        async with self.bot.session.get(url) as resp:
+            if resp.status != 200:
+                return await ctx.send("Failed to load reddit gif-video")
+            vidsize = int(resp.headers['Content-Length'])
+            if vidsize >= filesize:
+                fs = int(resp.headers['Content-Length']) / 1024 / 1024
+                return await ctx.send(f"gif is too big. ({fs:.1f}mb)")
+            vid = await resp.read()
+        if vid:
+            await ctx.send(file=discord.File(BytesIO(vid), filename="rgif.mp4"))
+
+
 
     async def reddit_video(self, message, url):
-        # This is a reddit url... but now I ned *only* the URL...
+        # This is a reddit url... but now I need the mpd URL...
         token = await reddittoken(self)
         headers = {'User-Agent': 'Palbot/1.0 by u/mrsix', 'Authorization': "bearer " + token}
         if "v.redd.it" in url:
@@ -221,6 +245,7 @@ class Vids(commands.Cog):
             url = url[35:]
 #        url = url.replace("www", "oauth")
         url = url[:url.rfind("/")] + "/.json"
+        # Might be able to do all the above easier with URL
         url = URL(url)
         url = url.with_host("oauth.reddit.com")
         async with self.bot.session.get(url, headers=headers) as resp:
