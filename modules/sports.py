@@ -139,12 +139,16 @@ class Sports(commands.Cog):
             
             if game['statusNum'] == 1:
                 # Game is scheduled in the future
-                # TODO localize startTimeUTC  "2019-10-25T23:00:00.000Z"
-                gametxt = "{} @     {} | {}"
+                starttime = datetime.datetime.strptime(game['startTimeUTC'], "%Y-%m-%dT%H:%M:%S.%fZ")
+                starttime = starttime.replace(tzinfo=pytz.utc).astimezone(tz=date.tzinfo)
+                tzname = starttime.tzname()
+                starttime = starttime.strftime('%I:%M%p').lstrip('0').replace(':00', '')
+                gametxt = "{} @     {} | {} {}"
                 gametxt = gametxt.format(
                         team(game['vTeam']['triCode']).ljust(17),
                         team(game['hTeam']['triCode']).ljust(13),
-                        game['startTimeEastern'].replace(':00', ''))
+                        starttime, tzname)
+                        #game['startTimeEastern'].replace(':00', ''))
     
             else:
                 # game is finished or currently on
