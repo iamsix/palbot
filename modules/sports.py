@@ -87,90 +87,63 @@ class Sports(commands.Cog):
         else:
             await ctx.send(f"No games found for {date.date()}")
 
-    NBA_TEAMS = {
-        "ATL" : "Hawks",
-        "BOS" : "Celtics",
-        "BKN" : "Nets",
-        "CHA" : "Hornets",
-        "CHI" : "Bulls",
-        "CLE" : "Cavaliers",
-        "DAL" : "Mavericks",
-        "DEN" : "Nuggets",
-        "DET" : "Pistons",
-        "GSW" : "Warriors",
-        "HOU" : "Rockets",
-        "IND" : "Pacers",
-        "LAC" : "Clippers",
-        "LAL" : "Lakers",
-        "MEM" : "Grizzlies",
-        "MIA" : "Heat",
-        "MIL" : "Bucks",
-        "MIN" : "Timberwolves",
-        "NOP" : "Pelicans",
-        "NYK" : "Knicks",
-        "OKC" : "Thunder",
-        "ORL" : "Magic",
-        "PHI" : "Sixers",
-        "PHX" : "Suns",
-        "POR" : "Trail Blazers",
-        "SAC" : "Kings",
-        "SAS" : "Spurs",
-        "TOR" : "Raptors",
-        "UTA" : "Jazz",
-        "WAS" : "Wizards"
-    }
 
     @commands.command()
     async def nba(self, ctx, *, date: HumanTime = None):
         """Show today's or [date]s NBA games with score, status"""
-        # TODO Make this use timezone - NBA USES PREFORMATTED STRING CURRENTLY
-
-        def team(arg):
-            return self.NBA_TEAMS.get(arg, arg)
+        todaydate = await self.sports_date(ctx, None)
         date = await self.sports_date(ctx, date)
-
-        url = "https://data.nba.net/prod/v2/{}/scoreboard.json"
-        url = url.format(date.strftime("%Y%m%d"))
-        async with self.bot.session.get(url) as resp:
-            data = await resp.json()
+        if date.date() == todaydate.date():
+            url = "https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json"
+            today = True
+        else:
+            url = "https://cdn.nba.com/static/json/staticData/scheduleLeagueV2.json"
+            today = False
         
+        async with self.bot.session.get(url) as resp:
+            data = await resp.json(content_type=None)
+
+        if today:
+            data = data['scoreboard']
+            startkey = 'gameTimeUTC'
+        else:
+            days = data['leagueSchedule']['gameDates']
+            for gameday in days:
+                day = datetime.datetime.strptime(gameday['gameDate'], "%m/%d/%Y %H:%M:%S %p")
+                if day.date() == date.date():
+                    data = gameday
+            startkey = 'gameDateTimeUTC'
+       
         games = []
         for game in data['games']:
-            
-            if game['statusNum'] == 1:
-                # Game is scheduled in the future
-                starttime = datetime.datetime.strptime(game['startTimeUTC'], "%Y-%m-%dT%H:%M:%S.%fZ")
-                starttime = starttime.replace(tzinfo=pytz.utc).astimezone(tz=date.tzinfo)
-                tzname = starttime.tzname()
-                starttime = starttime.strftime('%I:%M%p').lstrip('0').replace(':00', '')
-                gametxt = "{} @     {} | {} {}"
-                gametxt = gametxt.format(
-                        team(game['vTeam']['triCode']).ljust(17),
-                        team(game['hTeam']['triCode']).ljust(13),
-                        starttime, tzname)
-                        #game['startTimeEastern'].replace(':00', ''))
-    
+            starttime = datetime.datetime.strptime(game[startkey], "%Y-%m-%dT%H:%M:%SZ")
+            starttime = starttime.replace(tzinfo=pytz.utc).astimezone(tz=date.tzinfo)
+            if starttime.date() != date.date():
+                continue
+
+            home = game['homeTeam']
+            away = game['awayTeam']
+            status = game['gameStatusText']
+
+            homet = home['teamName'].ljust(13)
+            awayt = away['teamName'].ljust(17)
+            if game['gameStatus'] == 1:
+                gstart = starttime.strftime('%-I:%M%p').replace(':00', '')
+                out = f"{awayt} @    {homet} | {gstart} {date.tzname()}"
             else:
-                # game is finished or currently on
-                gametxt = "{} {} - {} {} | {}"
-                if game['statusNum'] == 2: 
-                    status = "{} Q{}".format(game['clock'], game['period']['current'])
-                else:
-                    status = "Final"
-                    
-                gametxt = gametxt.format(
-                        team(game['vTeam']['triCode']).ljust(13),
-                        str(game['vTeam']['score']).rjust(3),
-                        str(game['hTeam']['score']).ljust(3),
-                        team(game['hTeam']['triCode']).ljust(13),
-                        status)
-            games.append(gametxt)
+                ascore = str(away['score']).rjust(3)
+                hscore = str(home['score']).ljust(3)
+                out = f"{awayt} {ascore} - {hscore} {homet} | {status}"
+
+            games.append(out)
         
         if games:
             await ctx.send("```{}```".format("\n".join(games)))
         else:
             await ctx.send(f"No games found for {date.date()}")
-        
+
+
+		
     @commands.command()
     async def nhl(self, ctx, *, date: HumanTime = None):
         """Show today's or [date]s NHL games with score, status"""

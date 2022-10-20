@@ -155,7 +155,7 @@ class Media(commands.Cog):
 
         urls = await self.bot.utils.google_for_urls(self.bot,
                 "site:metacritic.com " + title,
-                url_regex="www.metacritic.com/")
+                url_regex="metacritic.com/(tv|game|movie|music)")
 
         page = await self.bot.utils.bs_from_url(self.bot, urls[0])
 

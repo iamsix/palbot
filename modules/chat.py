@@ -40,7 +40,27 @@ class Chat(commands.Cog):
         if reaction.emoji == '\N{BLACK UNIVERSAL RECYCLING SYMBOL}\N{VARIATION SELECTOR-16}':
             for letter in self.REPOST:
                 await reaction.message.add_reaction(letter)
-            
+
+    @commands.command()
+    async def fruits(self, ctx):
+
+        FRUITS = ['\N{GRAPES}',
+            '\N{WATERMELON}',
+            '\N{BANANA}',
+            '\N{PINEAPPLE}',
+            '\N{RED APPLE}',
+            '\N{PEAR}',
+            '\N{PEACH}',
+            '\N{CHERRIES}',
+            '\N{STRAWBERRY}',
+            '\N{BLUEBERRIES}',
+            '\N{KIWIFRUIT}',
+            '\N{TANGERINE}',
+            '\N{LEMON}',
+            '\N{MELON}']
+        msg = await ctx.send("The great fruit poll")
+        for fruit in FRUITS:
+            await msg.add_reaction(fruit)
 
     @commands.command(name='qp')
     async def quickpoll(self, ctx):
@@ -152,7 +172,7 @@ class Chat(commands.Cog):
         conn.commit()
             
     @commands.command()
-    @commands.has_role('Admins')
+    @commands.has_any_role('Admins', 'GOD')
     async def delcmd(self, ctx, cmd: str):
         c = self.custom_command_cursor
         conn = self.custom_command_conn

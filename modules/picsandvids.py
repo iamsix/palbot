@@ -10,7 +10,7 @@ import subprocess
 import xml.etree.ElementTree as ET
 import tempfile
 from datetime import datetime
-
+import json
 from urllib.parse import quote as uriquote
 import html
 
@@ -50,7 +50,10 @@ class Pics(commands.Cog):
     async def image_callback(self, data, pg):
         title = f"{pg + 1}. {data[pg]['title']}"
         e = discord.Embed(title=title, url=data[pg]['image']['contextLink'])
-        e.set_image(url=data[pg]['link'])
+        if 'x-raw-image' not in data[pg]['link']:
+            e.set_image(url=data[pg]['link'])
+        else:
+            e.set_image(url=data[pg]['image']['thumbnailLink'])
         return None, e
 
 

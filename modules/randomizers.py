@@ -23,7 +23,7 @@ class Randomizers(commands.Cog):
     async def brak(self, ctx):
         """mmm chicken"""
         rand = random.randint(2, 10)
-        if ctx.author.display_name.lower().startswith('rc'):
+        if ctx.author.id == 167670602507747328:
             output = f"{ctx.author.mention} gets {rand}lbs of boiled beef"
         else:
             output = f"{ctx.author.mention} gets {rand} boiled chickens"
@@ -85,6 +85,10 @@ class Randomizers(commands.Cog):
         """Roll a die such as 1d6"""
         results = []
         total = 0
+        if die.count > 100:
+            await ctx.send("Max 100 die")
+            return
+
         for _ in range(0,die.count):
             roll = random.randint(1,die.value)
             total += roll
