@@ -113,6 +113,10 @@ class Sports(commands.Cog):
                 if day.date() == date.date():
                     data = gameday
             startkey = 'gameDateTimeUTC'
+            if 'games' not in data:
+                await ctx.send(f"No games found for {date.date()}")
+                return
+
        
         games = []
         for game in data['games']:
@@ -126,10 +130,10 @@ class Sports(commands.Cog):
             status = game['gameStatusText']
 
             homet = home['teamName'].ljust(13)
-            awayt = away['teamName'].ljust(17)
+            awayt = away['teamName'].ljust(13)
             if game['gameStatus'] == 1:
                 gstart = starttime.strftime('%-I:%M%p').replace(':00', '')
-                out = f"{awayt} @    {homet} | {gstart} {date.tzname()}"
+                out = f"{awayt}     @     {homet} | {gstart} {date.tzname()}"
             else:
                 ascore = str(away['score']).rjust(3)
                 hscore = str(home['score']).ljust(3)
@@ -238,6 +242,8 @@ class Sports(commands.Cog):
                 period = self.bot.utils.ordinal(game['status']['period'])
                 if status == "In Progress":
                     status = f"{game['status']['displayClock']} {period}"
+                else:
+                    status = game['status']['type']['detail']
                 out = f"{awayt} {ascore} - {hscore} {homet} | {status}"
 
             games.append(out)

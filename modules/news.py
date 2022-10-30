@@ -24,6 +24,8 @@ class News(commands.Cog):
             newest_news = dom.getElementsByTagName('item')[0]
             title = newest_news.getElementsByTagName('title')[0].childNodes[0].data.strip()
             link = newest_news.getElementsByTagName('link')[0].childNodes[0].data
+            async with self.bot.session.get(link) as resp:
+                link = resp.url
             await ctx.send(f'{title} [ {link} ]')
 
 
