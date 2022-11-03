@@ -126,7 +126,7 @@ class Chat(commands.Cog):
                 out = f"{message.author.mention}: {decide}"
         elif "shrug" in lower:
             out = self.shrug()
-        elif message.content[:1] in prefix:
+        elif message.content[:1] in prefix and message.author.id != self.bot.user.id:
             cmd = lower[1:].split(" ")[0]
             out = await self.custom_command(cmd)
         if out:

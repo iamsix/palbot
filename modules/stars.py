@@ -2,6 +2,8 @@ import asyncio
 import discord
 from discord.ext import commands
 import sqlite3
+from yarl import URL
+
 
 class Stars(commands.Cog):
     # TODO: I think I need a pair of reaction-botmessage in a sqlite db?
@@ -63,7 +65,12 @@ class Stars(commands.Cog):
             if message.embeds:
                 data = message.embeds[0]
                 if data.type == 'image' and data.url:
-                    embed.set_image(url=data.url)
+                    # imgur urls are stupidly returned wrong by discord sometimes
+                    if 'imgur' in data.url and not data.url.endswith(('png', 'jpeg', 'jpg', 'gif', 'webp')):
+                        imgururl = URL(data.url).with_host('i.imgur.com')
+                        embed.set_image(url=str(imgururl)+".jpg")
+                    else:
+                        embed.set_image(url=data.url)
                 if data.type == 'rich' and data.image and data.image.url:
                     embed.set_image(url=data.image.url)
 

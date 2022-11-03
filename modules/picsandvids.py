@@ -231,6 +231,8 @@ class Vids(commands.Cog):
 
     async def reddit_video(self, message, url):
         # This is a reddit url... but now I need the mpd URL...
+        if message.author.id == self.bot.user.id:
+            return
         token = await reddittoken(self)
         headers = {'User-Agent': 'Palbot/1.0 by u/mrsix', 'Authorization': "bearer " + token}
         if "v.redd.it" in url:
@@ -303,7 +305,7 @@ class Vids(commands.Cog):
                 if el.attrib['contentType'] == "video":
                     best = 0
                     for vid in el.findall('.//{*}BaseURL'):
-                        qual = re.search("DASH_(\d+)", vid.text)
+                        qual = re.search(r"DASH_(\d+)", vid.text)
                         if qual and int(qual.group(1)) > best:
                             best = int(qual.group(1))
                             besturl = vid.text
@@ -350,17 +352,28 @@ class Vids(commands.Cog):
                 a.flush()
                 
                 cmd = f"ffmpeg -y -i {v.name} -i {a.name} -c copy {o.name}"
-                print(cmd)
+               # print(cmd)
                 subprocess.call(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                try:
+                    await ctx.channel.fetch_message(message.id)
+                    message = None
+                except Exception as err:
+                    message = f"{ctx.author.mention} <{submission['url']}>" 
                 
-                await ctx.send(file=discord.File(o.name, filename=filename))
+                await ctx.send(content=message, file=discord.File(o.name, filename=filename))
                   
                 v.close()
                 a.close()
                 o.close()
-
+    
             else:
-                await ctx.send(file=discord.File(BytesIO(viddata), filename=filename))
+                try:
+                    await ctx.channel.fetch_message(message.id)
+                    message = None
+                except:
+                    message = f"{ctx.author.mention} <{submission['url']}>" 
+                
+                await ctx.send(content=message, file=discord.File(BytesIO(viddata), filename=filename))
 
 
 # This should probably be inside the confi.py file or something...

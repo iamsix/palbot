@@ -40,6 +40,7 @@ class Twitter(commands.Cog):
         """Show the last tweet of a twitter user"""
         tweet = await self.read_timeline(handle)
         if tweet:
+            #print(tweet)
             #parsed = self.parse_tweet(tweet[0])
             e = self.embed_tweet(tweet[0])
             await ctx.send(embed=e)
@@ -55,6 +56,8 @@ class Twitter(commands.Cog):
     # TODO Handle retweets better
 
     def embed_tweet(self, tweet):
+        if 'retweeted_status' in tweet:
+            tweet = tweet['retweeted_status']
         handle = tweet['user']['screen_name']
         link = f"https://twitter.com/{handle}/status/{tweet['id']}"
         e = discord.Embed(title='Tweet', url=link, color=0x1da1f2)
@@ -62,6 +65,11 @@ class Twitter(commands.Cog):
         aurl = f"https://twitter.com/{handle}"
         e.set_author(name=author, url=aurl, icon_url=tweet['user']['profile_image_url_https'])
         e.description = html.unescape(tweet['full_text'].strip())
+        image = None
+        if 'media' in tweet['entities'] and 'media_url_https' in tweet['entities']['media'][0]:
+            image = tweet['entities']['media'][0]['media_url_https']
+        if image and image.lower().endswith(('png', 'jpeg', 'jpg', 'gif', 'webp')):
+            e.set_image(url=image)
         
         ts = datetime.strptime(tweet['created_at'], "%a %b %d %H:%M:%S +0000 %Y")
         e.timestamp = ts
