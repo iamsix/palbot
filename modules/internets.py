@@ -186,6 +186,6 @@ class Internets(commands.Cog):
 
 
 
-def setup(bot):
-    bot.add_cog(Internets(bot))
+async def setup(bot):
+    await bot.add_cog(Internets(bot))
 

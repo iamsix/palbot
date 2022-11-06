@@ -126,5 +126,5 @@ class Twitter(commands.Cog):
                         await chan.send(message)
 
 
-def setup(bot):
-    bot.add_cog(Twitter(bot))
+async def setup(bot):
+    await bot.add_cog(Twitter(bot))

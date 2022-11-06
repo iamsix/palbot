@@ -597,6 +597,6 @@ class Weather(commands.Cog):
         await ctx.send(out)
 
 
-def setup(bot):
-    bot.add_cog(Weather(bot))
+async def setup(bot):
+    await bot.add_cog(Weather(bot))
 

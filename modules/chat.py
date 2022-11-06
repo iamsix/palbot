@@ -179,5 +179,5 @@ class Chat(commands.Cog):
         c.execute("DELETE FROM commands WHERE cmd = (?)", [cmd.lower()])
         conn.commit()
 
-def setup(bot):
-    bot.add_cog(Chat(bot))
+async def setup(bot):
+    await bot.add_cog(Chat(bot))

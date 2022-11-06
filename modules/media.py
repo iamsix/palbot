@@ -218,5 +218,5 @@ class Media(commands.Cog):
         await ctx.send(output)
 
 
-def setup(bot):
-    bot.add_cog(Media(bot))
+async def setup(bot):
+    await bot.add_cog(Media(bot))

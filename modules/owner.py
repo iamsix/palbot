@@ -128,8 +128,8 @@ class OwnerCog(commands.Cog, name="Owner Commands"):
         if "." not in cog:
             cog = f"{self.bot.moddir}.{cog}"
         try:
-            self.bot.unload_extension(cog)
-            self.bot.load_extension(cog)
+            await self.bot.unload_extension(cog)
+            await self.bot.load_extension(cog)
         except Exception as e:
             await ctx.send(f'**`ERROR:`** {type(e).__name__} - {e}')
         else:
@@ -164,6 +164,6 @@ class OwnerCog(commands.Cog, name="Owner Commands"):
         self.bot.config =  reload(self.bot.config)
 
 
-def setup(bot):
-    bot.add_cog(OwnerCog(bot))
-    bot.add_cog(UsefulEvents(bot))
+async def setup(bot):
+    await bot.add_cog(OwnerCog(bot))
+    await bot.add_cog(UsefulEvents(bot))

@@ -255,5 +255,5 @@ class Sports(commands.Cog):
 
 
 
-def setup(bot):
-    bot.add_cog(Sports(bot))
+async def setup(bot):
+    await bot.add_cog(Sports(bot))

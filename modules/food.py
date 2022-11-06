@@ -287,6 +287,6 @@ class Food(commands.Cog):
         await ctx.send(embed=e)
     
 
-def setup(bot):
-    bot.add_cog(Food(bot))
+async def setup(bot):
+    await bot.add_cog(Food(bot))
 

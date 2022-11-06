@@ -405,6 +405,6 @@ async def reddittoken(self):
 
 
 
-def setup(bot):
-    bot.add_cog(Pics(bot))
-    bot.add_cog(Vids(bot))
+async def setup(bot):
+    await bot.add_cog(Pics(bot))
+    await bot.add_cog(Vids(bot))

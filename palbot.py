@@ -19,6 +19,7 @@ logging.basicConfig(filename='debug.log',level=logging.INFO, format=FORMAT)
 
 intents = discord.Intents.default()
 intents.members = True
+intents.message_content = True
 
 class PalBot(commands.Bot):
 
@@ -43,16 +44,15 @@ class PalBot(commands.Bot):
         
 
 
+
+    async def setup_hook(self):
+        self.session = aiohttp.ClientSession()
         for module in Path(self.moddir).glob('*.py'):
             try:
-                self.load_extension("{}.{}".format(self.moddir,module.stem))
+                await self.load_extension("{}.{}".format(self.moddir,module.stem))
             except Exception as e:
                 print(f'Failed to load cog {module}', file=sys.stderr)
                 traceback.print_exception(type(e), e, e.__traceback__, file=sys.stderr)
-
-    async def async_init(self):
-        self.loop = asyncio.get_event_loop()
-        self.session = aiohttp.ClientSession(loop=self.loop)
 
     async def on_command_error(self, ctx, error):
         if isinstance(error, commands.CommandNotFound):
@@ -77,7 +77,7 @@ class PalBot(commands.Bot):
 
 
     async def on_ready(self):
-        await self.async_init()
+#        await self.async_init()
         if not hasattr(self, 'uptime'):
             self.uptime = datetime.datetime.utcnow()
         print(f'Ready: {self.user} (ID: {self.user.id})')

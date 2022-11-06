@@ -31,7 +31,6 @@ class Stars(commands.Cog):
         stars = reaction.count
         message = reaction.message
         starlimit = self.get_setting(message.guild.id, 'starlimit')
-        #TODO: Temporary starboard ID
         starboard = self.get_setting(message.guild.id, 'starboard')
         if not starboard or not starlimit or stars < int(starlimit):
             return
@@ -86,7 +85,7 @@ class Stars(commands.Cog):
                 embed.add_field(name='Replying to...', value=f'[{ref.resolved.author}]({ref.resolved.jump_url})', inline=False)
 
             embed.add_field(name='Original', value=f'[Jump!]({message.jump_url})', inline=False)
-            embed.set_author(name=message.author.display_name, icon_url=message.author.avatar_url)
+            embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
             embed.timestamp = message.created_at
             return embed
 
@@ -123,5 +122,5 @@ class Stars(commands.Cog):
 
 
 
-def setup(bot):
-    bot.add_cog(Stars(bot))
+async def setup(bot):
+    await bot.add_cog(Stars(bot))

@@ -53,5 +53,5 @@ class News(commands.Cog):
             await ctx.send(output)
     
 
-def setup(bot):
-    bot.add_cog(News(bot))
+async def setup(bot):
+    await bot.add_cog(News(bot))

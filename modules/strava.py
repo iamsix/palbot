@@ -199,5 +199,5 @@ class Strava(commands.Cog):
         feet = 3.28084 * float(meters)
         return round(feet, 1)
 
-def setup(bot):
-    bot.add_cog(Strava(bot))
+async def setup(bot):
+    await bot.add_cog(Strava(bot))
