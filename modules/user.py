@@ -17,16 +17,16 @@ class User(commands.Cog):
 #    async def roles (self, ctx):
 #        await ctx.send(str(ctx.author.roles))
 
-    @commands.command()
-    async def tagme (self, ctx, *, role: discord.Role):
-        if role < discord.utils.get(ctx.guild.roles, name="Tagger"):
-            await ctx.author.add_roles(role, reason="User self-request")
-            await ctx.send(f"{ctx.author.mention} is now tagged as {role}")
-        else:
-            await ctx.send("No.")
-    @tagme.error
-    async def tagme_error(self, ctx, error):
-        await ctx.send(str(error))
+#    @commands.command()
+#    async def tagme (self, ctx, *, role: discord.Role):
+#        if role < discord.utils.get(ctx.guild.roles, name="Tagger"):
+#            await ctx.author.add_roles(role, reason="User self-request")
+#            await ctx.send(f"{ctx.author.mention} is now tagged as {role}")
+#        else:
+#            await ctx.send("No.")
+#    @tagme.error
+#    async def tagme_error(self, ctx, error):
+#        await ctx.send(str(error))
 
     @commands.group(name="set", case_insensitive=True)
     async def _set (self, ctx):

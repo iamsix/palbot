@@ -4,6 +4,16 @@ from discord.ext import commands
 import sqlite3
 from yarl import URL
 
+REJECT_LIST = ['\N{BLACK UNIVERSAL RECYCLING SYMBOL}\N{VARIATION SELECTOR-16}',
+               '\N{BLACK LEFT-POINTING TRIANGLE}\N{VARIATION SELECTOR-16}',
+               '\N{BLACK RIGHT-POINTING TRIANGLE}\N{VARIATION SELECTOR-16}',
+               '\N{BLACK LEFT-POINTING TRIANGLE}',
+               '\N{BLACK RIGHT-POINTING TRIANGLE}',
+               '\N{WHITE HEAVY CHECK MARK}',
+               '\N{CROSS MARK}',
+               '1⃣', '2⃣', '3⃣', '4⃣', '5⃣', '6⃣', '7⃣', '8⃣', '9⃣',
+
+              ]
 
 class Stars(commands.Cog):
     # TODO: I think I need a pair of reaction-botmessage in a sqlite db?
@@ -24,14 +34,18 @@ class Stars(commands.Cog):
             self.c.execute("CREATE TABLE 'settings' ('guild' INTEGER, 'setting' TEXT, 'value' TEXT);")
             self.conn.commit()
 
+
     @commands.Cog.listener()
     async def on_reaction_add(self, reaction, user):
         if str(reaction.emoji) != '\N{WHITE MEDIUM STAR}':
+#        if str(reaction.emoji) in REJECT_LIST:
             return
         stars = reaction.count
         message = reaction.message
         starlimit = self.get_setting(message.guild.id, 'starlimit')
         starboard = self.get_setting(message.guild.id, 'starboard')
+        if message.channel.id == starboard:
+            return
         if not starboard or not starlimit or stars < int(starlimit):
             return
         channel = self.bot.get_channel(int(starboard))
@@ -44,7 +58,7 @@ class Stars(commands.Cog):
         else:
             original = None
 
-        content = f'\N{WHITE MEDIUM STAR} **{stars}** {message.channel.mention} ID: {message.id}'
+        content = f'{reaction.emoji} **{stars}** {message.channel.mention} ID: {message.id}'
         if stars == 0:
             await channel.send(f"no more stars on {reaction.message.id}")
         else:

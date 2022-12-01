@@ -53,6 +53,10 @@ class Twitter(commands.Cog):
         """Show trump's most recent words of wisdom"""
         await self.last_tweet(ctx, handle='realDonaldTrump')
 
+    @commands.command(hidden=True)
+    async def musk(self, ctx):
+        """Show elon's most recent words of wisdom"""
+        await self.last_tweet(ctx, handle='elonmusk')
     # TODO Handle retweets better
 
     def embed_tweet(self, tweet):
@@ -61,7 +65,8 @@ class Twitter(commands.Cog):
         handle = tweet['user']['screen_name']
         link = f"https://twitter.com/{handle}/status/{tweet['id']}"
         e = discord.Embed(title='Tweet', url=link, color=0x1da1f2)
-        author = f"{tweet['user']['name']} (@{handle})"
+        verified = "\N{BALLOT BOX WITH CHECK}" if tweet['user']['verified'] else ""
+        author = f"{tweet['user']['name']} (@{handle}){verified}"
         aurl = f"https://twitter.com/{handle}"
         e.set_author(name=author, url=aurl, icon_url=tweet['user']['profile_image_url_https'])
         e.description = html.unescape(tweet['full_text'].strip())
@@ -77,7 +82,6 @@ class Twitter(commands.Cog):
         return e
 
     def parse_tweet(self, tweet):
-        print(tweet)
         updated = datetime.strptime(tweet['created_at'], "%a %b %d %H:%M:%S +0000 %Y")
         ago = human_timedelta(updated, brief=True)
         author = tweet['user']['screen_name']
@@ -102,7 +106,7 @@ class Twitter(commands.Cog):
         for twitter_nick in subs:      
             if twitter_nick not in self.last_checked:
                     self.last_checked[twitter_nick] = datetime.utcnow()   
-            self.bot.logger.info(f"Starting tweet loop. Last checked: {self.last_checked}")
+            self.bot.logger.debug(f"Starting tweet loop. Last checked: {self.last_checked}")
             tweets = await self.read_timeline(twitter_nick, count=3)
             self.bot.logger.debug(f"Raw tweetsdata: {tweets}")
             if not tweets:

@@ -6,6 +6,7 @@ import json
 import asyncio
 import xml.dom.minidom
 import html
+import re
 
 
 class Media(commands.Cog):
@@ -44,7 +45,9 @@ class Media(commands.Cog):
         title = f"{movie['name']} ({year[:4]})"
         e = discord.Embed(title=title)
         if movie['posterImage']:
-            e.set_thumbnail(url=movie['posterImage']['url'])
+            poster = movie['posterImage']['url']
+            poster = poster[poster.rfind("https://"):]
+            e.set_thumbnail(url=poster)
         # Google is beter at searching than RT so sometimes this doesn't match
         # however the API has no direct link to the rt webpageh
         url = await self.bot.utils.google_for_urls(self.bot, 
@@ -107,9 +110,11 @@ class Media(commands.Cog):
             await ctx.send(f"Couldn't find a movie named `{movie_name}` on IMDb")
             return
 
+        imdbid = re.search(r"tt\d+", urls[0]).group(0)
+        url = f"https://imdb.com/title/{imdbid}/"
+
         headers = {'User-Agent': "Mozilla/5.0 (X11; Linux x86_64; rv:91.0) Gecko/20100101 Firefox/91.0"}
-        page = await self.bot.utils.bs_from_url(self.bot, urls[0], headers=headers)
-        
+        page = await self.bot.utils.bs_from_url(self.bot, url, headers=headers)
         data = json.loads(page.find('script', type='application/ld+json').string)
 
         self.bot.utils.dict_merge(imdb_m, data)
@@ -118,14 +123,13 @@ class Media(commands.Cog):
         movie_title = html.unescape(movie_title)
         desc = html.unescape(imdb_m['description'])
 
-        e = discord.Embed(title=movie_title, description=desc, url=urls[0])
+        e = discord.Embed(title=movie_title, description=desc, url=url)
 
         rating = imdb_m['aggregateRating']['ratingValue']
         if isinstance(imdb_m['genre'], list):
             genre = ", ".join(imdb_m['genre'])
         else:
             genre = imdb_m['genre']
-
         thumb = imdb_m['image'].replace(".jpg", "_UX128_.jpg")
         e.set_thumbnail(url=thumb)
 

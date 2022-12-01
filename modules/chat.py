@@ -5,7 +5,7 @@ import random
 import re
 from urllib.parse import quote as uriquote
 import sqlite3
-
+from datetime import timedelta
 
 FACES = [" ͡° ͜ʖ ͡°", " ͡° ʖ̯ ͡°", " ͠° ͟ʖ ͡°", " ͡ᵔ ͜ʖ ͡ᵔ", " . •́ _ʖ •̀ .", " ఠ ͟ʖ ఠ", " ͡ಠ ʖ̯ ͡ಠ",
          " ಠ ʖ̯ ಠ", " ಠ ͜ʖ ಠ", " ͡• ͜ʖ ͡• ", " ･ิ ͜ʖ ･ิ", " ͡ ͜ʖ ͡ ", "≖ ͜ʖ≖", "ʘ ʖ̯ ʘ", "ʘ ͟ʖ ʘ",
@@ -16,6 +16,11 @@ FACES = [" ͡° ͜ʖ ͡°", " ͡° ʖ̯ ͡°", " ͠° ͟ʖ ͡°", " ͡ᵔ ͜ʖ �
          "ツ", " ´ д ` ", "︶︿︶", " ˘ ､ ˘ ", " ˘_˘ ", " ᐛ ", "・_・", "⇀_⇀", "￢_￢" ]
 SHRUG = r"¯\\\_({})\_/¯"
 
+
+class TestView(discord.ui.View):
+    @discord.ui.button(label="Hello", emoji="\U0001f590", style=discord.ButtonStyle.blurple)
+    async def on_click_hello(self, interaction, button):
+        await interaction.response.send_message(f"Hi {interaction.user.mention}", ephemeral=True)
 
 class Chat(commands.Cog):
     def __init__(self, bot):
@@ -69,6 +74,11 @@ class Chat(commands.Cog):
         await ctx.message.add_reaction('\N{CROSS MARK}')
 
     @commands.command()
+    async def testbutton(self, ctx):
+        test = TestView()
+        await ctx.send("What does this do...", view=test)
+
+    @commands.command()
     async def poll(self, ctx, *, msg):
          """Create a poll using reactions.
                  !poll 1. cats 2. dogs 3. birds
@@ -78,7 +88,7 @@ class Chat(commands.Cog):
                  2) chicken
                  3) starvation
          """
-         options = re.split("(\d\.|\d\))", msg)
+         options = re.split(r"(\d\.|\d\))", msg)
          emoji = ['1⃣', '2⃣', '3⃣', '4⃣', '5⃣', '6⃣', '7⃣', '8⃣', '9⃣']
          for opt in options[1:]:
              try:
@@ -87,6 +97,10 @@ class Chat(commands.Cog):
              except:
                  pass
             
+    @commands.command(hidden=True)
+    async def ban(self, ctx):
+        await ctx.message.reply(f"OK, you've been banned. <:LEOKEK:803268251064729670>")
+        await ctx.message.author.timeout(timedelta(minutes=1), reason="!ban")
 
 
     @commands.command()

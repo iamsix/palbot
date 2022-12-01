@@ -354,24 +354,16 @@ class Vids(commands.Cog):
                 cmd = f"ffmpeg -y -i {v.name} -i {a.name} -c copy {o.name}"
                # print(cmd)
                 subprocess.call(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                try:
-                    await ctx.channel.fetch_message(message.id)
-                    message = None
-                except Exception as err:
-                    message = f"{ctx.author.mention} <{submission['url']}>" 
                 
-                await ctx.send(content=message, file=discord.File(o.name, filename=filename))
+                message = f"{ctx.author.mention} <{submission['url']}>"
+                await ctx.send(content=message, file=discord.File(o.name, filename=filename)) 
                   
                 v.close()
                 a.close()
                 o.close()
     
             else:
-                try:
-                    await ctx.channel.fetch_message(message.id)
-                    message = None
-                except:
-                    message = f"{ctx.author.mention} <{submission['url']}>" 
+                message = f"{ctx.author.mention} <{submission['url']}>" 
                 
                 await ctx.send(content=message, file=discord.File(BytesIO(viddata), filename=filename))
 
