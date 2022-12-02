@@ -3,6 +3,7 @@ from discord.ext import commands
 import asyncio
 import random
 from datetime import datetime, timedelta
+from utils.time import human_timedelta
 
 common_words = ["the", "people", "would", "really", "think", "right", "there", "about", "were", "when", "your", "can",
                 "which", "each", "other", "them", "then", "into", "him", "write", "more", "their", "make", "word", "some",
@@ -10,8 +11,12 @@ common_words = ["the", "people", "would", "really", "think", "right", "there", "
                 "other", "said", "could", "she"]
 
 
+# TODO : Make the WOTD expire after 24hr? 48hr? 1wk? 
+# TODO : Count the number of times each user has hit the wotd
+# TODO : Save the wotd for loading/realoading etc
+
 class WotdPrompt(discord.ui.Modal, title="Set a new WOTD"):
-    new_wotd = discord.ui.TextInput(label="New Word of the Day", min_length=4, required=True)
+    new_wotd = discord.ui.TextInput(label="New Word of the Day", min_length=3, required=True)
     async def on_submit(self, interaction: discord.Interaction):
         await interaction.response.send_message(f'WOTD has been set to: **{self.new_wotd}**.\nRemember, *you* can say this word to bait people.', ephemeral=True)
 
@@ -36,7 +41,6 @@ class WotdButton(discord.ui.View):
             await self.message.edit(content=self.message.content, view=None)
 
     async def on_timeout(self):
-        print("timeout expired")
         self.wotd.wotd = random.choice(common_words)
         self.wotd.setter = self.wotd.bot.user
         self.wotd.timestamp = datetime.utcnow()
@@ -58,9 +62,11 @@ class Wotd(commands.Cog):
         self.timestamp = datetime.utcnow()
 
 
-    @commands.command()
+    @commands.command(hidden=True)
     @commands.is_owner()
     async def wotdtest(self, ctx):
+        """Lets you set a new WOTD for testing.
+        Sets WOTD author to the bot so that you can test trigger it"""
         button = WotdButton(self, ctx.message.author)
         mymsg = await ctx.send("What does this do...", view=button)
         button.message = mymsg
@@ -68,10 +74,11 @@ class Wotd(commands.Cog):
         self.timestamp = datetime.utcnow()
 
 
-    @commands.command()
+    @commands.command(hidden=True)
     @commands.is_owner()
     async def checkwotd(self, ctx):
-        await ctx.send(f"wotd is: **{self.wotd}**")
+        """Shows you the current wotd, who set it, and when"""
+        await ctx.send(f"wotd is: ||{self.wotd}|| set by **{self.setter.display_name}** on {self.timestamp} UTC")
 
     @commands.Cog.listener()
     async def on_message(self, message):
@@ -82,9 +89,10 @@ class Wotd(commands.Cog):
            not self.wotd:
              return
 
-        if self.wotd in message.content:
+        if self.wotd.lower() in message.content.lower():
+            ago = human_timedelta(self.timestamp, source=datetime.utcnow(), suffix=True)
             button = WotdButton(self, message.author)
-            mymsg = await message.reply(f"Congratulations? You've found the word of the day: **{self.wotd}** that was set by {self.setter.display_name}. Now you can take some time and think about that.\nPlease push the button below to set a new word.", view=button)
+            mymsg = await message.reply(f"Congratulations? You've found the word of the day: **{self.wotd}** that was set by {self.setter.mention} {ago}. Now you can take some time and think about that.\nPlease push the button below to set a new word (after the timeout).", view=button)
             button.message = mymsg
             self.wotd == ""
             self.setter = message.author
