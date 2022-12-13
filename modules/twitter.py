@@ -48,6 +48,7 @@ class Twitter(commands.Cog):
         else:
             await ctx.send(f"Failed to load tweets from twitter user @{handle}")
 
+
     @commands.command(hidden=True)
     async def trump(self, ctx):
         """Show trump's most recent words of wisdom"""
@@ -57,8 +58,13 @@ class Twitter(commands.Cog):
     async def musk(self, ctx):
         """Show elon's most recent words of wisdom"""
         await self.last_tweet(ctx, handle='elonmusk')
-    # TODO Handle retweets better
+    
+    @commands.command(hidden=True)
+    async def ye(self, ctx):
+        """Show ye's most recent words of wisdom"""
+        await self.last_tweet(ctx, handle='kanyewest')
 
+    # TODO Handle retweets better
     def embed_tweet(self, tweet):
         if 'retweeted_status' in tweet:
             tweet = tweet['retweeted_status']

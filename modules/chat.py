@@ -100,7 +100,10 @@ class Chat(commands.Cog):
     @commands.command(hidden=True)
     async def ban(self, ctx):
         await ctx.message.reply(f"OK, you've been banned. <:LEOKEK:803268251064729670>")
-        await ctx.message.author.timeout(timedelta(minutes=1), reason="!ban")
+        try:
+            await ctx.message.author.timeout(timedelta(minutes=1), reason="!ban")
+        except:
+            self.bot.logger.info(f"Failed to timeout {ctx.author}")
 
 
     @commands.command()
@@ -172,7 +175,7 @@ class Chat(commands.Cog):
 
 
     @commands.command()
-    @commands.has_role('Admins')
+#    @commands.has_role('Admins')
     async def addcmd(self, ctx, cmd, *, output: str):
         """Adds a custom command to the bot that will output whatever is in the <output> field"""
         #Currently hard insert so can be used to edit too

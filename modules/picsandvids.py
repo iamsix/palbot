@@ -147,11 +147,6 @@ class Vids(commands.Cog):
         uploader = ytjson['snippet']['channelTitle']
         pubdate = ytjson['snippet']['publishedAt'][:10]
         likes = int(ytjson['statistics'].get('likeCount', 0))
-        dislikes = int(ytjson['statistics'].get('dislikeCount', 0))
-        if likes and dislikes:
-            rating = "{0:.1f}/10".format((likes / (likes + dislikes)) * 10)
-        else:
-            rating = "N/A"
         viewcount = int(ytjson['statistics']['viewCount'])
 
         duration = ytjson['contentDetails']['duration'][2:].lower()
@@ -171,7 +166,7 @@ class Vids(commands.Cog):
             out = "**NSFW** : "
             link = f"|| {link} ||"
 
-        out += (f"{title} [{category}] :: Length: {duration} - Rating: {rating} - "
+        out += (f"{title} [{category}] :: Length: {duration} - Likes: {likes:,} - "
                 f"{viewcount:,} views - {uploader} on {pubdate} - {link}")
 
         await ctx.send(out)
