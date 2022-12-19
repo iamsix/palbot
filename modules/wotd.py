@@ -13,8 +13,10 @@ common_words = ["the", "people", "would", "really", "think", "right", "there", "
                 "many", "time", "look", "see", "who", "may", "down", "get", "day", "come", "part", "like", "now", "these",
                 "other", "said", "could", "she"]
 
-
-# TODO : Count the number of times each user has hit the wotd
+# TODO: Consider changing count database to a ledger type system ie:
+# Timestamp (when it was hit) | User | word | setter | age of word?
+# could then check user rows for count, and user AND setter same for selfpwns.
+# this could potentially lead to interesting stats
 
 class WotdPrompt(discord.ui.Modal, title="Set a new WOTD"):
     new_wotd = discord.ui.TextInput(label="New Word of the Day", min_length=3, required=True)
@@ -66,6 +68,7 @@ class Wotd(commands.Cog):
     timestamp = None
     expire_timer = None
     hint = ""
+    wotd_count = None
 
     def __init__(self, bot):
         self.bot = bot
@@ -77,12 +80,12 @@ class Wotd(commands.Cog):
         self.conn = sqlite3.connect("wotd.sqlite")
         self.c = self.conn.cursor()
 
-        q = "SELECT name FROM sqlite_master WHERE type='table' AND name='settings';"
-        result = self.c.execute(q).fetchone()
-        if not result:
-            q = '''CREATE TABLE 'settings' ("channel" integer, "setting" text, "value" text);'''
-            self.c.execute(q)
-            self.conn.commit()
+        q = '''CREATE TABLE IF NOT EXISTS 'settings' ("channel" integer, "setting" text, "value" text);'''
+        self.c.execute(q)
+        q = '''CREATE TABLE IF NOT EXISTS 'hitcount' ("user" integer NOT NULL UNIQUE ON CONFLICT REPLACE, "count" integer, "self" integer);'''
+        self.c.execute(q)
+        self.conn.commit()
+
         self.bot.loop.create_task(self.load_wotd())
 
     
@@ -167,15 +170,22 @@ class Wotd(commands.Cog):
         self.hint = hint
         self.single_setter(channel.id, "hint", self.hint)
         print("Sending wotd expire message")
-        await channel.send(f"The WOTD has been set for >24 hours and no one has found it yet. So here's a hint: `{hint}`")
+        hrs = int((datetime.utcnow() - self.timestamp).total_seconds()) // 60 // 60
+        await channel.send(f"The WOTD was set {hrs} hours ago and no one has found it yet. So here's a hint: `{hint}`")
         print("Sent expire message... setting new timer")
         self.expire_timer = asyncio.ensure_future(self.expire_word(channel, 6*60*60))
 
+    @commands.command(hidden=True)
+    @commands.is_owner()
+    async def wotdhint(self, ctx):
+        """Debug function to test expiring the wotd"""
+        self.expire_timer.cancel()
+        self.expire_word(ctx.channel, 1)
 
     @commands.command(hidden=True)
     @commands.is_owner()
     async def checkwotd(self, ctx):
-        """Shows you the current wotd, who set it, and when"""
+        """Debug function shows you the current wotd, who set it, and when"""
         ago = human_timedelta(self.timestamp, source=datetime.utcnow(), suffix=True)
 
         await ctx.send(f"wotd is: ||{self.wotd}|| set by **{self.setter.display_name}** on {self.timestamp} UTC {ago} - hint: `{self.hint}`")
@@ -188,11 +198,7 @@ class Wotd(commands.Cog):
             return
         ago = human_timedelta(self.timestamp, source=datetime.utcnow(), suffix=True)
 
-        # TODO: move this to a function and calculate it only once
-        filename = f'logfiles/{self.bot.config.wotd_whitelist[0]}.log'
-        cmd = f'grep -ic {self.wotd} {filename}'
-        process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
-        wordcount = int(process.communicate(timeout=5)[0][:-1])
+        wordcount = self.count_wotd()
 
         if self.hint:
             hint = f'`{self.hint}` '
@@ -200,6 +206,19 @@ class Wotd(commands.Cog):
             hint = ""
 
         await ctx.send(f"The WOTD {hint}was set by **{self.setter.display_name}** {ago}.\nThe word has been used {wordcount} times in this channel")
+
+    def count_wotd(self):
+        if self.wotd_count:
+            return self.wotd_count
+
+        # TODO: move this to a function and calculate it only once
+        filename = f'logfiles/{self.bot.config.wotd_whitelist[0]}.log'
+        cmd = f'grep -ic {self.wotd} {filename}'
+        process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+        wordcount = int(process.communicate(timeout=5)[0][:-1])
+        self.wotd_count = wordcount
+        return wordcount
+        
 
     @commands.Cog.listener()
     async def on_message(self, message):
@@ -211,25 +230,47 @@ class Wotd(commands.Cog):
 
         if self.wotd.lower() in message.content.lower():
             self.expire_timer.cancel()
+
+            count, selfpwn = self.hitcount(message.author)
+            count += 1
             ttime = 1
             ago = human_timedelta(self.timestamp, source=datetime.utcnow(), suffix=True)
             button = WotdButton(self, message.author)
-            msg = f"Congratulations? You've found the word of the day: **{self.wotd}** that was set by {self.setter.mention} {ago}. Now you can take some time and think about that.\nPlease push the button below to set a new word (after the timeout)."
+            msg = f"Congratulations? You've found the word of the day for the {self.bot.utils.ordinal(count)} time: **{self.wotd}** that was set by {self.setter.mention} {ago}. Now you can take some time and think about that.\nPlease push the button below to set a new word (after the timeout)."
             if message.author.id == self.setter.id:
+                selfpwn += 1
                 ttime = 2
-                msg = f"Wow. You hit your own word: **{self.wotd}** that *you* set {ago}. Now you gotta wait twice as long. You can still set a new word though after the timeout."
-            mymsg = await message.reply(msg, view=button)
-            button.message = mymsg
+                msg = f"Wow. You hit your own word for the {self.bot.utils.ordinal(selfpwn)} time: **{self.wotd}** that *you* set {ago}. Now you gotta wait twice as long. You can still set a new word though after the timeout."
+
             self.wotd = ""
             self.hint = ""
+            self.wotd_count = None
             self.setter = message.author
             self.timestamp = datetime.utcnow()
+            self.save_hitcount(message.author, count, selfpwn)
+            
+            mymsg = await message.reply(msg, view=button)
+            button.message = mymsg
             self.expire_timer = asyncio.ensure_future(self.expire_word(message.channel))
             try:
                 await message.author.timeout(timedelta(minutes=ttime), reason=f"wotd {self.wotd}")
             except Exception as e:
                 # an exception here means we tried to timeout an admin/owner/etc
                 self.bot.logger.info(f"WOTD failed to timeout user: {message.author} {e}")
+
+    def hitcount(self, user):
+        q = 'SELECT count, self FROM hitcount WHERE user = (?)'
+        try:
+            count, selfpwn = self.c.execute(q, [(userd.id)]).fetchone()
+            return count, selfpwn
+        except:
+            return 0, 0
+
+    def save_hitcount(self, user, count, selfpwn):
+        q = 'INSERT INTO hitcount VALUES (?, ?, ?)'
+        self.c.execute(q, (user.id, count, selfpwn))
+        self.conn.commit()
+
 
 
     async def cog_unload(self):

@@ -48,11 +48,8 @@ class Media(commands.Cog):
             poster = movie['posterImage']['url']
             poster = poster[poster.rfind("https://"):]
             e.set_thumbnail(url=poster)
-        # Google is beter at searching than RT so sometimes this doesn't match
-        # however the API has no direct link to the rt webpageh
-        url = await self.bot.utils.google_for_urls(self.bot, 
-                f"site:rottentomatoes.com {title}")
-        e.url = url[0]
+        
+        e.url = f"https://www.rottentomatoes.com/m/{movie['emsId']}"
 
         if movie['tomatoRating']:
             description = movie['tomatoRating']['consensus'] or ''

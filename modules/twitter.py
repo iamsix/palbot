@@ -60,9 +60,9 @@ class Twitter(commands.Cog):
         await self.last_tweet(ctx, handle='elonmusk')
     
     @commands.command(hidden=True)
-    async def ye(self, ctx):
+    async def kexp(self, ctx):
         """Show ye's most recent words of wisdom"""
-        await self.last_tweet(ctx, handle='kanyewest')
+        await self.last_tweet(ctx, handle='kexpnowplaying')
 
     # TODO Handle retweets better
     def embed_tweet(self, tweet):
