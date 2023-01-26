@@ -8,7 +8,7 @@ class Logger(commands.Cog):
         self.files = {}
 
     @commands.Cog.listener()
-    async def on_message(self, message):
+    async def on_message(self, message, reaction = None, reactor = None):
         if message.channel.id not in self.files:
             fn = 'logfiles/{}.log'.format(message.channel.id)
             self.files[message.channel.id] = open(fn, 'a+')
@@ -16,11 +16,16 @@ class Logger(commands.Cog):
         F = self.files[message.channel.id]
         line = "{}:{}::{}!{} PRIVMSG #{} :{} \n"
         timestamp = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-        host = str(message.author).replace('#', '@')
-        say = message.clean_content.replace('\n', ' ').replace('\r', ' ')
-        say = say.replace("@", "")
         svr = message.channel.id
-        nick = message.author.display_name
+        if not reaction:
+            host = str(message.author).replace('#', '@')
+            say = message.clean_content.replace('\n', ' ').replace('\r', ' ')
+            say = say.replace("@", "")
+            nick = message.author.display_name
+        else:
+            host = str(reactor).replace('#', '@')
+            nick = reactor.display_name
+            say = f"ACTION reacted with {reaction.emoji}"
         nick = nick.replace(' ', '_').replace('!', "_")
         if message.channel.type != discord.ChannelType.text:
             chan = self.bot.user.display_name
@@ -30,6 +35,11 @@ class Logger(commands.Cog):
 
         F.write(line)
         F.flush()
+
+    @commands.Cog.listener()
+    async def on_reaction_add(self, reaction, user):
+        await self.on_message(reaction.message, reaction, user)
+
 
     @commands.Cog.listener()
     async def on_member_update(self, old, new):

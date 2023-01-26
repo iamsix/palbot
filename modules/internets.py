@@ -83,6 +83,8 @@ class Internets(commands.Cog):
             for pg in page:
                 if str(pg)[0:9] == '<p><span ':
                     continue
+                elif "Pages for logged out editors" in str(pg):
+                    continue
                 elif pg.get_text().strip() == "":
                     continue
                 elif self.bot.utils.remove_html_tags(str(pg)).strip() == '':

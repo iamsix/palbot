@@ -18,10 +18,30 @@ common_words = ["the", "people", "would", "really", "think", "right", "there", "
 # could then check user rows for count, and user AND setter same for selfpwns.
 # this could potentially lead to interesting stats
 
-class WotdPrompt(discord.ui.Modal, title="Set a new WOTD"):
+class WotdPrompt(discord.ui.Modal):
+    def __init__(self, wotd):
+        super().__init__(title="Set a new WOTD")
+        self.wotd = wotd
+    good_word = False
     new_wotd = discord.ui.TextInput(label="New Word of the Day", min_length=3, required=True)
     async def on_submit(self, interaction: discord.Interaction):
-        await interaction.response.send_message(f'WOTD has been set to: **{self.new_wotd}** \nIf you want to set a new word before someone finds it use the command `!newwotd` to spawn a new button.', ephemeral=True)
+        word = str(self.new_wotd)
+        count = self.wotd.count_wotd(word)
+        if count < 100:
+            self.wotd.wotd_count = None
+            self.wotd.bot.logger.info(f"Bad WOTD is: {word}")
+            print(f"Bad WOTD is: {word} with {count}")
+            match count:
+                case 0:
+                    usage = "Has **never** been used,"
+                case 1:
+                    usage = "Has only ever been used **once**,"
+                case _:
+                    usage = f"Has only ever been used **{count}** times,"
+            await interaction.response.send_message(f"**{word}** {usage} and is such a terrible word that I'm not going to set it to that.\nClick the button again to set a different word that has been used at least 100 times.", ephemeral=True)
+        else:
+            self.good_word = True
+            await interaction.response.send_message(f'WOTD has been set to: **{word}** which has been used **{count}** times.\nIf you want to set a new word before someone finds it use the command `!newwotd` to spawn a new button.\nYou can also use `!wotdhint` if you want the bot to give a hint', ephemeral=True)
 
 class WotdButton(discord.ui.View):
     message = None
@@ -35,11 +55,17 @@ class WotdButton(discord.ui.View):
         if interaction.user.id != self.wotd_finder.id:
             await interaction.response.send_message(f"You didn't find the word", ephemeral=True)
         else:
-            modal = WotdPrompt()
-            await interaction.response.send_modal(modal)
-            await modal.wait()
-            self.wotd.bot.logger.info(f"New WOTD is: {modal.new_wotd}")
-            self.wotd.wotd = str(modal.new_wotd)
+            await self.do_wotd_prompt(interaction)
+
+    async def do_wotd_prompt(self, interaction):
+        modal = WotdPrompt(self.wotd)
+        await interaction.response.send_modal(modal)
+        await modal.wait()
+        word = str(modal.new_wotd)
+        count = self.wotd.count_wotd(word)
+        if modal.good_word:
+            self.wotd.bot.logger.info(f"New WOTD is: {word}")
+            self.wotd.wotd = word
             chan = self.message.channel.id
             self.wotd.single_setter(chan, "setter", self.wotd_finder.id)
             self.wotd.single_setter(chan, "timestamp", str(self.wotd.timestamp))
@@ -47,7 +73,8 @@ class WotdButton(discord.ui.View):
             self.wotd.single_setter(chan, "message", self.message.id)
             self.wotd.single_setter(chan, "hint", self.wotd.hint)
             self.stop()
-            await self.message.edit(content=self.message.content, view=None)
+            msg = self.message.content + f"\n\nWord has been set. The new WOTD has been used {count} times."
+            await self.message.edit(content=msg, view=None)
 
     async def on_timeout(self):
         self.wotd.wotd = random.choice(common_words)
@@ -138,6 +165,7 @@ class Wotd(commands.Cog):
 
         button = WotdButton(self, ctx.message.author)
         mymsg = await ctx.send("The WOTD owner can set a new WOTD with the button below", view=button)
+        self.wotd_count = None
         button.message = mymsg
 
     @commands.command(hidden=True)
@@ -150,6 +178,9 @@ class Wotd(commands.Cog):
         button.message = mymsg
         self.setter = self.bot.user
         self.timestamp = datetime.utcnow()
+        self.wotd = ""
+        self.hint = ""
+        self.wotd_count = None
 
     
     async def expire_word(self, channel, waittime = 24 * 60 * 60):
@@ -176,11 +207,11 @@ class Wotd(commands.Cog):
         self.expire_timer = asyncio.ensure_future(self.expire_word(channel, 6*60*60))
 
     @commands.command(hidden=True)
-    @commands.is_owner()
     async def wotdhint(self, ctx):
-        """Debug function to test expiring the wotd"""
-        self.expire_timer.cancel()
-        self.expire_word(ctx.channel, 1)
+        """Send a WOTD hint either by the word owner or the bot owner"""
+        if ctx.author.id == self.setter.id or ctx.author.id == self.bot.owner_id:
+            self.expire_timer.cancel()
+            await self.expire_word(ctx.channel, 1)
 
     @commands.command(hidden=True)
     @commands.is_owner()
@@ -207,13 +238,15 @@ class Wotd(commands.Cog):
 
         await ctx.send(f"The WOTD {hint}was set by **{self.setter.display_name}** {ago}.\nThe word has been used {wordcount} times in this channel")
 
-    def count_wotd(self):
-        if self.wotd_count:
+    def count_wotd(self, word = None):
+        if self.wotd_count and not word:
             return self.wotd_count
+        if not word and self.wotd:
+            word = self.wotd
 
         # TODO: move this to a function and calculate it only once
         filename = f'logfiles/{self.bot.config.wotd_whitelist[0]}.log'
-        cmd = f'grep -ic {self.wotd} {filename}'
+        cmd = f'grep -ic "PRIVMSG #.* :.*{word}.*" {filename}'
         process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
         wordcount = int(process.communicate(timeout=5)[0][:-1])
         self.wotd_count = wordcount
@@ -261,17 +294,18 @@ class Wotd(commands.Cog):
     def hitcount(self, user):
         q = 'SELECT count, self FROM hitcount WHERE user = (?)'
         try:
-            count, selfpwn = self.c.execute(q, [(userd.id)]).fetchone()
+            count, selfpwn = self.c.execute(q, [(user.id)]).fetchone()
             return count, selfpwn
-        except:
+        except Exception as e:
             return 0, 0
+
 
     def save_hitcount(self, user, count, selfpwn):
         q = 'INSERT INTO hitcount VALUES (?, ?, ?)'
         self.c.execute(q, (user.id, count, selfpwn))
         self.conn.commit()
 
-
+    
 
     async def cog_unload(self):
         self.bot.logger.info("Cancelling wotd expire timer")

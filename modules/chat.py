@@ -40,10 +40,21 @@ class Chat(commands.Cog):
               '\N{REGIONAL INDICATOR SYMBOL LETTER S}',
               '\N{REGIONAL INDICATOR SYMBOL LETTER T}',]
 
+    RIPOSTE = ['\N{REGIONAL INDICATOR SYMBOL LETTER R}',
+              '\N{REGIONAL INDICATOR SYMBOL LETTER I}',
+              '\N{REGIONAL INDICATOR SYMBOL LETTER P}',
+              '\N{REGIONAL INDICATOR SYMBOL LETTER O}',
+              '\N{REGIONAL INDICATOR SYMBOL LETTER S}',
+              '\N{REGIONAL INDICATOR SYMBOL LETTER T}',
+              '\N{REGIONAL INDICATOR SYMBOL LETTER E}',]
+
     @commands.Cog.listener()
     async def on_reaction_add(self, reaction, user):
         if reaction.emoji == '\N{BLACK UNIVERSAL RECYCLING SYMBOL}\N{VARIATION SELECTOR-16}':
             for letter in self.REPOST:
+                await reaction.message.add_reaction(letter)
+        elif reaction.emoji == '\N{FENCER}':
+            for letter in self.RIPOSTE:
                 await reaction.message.add_reaction(letter)
 
     @commands.command()
