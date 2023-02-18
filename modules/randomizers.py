@@ -43,7 +43,7 @@ class Randomizers(commands.Cog):
         await ctx.send(output)
 
     
-    @commands.command(name="8=D")
+    @commands.command(name="8=D", aliases=['udp'])
     async def eightd(self, ctx):
         output = "8"
         rand = random.randint(2, 10)

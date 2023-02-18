@@ -6,6 +6,7 @@ from utils.time import human_timedelta
 import sqlite3
 import subprocess
 from datetime import datetime,timedelta
+import re
 
 
 common_words = ["the", "people", "would", "really", "think", "right", "there", "about", "were", "when", "your", "can",
@@ -13,19 +14,27 @@ common_words = ["the", "people", "would", "really", "think", "right", "there", "
                 "many", "time", "look", "see", "who", "may", "down", "get", "day", "come", "part", "like", "now", "these",
                 "other", "said", "could", "she"]
 
-# TODO: Consider changing count database to a ledger type system ie:
-# Timestamp (when it was hit) | User | word | setter | age of word?
+# Timestamp (when it was hit) | User | word | wordcount (when set) | setter | age of word in seconds (technically not required since it can be calculated but slightly easier when generating stats)
 # could then check user rows for count, and user AND setter same for selfpwns.
 # this could potentially lead to interesting stats
+# best finder:
+# select finder, count(finder) from hitlog group by finder order by count(finder);
+# Longest lasting word setter:
+# select setter, avg(wordage) from hitlog group by setter order by avg(wordage);
+# longest lasting word in general:
+# select * from hitlog order by wordage ASC;
+
 
 class WotdPrompt(discord.ui.Modal):
     def __init__(self, wotd):
         super().__init__(title="Set a new WOTD")
         self.wotd = wotd
     good_word = False
+    s_re = re.compile('[^a-z0-9 !_.-]*',re.I)
     new_wotd = discord.ui.TextInput(label="New Word of the Day", min_length=3, required=True)
     async def on_submit(self, interaction: discord.Interaction):
         word = str(self.new_wotd)
+        word = self.s_re.sub("", word)
         count = self.wotd.count_wotd(word)
         if count < 100:
             self.wotd.wotd_count = None
@@ -109,7 +118,7 @@ class Wotd(commands.Cog):
 
         q = '''CREATE TABLE IF NOT EXISTS 'settings' ("channel" integer, "setting" text, "value" text);'''
         self.c.execute(q)
-        q = '''CREATE TABLE IF NOT EXISTS 'hitcount' ("user" integer NOT NULL UNIQUE ON CONFLICT REPLACE, "count" integer, "self" integer);'''
+        q = '''CREATE TABLE IF NOT EXISTS 'hitlog' ("channel" integer, "timestamp" text, "finder" integer, "word" text, "wordcount" integer, "setter" integer, "wordage" integer);'''
         self.c.execute(q)
         self.conn.commit()
 
@@ -238,13 +247,15 @@ class Wotd(commands.Cog):
 
         await ctx.send(f"The WOTD {hint}was set by **{self.setter.display_name}** {ago}.\nThe word has been used {wordcount} times in this channel")
 
+    s_re = re.compile('[^a-z0-9 !_.-]*',re.I)
+
     def count_wotd(self, word = None):
         if self.wotd_count and not word:
             return self.wotd_count
         if not word and self.wotd:
             word = self.wotd
 
-        # TODO: move this to a function and calculate it only once
+        word = self.s_re.sub("", word)
         filename = f'logfiles/{self.bot.config.wotd_whitelist[0]}.log'
         cmd = f'grep -ic "PRIVMSG #.* :.*{word}.*" {filename}'
         process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
@@ -252,6 +263,16 @@ class Wotd(commands.Cog):
         self.wotd_count = wordcount
         return wordcount
         
+    @commands.command(hidden=True)
+    @commands.is_owner()
+    async def wordcount(self, ctx, *, word):
+        filename = f'logfiles/{self.bot.config.wotd_whitelist[0]}.log'
+        word = self.s_re.sub("", word)
+        cmd = f'grep -ic "PRIVMSG #.* :.*{word}.*" {filename}'
+        process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+        wordcount = int(process.communicate(timeout=5)[0][:-1])
+        await ctx.send(f"count of {word} is {wordcount}")
+
 
     @commands.Cog.listener()
     async def on_message(self, message):
@@ -263,15 +284,15 @@ class Wotd(commands.Cog):
 
         if self.wotd.lower() in message.content.lower():
             self.expire_timer.cancel()
+            self.record_hit(message)
 
-            count, selfpwn = self.hitcount(message.author)
-            count += 1
+            count = self.hitcount(message.author.id)
             ttime = 1
             ago = human_timedelta(self.timestamp, source=datetime.utcnow(), suffix=True)
             button = WotdButton(self, message.author)
             msg = f"Congratulations? You've found the word of the day for the {self.bot.utils.ordinal(count)} time: **{self.wotd}** that was set by {self.setter.mention} {ago}. Now you can take some time and think about that.\nPlease push the button below to set a new word (after the timeout)."
             if message.author.id == self.setter.id:
-                selfpwn += 1
+                count = self.selfpwncount(message.author.id)
                 ttime = 2
                 msg = f"Wow. You hit your own word for the {self.bot.utils.ordinal(selfpwn)} time: **{self.wotd}** that *you* set {ago}. Now you gotta wait twice as long. You can still set a new word though after the timeout."
 
@@ -280,7 +301,7 @@ class Wotd(commands.Cog):
             self.wotd_count = None
             self.setter = message.author
             self.timestamp = datetime.utcnow()
-            self.save_hitcount(message.author, count, selfpwn)
+          #  self.save_hitcount(message.author, count, selfpwn)
             
             mymsg = await message.reply(msg, view=button)
             button.message = mymsg
@@ -291,21 +312,23 @@ class Wotd(commands.Cog):
                 # an exception here means we tried to timeout an admin/owner/etc
                 self.bot.logger.info(f"WOTD failed to timeout user: {message.author} {e}")
 
-    def hitcount(self, user):
-        q = 'SELECT count, self FROM hitcount WHERE user = (?)'
-        try:
-            count, selfpwn = self.c.execute(q, [(user.id)]).fetchone()
-            return count, selfpwn
-        except Exception as e:
-            return 0, 0
+    def hitcount(self, userid):
+        q = 'SELECT COUNT(*) FROM hitlog WHERE finder = (?)'
+        count = int(self.c.execute(q, [(userid)]).fetchone())
+        return count
 
+    def selfpwncount(self, userid):
+        q = 'SELECT COUNT(*) FROM hitlog WHERE finder = (?) AND setter = (?)'
+        count = int(self.c.execute(q, (userid, userid)).fetchone())
+        return count
 
-    def save_hitcount(self, user, count, selfpwn):
-        q = 'INSERT INTO hitcount VALUES (?, ?, ?)'
-        self.c.execute(q, (user.id, count, selfpwn))
+    def record_hit(self, message):
+        q = "INSERT INTO hitlog VALUES (?, ?, ?, ?, ?, ?, ?)"
+        timestamp = datetime.utcnow().strftime('%Y-%m-%d-%H-%M-%S')
+        age = (datetime.utcnow() - self.timestamp).total_seconds()
+        self.c.execute(q, (message.channel.id, timestamp, message.author.id, self.wotd, self.wotd_count, self.setter.id, age))
         self.conn.commit()
 
-    
 
     async def cog_unload(self):
         self.bot.logger.info("Cancelling wotd expire timer")

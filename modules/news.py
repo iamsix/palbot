@@ -25,7 +25,8 @@ class News(commands.Cog):
             title = newest_news.getElementsByTagName('title')[0].childNodes[0].data.strip()
             link = newest_news.getElementsByTagName('link')[0].childNodes[0].data
             try:
-                async with self.bot.session.get(link, timeout=5) as resp:
+                headers = {'User-Agent': "Wget/1.21.2"}
+                async with self.bot.session.get(link, timeout=5, allow_redirects=True, headers=headers) as resp:
                     link = resp.url
             except TimeoutError:
                 pass
