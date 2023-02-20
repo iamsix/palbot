@@ -254,8 +254,11 @@ class Wotd(commands.Cog):
             return self.wotd_count
         if not word and self.wotd:
             word = self.wotd
-
+        
         word = self.s_re.sub("", word)
+        if not word:
+            return 0
+
         filename = f'logfiles/{self.bot.config.wotd_whitelist[0]}.log'
         cmd = f'grep -ic "PRIVMSG #.* :.*{word}.*" {filename}'
         process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
@@ -292,10 +295,10 @@ class Wotd(commands.Cog):
             button = WotdButton(self, message.author)
             msg = f"Congratulations? You've found the word of the day for the {self.bot.utils.ordinal(count)} time: **{self.wotd}** that was set by {self.setter.mention} {ago}. Now you can take some time and think about that.\nPlease push the button below to set a new word (after the timeout)."
             if message.author.id == self.setter.id:
-                count = self.selfpwncount(message.author.id)
+                selfpwn = self.selfpwncount(message.author.id)
                 ttime = 2
                 msg = f"Wow. You hit your own word for the {self.bot.utils.ordinal(selfpwn)} time: **{self.wotd}** that *you* set {ago}. Now you gotta wait twice as long. You can still set a new word though after the timeout."
-
+            banword = self.wotd
             self.wotd = ""
             self.hint = ""
             self.wotd_count = None
@@ -307,19 +310,20 @@ class Wotd(commands.Cog):
             button.message = mymsg
             self.expire_timer = asyncio.ensure_future(self.expire_word(message.channel))
             try:
-                await message.author.timeout(timedelta(minutes=ttime), reason=f"wotd {self.wotd}")
+                await message.author.timeout(timedelta(minutes=ttime), reason=f"wotd: {banword}")
             except Exception as e:
                 # an exception here means we tried to timeout an admin/owner/etc
                 self.bot.logger.info(f"WOTD failed to timeout user: {message.author} {e}")
 
     def hitcount(self, userid):
         q = 'SELECT COUNT(*) FROM hitlog WHERE finder = (?)'
-        count = int(self.c.execute(q, [(userid)]).fetchone())
+        count = int(self.c.execute(q, ([userid])).fetchone()[0])
+        
         return count
 
     def selfpwncount(self, userid):
         q = 'SELECT COUNT(*) FROM hitlog WHERE finder = (?) AND setter = (?)'
-        count = int(self.c.execute(q, (userid, userid)).fetchone())
+        count = int(self.c.execute(q, (userid, userid)).fetchone()[0])
         return count
 
     def record_hit(self, message):
