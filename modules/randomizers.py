@@ -190,7 +190,7 @@ class Randomizers(commands.Cog):
     "innovate", "integrate", "iterate", "leverage", "matrix", "maximize", "mesh", "monetize", "morph", "optimize",
     "orchestrate", "productize", "recontextualize", "redefine", "reintermediate", "reinvent", "repurpose",
     "revolutionize", "scale", "seize", "strategize", "streamline", "syndicate", "synergize", "synthesize",
-    "target", "transform", "transition", "unleash", "utilize", "visualize", "whiteboard"]
+    "target", "transform", "transition", "unleash", "utilize", "visualize", "whiteboard", "deep-dive", "double click into"]
 
     mba_adjectives = ["24/365", "24/7", "B2B", "B2C", "back-end", "best-of-breed", "bleeding-edge", "bricks-and-clicks",
     "clicks-and-mortar", "collaborative", "compelling", "cross-platform", "cross-media", "customized", "cutting-edge",
@@ -199,14 +199,14 @@ class Randomizers(commands.Cog):
     "leading-edge", "magnetic", "mission-critical", "next-generation", "one-to-one", "open-source", "out-of-the-box",
     "plug-and-play", "proactive", "real-time", "revolutionary", "rich", "robust", "scalable", "seamless", "sexy", "sticky",
     "strategic", "synergistic", "transparent", "turn-key", "ubiquitous", "user-centric", "value-added", "vertical", "viral",
-    "virtual", "visionary", "web-enabled", "wireless", "world-class", "software-as-a-service"]
+    "virtual", "visionary", "web-enabled", "wireless", "world-class", "software-as-a-service", "quick"]
 
     mba_nouns = ["action-items", "applications", "architectures", "bandwidth", "channels", "communities", "content", "convergence",
     "deliverables", "e-business", "e-commerce", "e-markets", "e-services", "e-tailers", "experiences", "eyeballs",
     "functionalities", "infomediaries", "infrastructures", "initiatives", "interfaces", "markets", "methodologies",
     "metrics", "mindshare", "models", "networks", "niches", "paradigms", "partnerships", "platforms", "portals", "relationships",
     "ROI", "synergies", "web-readiness", "schemas", "solutions", "supply-chains", "systems", "technologies", "users", "vortals",
-    "web services"]
+    "web services", "joint ventures", "marketplaces", "NFTs", "cryptocurrencies", "wins"]
 
 
     @commands.command(name="developers")
@@ -223,7 +223,7 @@ class Randomizers(commands.Cog):
     "Top-Down", "Discrete", "Evolutionary", "Initial", "Scrum", "Horizontal", "Usability", "Throwaway", "Rapid", "Incremental", "Extreme", "Reduced", "Insufficient",
     "Dynamic", "Business", "Operating", "Rapid", "Object-Oriented", "Iterative", "Unified", "V-Model", "Linear", "Unit", "Spiral", "Daily", "Retrospective", "Epic", "Rockstar"]
     dev_nouns = ["Prototype", "Software", "Critical View", "Requirements Specification", "Models", "Architecture", "Meetings", "Products", "Objectives", "Logic",
-    "Applications", "Environments", "Tasks", "Deployments", "Processes", "Abstractions", "Data Structures", "NoSQL", "Web 2.0", "XML", "XSL", "Memcache", "Cloud Comuting", "Clusters",
+    "Applications", "Environments", "Tasks", "Deployments", "Processes", "Abstractions", "Data Structures", "NoSQL", "Web 2.0", "XML", "XSL", "Memcache", "Cloud Computing", "Clusters",
     "Version Control", "Code", "Feedback Loops", "Masters", "Stakeholders", "Managers", "Storytimes", "User Stories", "Programmers", 'Maintenence', 'Testing', 'Production',
     "Backlog Grooming"]
     

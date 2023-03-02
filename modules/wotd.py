@@ -24,19 +24,22 @@ common_words = ["the", "people", "would", "really", "think", "right", "there", "
 # longest lasting word in general:
 # select * from hitlog order by wordage ASC;
 
+#TODO - change hint system to be based on length of word
+# probably with some 6hr grace period of no hints, then interval based on length
+
 
 class WotdPrompt(discord.ui.Modal):
     def __init__(self, wotd):
         super().__init__(title="Set a new WOTD")
         self.wotd = wotd
     good_word = False
-    s_re = re.compile('[^a-z0-9 !_.-]*',re.I)
+    s_re = re.compile('[^a-z0-9 !_-]*',re.I)
     new_wotd = discord.ui.TextInput(label="New Word of the Day", min_length=3, required=True)
     async def on_submit(self, interaction: discord.Interaction):
         word = str(self.new_wotd)
         word = self.s_re.sub("", word)
         count = self.wotd.count_wotd(word)
-        if count < 100:
+        if count < 100 or len(word) < 3:
             self.wotd.wotd_count = None
             self.wotd.bot.logger.info(f"Bad WOTD is: {word}")
             print(f"Bad WOTD is: {word} with {count}")
@@ -137,11 +140,12 @@ class Wotd(commands.Cog):
             ts = self.single_getter(self.bot.config.wotd_whitelist[0], "timestamp")
             self.timestamp = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S.%f")
             tssec = int((datetime.utcnow() - self.timestamp).total_seconds())
-            waittime = 24*60*60 - tssec 
-            if waittime < 0:
+           # waittime = 24*60*60 - tssec 
+            waittime = 6*60*60 - (tssec % (6*60*60))
+            #if waittime < 0:
                 #Over 24hrs have elapsed so we're on to 6hr hints
-                tssec -= 24*60*60
-                waittime = 6*60*60 - (tssec % (6*60*60))
+           #     tssec -= 24*60*60
+           #     waittime = 6*60*60 - (tssec % (6*60*60))
             channel = self.bot.get_channel(self.bot.config.wotd_whitelist[0])
             self.expire_timer = asyncio.ensure_future(self.expire_word(channel, waittime))
 
@@ -192,7 +196,7 @@ class Wotd(commands.Cog):
         self.wotd_count = None
 
     
-    async def expire_word(self, channel, waittime = 24 * 60 * 60):
+    async def expire_word(self, channel, waittime = 6 * 60 * 60):
         self.bot.logger.info(f"waiting {waittime} to expire the word")
         await asyncio.sleep(waittime)
         self.bot.logger.info("Should expire message the word now!")
@@ -247,7 +251,7 @@ class Wotd(commands.Cog):
 
         await ctx.send(f"The WOTD {hint}was set by **{self.setter.display_name}** {ago}.\nThe word has been used {wordcount} times in this channel")
 
-    s_re = re.compile('[^a-z0-9 !_.-]*',re.I)
+    s_re = re.compile('[^a-z0-9 !_-]*',re.I)
 
     def count_wotd(self, word = None):
         if self.wotd_count and not word:
@@ -329,7 +333,7 @@ class Wotd(commands.Cog):
     def record_hit(self, message):
         q = "INSERT INTO hitlog VALUES (?, ?, ?, ?, ?, ?, ?)"
         timestamp = datetime.utcnow().strftime('%Y-%m-%d-%H-%M-%S')
-        age = (datetime.utcnow() - self.timestamp).total_seconds()
+        age = int((datetime.utcnow() - self.timestamp).total_seconds())
         self.c.execute(q, (message.channel.id, timestamp, message.author.id, self.wotd, self.wotd_count, self.setter.id, age))
         self.conn.commit()
 

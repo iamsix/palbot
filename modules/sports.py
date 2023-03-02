@@ -109,7 +109,7 @@ class Sports(commands.Cog):
         else:
             days = data['leagueSchedule']['gameDates']
             for gameday in days:
-                day = datetime.datetime.strptime(gameday['gameDate'], "%m/%d/%Y %H:%M:%S %p")
+                day = datetime.datetime.strptime(gameday['gameDate'], "%m/%d/%Y %H:%M:%S")
                 if day.date() == date.date():
                     data = gameday
             startkey = 'gameDateTimeUTC'
