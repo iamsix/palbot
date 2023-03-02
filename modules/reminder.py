@@ -2,10 +2,11 @@ from discord.ext import commands, tasks
 import discord
 import asyncio
 import sqlite3
-from utils.time import HumanTime
 from datetime import datetime
 from dataclasses import dataclass
-
+import pytz
+import dateparser
+from zoneinfo import ZoneInfo
 # 'when' is not stricyly necessary here, just a convenience thing
 # timestamp | Channel | userid | when | remindertext
 
@@ -49,7 +50,7 @@ class Reminder(commands.Cog):
         print("remindme loop")
         ts = int(datetime.utcnow().timestamp())
         ts += 24*60*60
-        q = 'SELECT timestamp, channel, user, reminder FROM reminders WHERE timestamp < ?'
+        q = 'SELECT timestamp, channel, user, reminder FROM reminders WHERE timestamp <= ?'
         res = self.c.execute(q, [(ts)])
         for row in res:
             when = datetime.fromtimestamp(row[0])
@@ -64,12 +65,37 @@ class Reminder(commands.Cog):
 
 
     @commands.command()
-    async def remindme(self, ctx, *, message):
-        when, what = message.split(" to ", 1)
-        date = HumanTime(when)
-        seconds = int((date.dt - datetime.utcnow()).total_seconds())
-        reminder = ReminderItem(ctx.channel.id, ctx.author.id, date.dt, what)
-        await self.save_timer(reminder)
+    async def timetest(self, ctx, *, time):
+        tz = ctx.author_info.timezone
+        date = dateparser.parse(time, settings={'TIMEZONE': tz, 
+                                      'PREFER_DATES_FROM': 'future'})
+        if tz and date:
+            ntz = ZoneInfo(tz)
+            utc = ZoneInfo("UTC")
+            date = date.replace(tzinfo=ntz).astimezone(tz=utc).replace(tzinfo=None)
+        await ctx.send(f"<t:{int(date.timestamp())}>")
+
+    @commands.command()
+    async def remindme(self, ctx, *, message: commands.clean_content):
+        try:
+            when, what = message.split(" to ", 1)
+        except ValueError:
+            await ctx.reply("You're probably missing a 'to' - format is `!remindme <when> to <what>`")
+            return
+
+        tz = ctx.author_info.timezone
+        date = dateparser.parse(when, settings={'TIMEZONE': tz, 
+                                      'PREFER_DATES_FROM': 'future'})
+        if not date:
+            await ctx.reply("I don't understand when you want this done. Try something like `tomorrow at 8pm` or `jan 3rd 2pm` or `in 5 minutes` - format is `!remindme <when> to <what>`")
+            return
+
+        if tz:
+            ntz = ZoneInfo(tz)
+            utc = ZoneInfo("UTC")
+            date = date.replace(tzinfo=ntz).astimezone(tz=utc).replace(tzinfo=None)
+        seconds = int((date - datetime.utcnow()).total_seconds())
+        reminder = ReminderItem(ctx.channel.id, ctx.author.id, date, what)
         if seconds < 0:
             await ctx.send("I can't remind you of something in the past")
             return
@@ -79,9 +105,10 @@ class Reminder(commands.Cog):
         else:
             #this is today so set the timer immediately
             await self.set_timer(reminder)
+        await self.save_timer(reminder)
 
 
-        await ctx.send (f"I will remind you on <t:{int(date.dt.timestamp())}> to: {what}")
+        await ctx.send (f"I will remind you on <t:{int(date.timestamp())}> to: {what}")
 
     async def call_reminder(self, reminder):
         channel = self.bot.get_channel(reminder.channel)
