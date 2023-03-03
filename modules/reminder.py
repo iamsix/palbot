@@ -48,11 +48,17 @@ class Reminder(commands.Cog):
     @tasks.loop(minutes=(60 * 24))
     async def check_timers(self):
         print("remindme loop")
+        # first we have to cancel all the reminders so that we don't re-create one already on a timer 
+        for reminder in self.reminders:
+            reminder.cancel()
+        self.reminders.clear()
         ts = int(datetime.utcnow().timestamp())
         ts += 24*60*60
         q = 'SELECT timestamp, channel, user, reminder FROM reminders WHERE timestamp <= ?'
         res = self.c.execute(q, [(ts)])
+        #then create any reminder with less than 24hr time
         for row in res:
+            print(row)
             when = datetime.fromtimestamp(row[0])
             reminder = ReminderItem(row[1], row[2], when, row[3])
             await self.set_timer(reminder)
@@ -122,8 +128,9 @@ class Reminder(commands.Cog):
 
 
     async def cog_unload(self):
+        self.check_timers.stop()
+        # cancel all the timers here
         for reminder in self.reminders:
-            # cancel all the timers here
             reminder.cancel()
 
 async def setup(bot):
