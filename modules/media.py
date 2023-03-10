@@ -7,6 +7,7 @@ import asyncio
 import xml.dom.minidom
 import html
 import re
+from datetime import datetime
 
 
 class Media(commands.Cog):
@@ -191,31 +192,47 @@ class Media(commands.Cog):
     @commands.command(name='gr', aliases=['book'])
     async def get_goodreads_book_rating(self, ctx, *, book: str):
         """Find a <book> on goodreads.com and return some rating info and a link"""
-        key = self.bot.config.goodreadskey
         
-        url = f"https://www.goodreads.com/search.xml"
-        params = {'key': key, 'q': book}
+        urls = await self.bot.utils.google_for_urls(self.bot,
+                        "site:goodreads.com inurl:com/book " + book,
+                        url_regex="goodreads.com/book/show/\\d+")
 
-        async with self.bot.session.get(url, params=params) as resp:
-            response = await resp.read()
-            dom = xml.dom.minidom.parseString(response)
+        if not urls:
+            await ctx.send(f"Couldn't find a book named `{book}` on goodreads")
+            return
 
-        title = dom.getElementsByTagName("title")[0].firstChild.nodeValue
-        name = dom.getElementsByTagName("name")[0].firstChild.nodeValue
-        avgrating = dom.getElementsByTagName("average_rating")[0].firstChild.nodeValue
-        ratingscount = int(dom.getElementsByTagName("ratings_count")[0].firstChild.nodeValue)
-    
-        #apparently some books don't have a year
-        try:
-            pubyear = dom.getElementsByTagName("original_publication_year")[0].firstChild.nodeValue
-            pubyear = f" ({pubyear})"
-        except ValueError:
-            pubyear = ""
+        headers = {'User-Agent': "Mozilla/5.0 (X11; Linux x86_64; rv:91.0) Gecko/20100101 Firefox/91.0"}
+        page = await self.bot.utils.bs_from_url(self.bot, urls[0], headers=headers)
+        data = json.loads(page.find('script', id="__NEXT_DATA__", type='application/json').string)
+        data = data['props']['pageProps']['apolloState']
+
+
+        bookdata = None
+        for k in data.keys():
+            if k.startswith("Book"):
+                bookdata = data[k]
+                break
+
+        if not bookdata:
+            self.bot.logger.info("Failed to load bookdata in query: {book}")
+            return
+        authorkey = bookdata['primaryContributorEdge']['node']['__ref']
+        name = data[authorkey]['name']
+
+        workkey = bookdata['work']['__ref']
+        workdata = data[workkey]
+        avgrating = workdata['stats']['averageRating']
+        ratingscount = workdata['stats']['ratingsCount']
+
+        pubyear = datetime.fromtimestamp(workdata['details']['publicationTime']/1000)
+        year = pubyear.year
+
+
+        title = bookdata['titleComplete']
+
+        bookurl = bookdata['webUrl']
         
-        bookid = dom.getElementsByTagName("best_book")[0].getElementsByTagName("id")[0].firstChild.nodeValue
-        bookurl = f"https://www.goodreads.com/book/show/{bookid}"
-        
-        output = f"{title} by {name}{pubyear} | Avg rating: {avgrating} ({ratingscount:,} ratings) | [ {bookurl} ]"
+        output = f"{title} by {name} ({year}) | Avg rating: {avgrating} ({ratingscount:,} ratings)\n{bookurl}"
         await ctx.send(output)
 
 
