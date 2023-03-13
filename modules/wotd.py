@@ -23,7 +23,8 @@ common_words = ["the", "people", "would", "really", "think", "right", "there", "
 # select setter, avg(wordage) from hitlog group by setter order by avg(wordage);
 # longest lasting word in general:
 # select * from hitlog order by wordage ASC;
-
+# most commonly used wotd:
+# select count(*), word from hitlog group by word order by count(*) asc;
 #TODO - change hint system to be based on length of word
 # probably with some 6hr grace period of no hints, then interval based on length
 
@@ -38,6 +39,7 @@ class WotdPrompt(discord.ui.Modal):
     async def on_submit(self, interaction: discord.Interaction):
         word = str(self.new_wotd)
         word = self.s_re.sub("", word)
+        word = word.strip()
         count = self.wotd.count_wotd(word)
         if count < 100 or len(word) < 3:
             self.wotd.wotd_count = None
@@ -76,6 +78,7 @@ class WotdButton(discord.ui.View):
         word = str(modal.new_wotd)
         count = self.wotd.count_wotd(word)
         if modal.good_word:
+            self.wotd.hint = ""
             self.wotd.bot.logger.info(f"New WOTD is: {word}")
             self.wotd.wotd = word
             chan = self.message.channel.id
@@ -92,7 +95,7 @@ class WotdButton(discord.ui.View):
         self.wotd.wotd = random.choice(common_words)
 #        self.wotd.setter = self.wotd.bot.user
         self.wotd.timestamp = datetime.utcnow()
-        await self.message.channel.send("New WOTD button has expired, so it has been set to a random common word")
+        await self.message.channel.send("New WOTD button has expired, so it has been set to a random common word\nThe WOTD finder can still use `!newwotd` to set it again")
         await self.message.edit(content=self.message.content, view=None)
 
 
@@ -130,6 +133,9 @@ class Wotd(commands.Cog):
     
     async def load_wotd(self):
         if self.single_getter(self.bot.config.wotd_whitelist[0], "wotd"):
+            # have to wait until ready so that it can get_channel properly
+            await self.bot.wait_until_ready()
+
             self.wotd = self.single_getter(self.bot.config.wotd_whitelist[0], "wotd")
             self.hint = self.single_getter(self.bot.config.wotd_whitelist[0], "hint") 
             setterid = self.single_getter(self.bot.config.wotd_whitelist[0], "setter")
@@ -212,10 +218,15 @@ class Wotd(commands.Cog):
              else:
                  hint += "*"
         self.hint = hint
-        self.single_setter(channel.id, "hint", self.hint)
+        try:
+            self.single_setter(channel.id, "hint", self.hint)
+        except Exception as e:
+            print(e)
+            print("Failed to set hint in the wotd database")
         print("Sending wotd expire message")
         hrs = int((datetime.utcnow() - self.timestamp).total_seconds()) // 60 // 60
-        await channel.send(f"The WOTD was set {hrs} hours ago and no one has found it yet. So here's a hint: `{hint}`")
+        count = self.count_wotd()
+        await channel.send(f"The WOTD was set {hrs} hours ago and no one has found it yet. So here's a hint: `{hint}` has been used {count} times")
         print("Sent expire message... setting new timer")
         self.expire_timer = asyncio.ensure_future(self.expire_word(channel, 6*60*60))
 
@@ -233,6 +244,34 @@ class Wotd(commands.Cog):
         ago = human_timedelta(self.timestamp, source=datetime.utcnow(), suffix=True)
 
         await ctx.send(f"wotd is: ||{self.wotd}|| set by **{self.setter.display_name}** on {self.timestamp} UTC {ago} - hint: `{self.hint}`")
+
+    @commands.command(hidden=True)
+    @commands.is_owner()
+    async def wotdstats(self, ctx, *, query):
+        # THIS COMMAND IS NOT SAFE FOR GENERAL USE
+        # do not allow any usage
+        # still very work in progress to generate some basic stats
+        if ";" not in query:
+            return
+        if "limit" not in query.lower():
+            return
+        res = self.c.execute(query)
+        names = next(zip(*res.description))
+        rows = []
+        rows.append(" | ".join(names))
+        rows.append("--------------------")
+        for row in res:
+            r = []
+            for col in range(len(row)):
+                if names[col] == 'finder' or names[col] == 'setter':
+                    user = await self.bot.fetch_user(row[col])
+                    r.append(user.display_name)
+                else:
+                    r.append(str(row[col]))
+            rows.append(" | ".join(r))
+
+        await ctx.send("```{}```".format("\n".join(rows)))
+
 
 
     @commands.command(hidden=True)
@@ -258,27 +297,35 @@ class Wotd(commands.Cog):
             return self.wotd_count
         if not word and self.wotd:
             word = self.wotd
+        wordcount = self.count_word(word) 
+        self.wotd_count = wordcount
+        return wordcount
+
         
+    @commands.command(hidden=True, aliases=['fullwordcount'])
+    async def wordcount(self, ctx, *, word):
+        word = self.s_re.sub("", word)
+        if len(word) < 3:
+            await ctx.send(f"Word `{word}` is too short")
+            return
+        if ctx.invoked_with.lower() == 'fullwordcount':
+            wordcount = self.count_word(word, fullword=True)
+        else:
+            wordcount = self.count_word(word)
+        await ctx.send(f"count of {word} is {wordcount}")
+
+    def count_word(self, word, fullword=False):
         word = self.s_re.sub("", word)
         if not word:
             return 0
-
         filename = f'logfiles/{self.bot.config.wotd_whitelist[0]}.log'
-        cmd = f'grep -ic "PRIVMSG #.* :.*{word}.*" {filename}'
+        if fullword:
+            cmd = f'grep -ic "PRIVMSG #.* :.*\\b{word}\\b" {filename}'
+        else:
+            cmd = f'grep -ic "PRIVMSG #.* :.*{word}.*" {filename}'
         process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
         wordcount = int(process.communicate(timeout=5)[0][:-1])
-        self.wotd_count = wordcount
         return wordcount
-        
-    @commands.command(hidden=True)
-    @commands.is_owner()
-    async def wordcount(self, ctx, *, word):
-        filename = f'logfiles/{self.bot.config.wotd_whitelist[0]}.log'
-        word = self.s_re.sub("", word)
-        cmd = f'grep -ic "PRIVMSG #.* :.*{word}.*" {filename}'
-        process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
-        wordcount = int(process.communicate(timeout=5)[0][:-1])
-        await ctx.send(f"count of {word} is {wordcount}")
 
 
     @commands.Cog.listener()
