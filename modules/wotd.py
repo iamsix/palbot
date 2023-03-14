@@ -12,7 +12,7 @@ import re
 common_words = ["the", "people", "would", "really", "think", "right", "there", "about", "were", "when", "your", "can",
                 "which", "each", "other", "them", "then", "into", "him", "write", "more", "their", "make", "word", "some",
                 "many", "time", "look", "see", "who", "may", "down", "get", "day", "come", "part", "like", "now", "these",
-                "other", "said", "could", "she"]
+                "other", "said", "could", "she", "cum"]
 
 # Timestamp (when it was hit) | User | word | wordcount (when set) | setter | age of word in seconds (technically not required since it can be calculated but slightly easier when generating stats)
 # could then check user rows for count, and user AND setter same for selfpwns.
