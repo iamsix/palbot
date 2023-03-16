@@ -25,7 +25,7 @@ class Logger(commands.Cog):
         else:
             host = str(reactor).replace('#', '@')
             nick = reactor.display_name
-            say = f"ACTION reacted with {reaction.emoji}"
+            say = f"\001ACTION reacted with {reaction.emoji}"
         nick = nick.replace(' ', '_').replace('!', "_")
         if message.channel.type != discord.ChannelType.text:
             chan = self.bot.user.display_name

@@ -34,12 +34,14 @@ class WotdPrompt(discord.ui.Modal):
         super().__init__(title="Set a new WOTD")
         self.wotd = wotd
     good_word = False
-    s_re = re.compile('[^a-z0-9 !_-]*',re.I)
+    word = ""
+    s_re = re.compile("[^a-z0-9 !'_-]*",re.I)
     new_wotd = discord.ui.TextInput(label="New Word of the Day", min_length=3, required=True)
     async def on_submit(self, interaction: discord.Interaction):
         word = str(self.new_wotd)
         word = self.s_re.sub("", word)
         word = word.strip()
+        self.word = word
         count = self.wotd.count_wotd(word)
         if count < 100 or len(word) < 3:
             self.wotd.wotd_count = None
@@ -75,12 +77,12 @@ class WotdButton(discord.ui.View):
         modal = WotdPrompt(self.wotd)
         await interaction.response.send_modal(modal)
         await modal.wait()
-        word = str(modal.new_wotd)
-        count = self.wotd.count_wotd(word)
+        word = str(modal.word)
         if modal.good_word:
             self.wotd.hint = ""
             self.wotd.bot.logger.info(f"New WOTD is: {word}")
             self.wotd.wotd = word
+            count = self.wotd.count_wotd()
             chan = self.message.channel.id
             self.wotd.single_setter(chan, "setter", self.wotd_finder.id)
             self.wotd.single_setter(chan, "timestamp", str(self.wotd.timestamp))
@@ -226,7 +228,7 @@ class Wotd(commands.Cog):
         print("Sending wotd expire message")
         hrs = int((datetime.utcnow() - self.timestamp).total_seconds()) // 60 // 60
         count = self.count_wotd()
-        await channel.send(f"The WOTD was set {hrs} hours ago and no one has found it yet. So here's a hint: `{hint}` has been used {count} times")
+        await channel.send(f"The WOTD was set {hrs} hours ago by {self.setter.display_name} and no one has found it yet. So here's a hint: `{hint}` has been used {count} times")
         print("Sent expire message... setting new timer")
         self.expire_timer = asyncio.ensure_future(self.expire_word(channel, 6*60*60))
 
@@ -290,7 +292,7 @@ class Wotd(commands.Cog):
 
         await ctx.send(f"The WOTD {hint}was set by **{self.setter.display_name}** {ago}.\nThe word has been used {wordcount} times in this channel")
 
-    s_re = re.compile('[^a-z0-9 !_-]*',re.I)
+    s_re = re.compile("[^a-z0-9 !'_-]*",re.I)
 
     def count_wotd(self, word = None):
         if self.wotd_count and not word:
