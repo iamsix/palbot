@@ -117,7 +117,7 @@ class Chat(commands.Cog):
             self.bot.logger.info(f"Failed to timeout {ctx.author}")
 
 
-    @commands.command()
+    @commands.command(aliases=['tr'])
     async def translate(self, ctx, *, phrase: str):
         """Translate short phrases using google translate
         Optionally specify language code such as `!translate en-es cat`"""

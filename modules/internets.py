@@ -116,12 +116,13 @@ class Internets(commands.Cog):
         return e
 
         
-    @commands.command()
-    async def gwiki(self, ctx, *, searchterm: str):
+    @commands.command(aliases=['gwiki'])
+    async def google(self, ctx, *, searchterm: str):
         """Attempts to use the google search snippet to find specific sections on wikipedia (it's not very good at it)"""
-        search = f"site: wikipedia.org {uriquote(searchterm)}"
+        if ctx.invoked_with.lower() == 'gwiki':
+            searchterm = f"site:wikipedia.org {searchterm}"
         results = await self.bot.utils.google_for_urls(self.bot, 
-                                                        search, 
+                                                        searchterm, 
                                                         return_full_data=True)
 
         description = results[0]['snippet'].replace('\n', '')

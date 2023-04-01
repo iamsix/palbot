@@ -13,21 +13,21 @@ WEMOJI ={
     "cloudy": "\N{CLOUD}",
     "partly-cloudy-day": "\N{WHITE SUN WITH SMALL CLOUD}",
     "partly-cloudy-night": "\N{CLOUD}\N{CRESCENT MOON}",
-    "clear-day": "\N{BLACK SUN WITH RAYS}",
+    "clear-day": "\N{BLACK SUN WITH RAYS}\N{VARIATION SELECTOR-16}",
     "clear-night": "\N{CRESCENT MOON}",
     "rain": "\N{CLOUD WITH RAIN}",
     "snow": "\N{SNOWFLAKE}",
     "sleet": "\N{SNOWFLAKE}\N{CLOUD WITH RAIN}",
     "wind": "\N{DASH SYMBOL}",
     "fog": "\N{FOG}",
-        1 : "\N{BLACK SUN WITH RAYS}",
+        1 : "\N{BLACK SUN WITH RAYS}\N{VARIATION SELECTOR-16}",
         2 : "\N{WHITE SUN WITH SMALL CLOUD}",
         3 : "\N{WHITE SUN BEHIND CLOUD}",
         4 : "\N{WHITE SUN WITH SMALL CLOUD}",
-        5 : "\N{BLACK SUN WITH RAYS}\N{FOG}",
+        5 : "\N{BLACK SUN WITH RAYS}\N{VARIATION SELECTOR-16}\N{FOG}",
         6 : "\N{WHITE SUN BEHIND CLOUD}",
-        7 : "\N{CLOUD}",
-        8 : "\N{CLOUD}",
+        7 : "\N{CLOUD}\N{VARIATION SELECTOR-16}",
+        8 : "\N{CLOUD}\N{VARIATION SELECTOR-16}",
         11: "\N{FOG}",
         12: "\N{CLOUD WITH RAIN}",
         13: "\N{WHITE SUN BEHIND CLOUD WITH RAIN}",
@@ -93,7 +93,7 @@ WEMOJI ={
         "wc29": "\N{CRESCENT MOON}\N{CLOUD}",
         "wc30": "\N{WHITE SUN WITH SMALL CLOUD}",
         "wc31": "\N{CRESCENT MOON}",
-        "wc32": "\N{BLACK SUN WITH RAYS}",
+        "wc32": "\N{BLACK SUN WITH RAYS}\N{VARIATION SELECTOR-16}",
         "wc33": "\N{CRESCENT MOON}",
         "wc34": "\N{WHITE SUN WITH SMALL CLOUD}",
         "wc35": "\N{ICE CUBE}\N{CLOUD WITH RAIN}",
@@ -125,7 +125,7 @@ class Weather(commands.Cog):
         await self.forecast_io(ctx, location=location)
         await self.get_aqi(ctx, location=location)
 
-    @commands.command(name='w', aliases=['pw'])
+    @commands.command(name='piw', aliases=['ppiw'])
     async def forecast_io(self, ctx, *, location:str = ""):
         """Show a weather report from forecast.io for <location>
            Can be invoked without location if you have done a `set location`"""
@@ -133,8 +133,8 @@ class Weather(commands.Cog):
         loc = await self.locatamatron(ctx, location)
         if not loc:
             return
-
-        url = f"https://api.forecast.io/forecast/{key}/{loc.latitude},{loc.longitude}"
+        url = f"https://api.pirateweather.net/forecast/{key}/{loc.latitude},{loc.longitude}"
+#        url = f"https://api.forecast.io/forecast/{key}/{loc.latitude},{loc.longitude}"
         async with self.bot.session.get(url) as resp:
             data = await resp.json()
             weather = await self.parse_fio(data)
@@ -241,7 +241,7 @@ class Weather(commands.Cog):
         return weather
 
 
-    @commands.command(name='aw', aliases=['paw'])
+    @commands.command(name='w', aliases=['pw'])
     async def accuweather(self, ctx, *, location:str = ""):
         """Show a weather report from accuweather for <location>
            Can be invoked without location if you have done a `set location`"""
@@ -260,7 +260,7 @@ class Weather(commands.Cog):
         async with self.bot.session.get(url) as resp:
             data = await resp.json()
             weather = self.parse_accu(data)
-            if ctx.invoked_with.lower() == "aw":
+            if ctx.invoked_with.lower() == "w":
                 await ctx.send(await self.fio_text(weather, loc))
             else:
                 await ctx.send(embed=await self.fio_embed(weather, loc))
@@ -571,8 +571,9 @@ class Weather(commands.Cog):
         if not loc:
             return
             
-        url = "https://api.forecast.io/forecast/{}/{},{}"
-        url = url.format(key, loc.latitude, loc.longitude)
+        url = f"https://api.pirateweather.net/forecast/{key}/{loc.latitude},{loc.longitude}?exclude=alerts,hourly,minutely"
+#        url = "https://api.forecast.io/forecast/{}/{},{}"
+#        url = url.format(key, loc.latitude, loc.longitude)
 
         async with self.bot.session.get(url) as resp:
             data = await resp.json()
