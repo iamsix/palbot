@@ -8,6 +8,10 @@ import pytz
 from datetime import datetime, timedelta
 from utils.time import human_timedelta
 
+#TODO: yr.no
+# https://api.met.no/weatherapi/locationforecast/2.0/complete?lat=-16.516667&lon=-68.166667&altitude=4150
+# altitude is optional
+# https://api.met.no/weatherapi/locationforecast/2.0/documentation
 
 WEMOJI ={
     "cloudy": "\N{CLOUD}",
@@ -323,6 +327,83 @@ class Weather(commands.Cog):
                 'dewpoint_f' : dewpoint_f,
                 }
 
+        return weather
+
+
+    @commands.command(name="yr", aliases=['pyr'])
+    async def yr(self, ctx, * ,location:str = ""):
+        """Show a weather report from yr.no for <location>
+        Can be invoked without location if you have done a `set location`"""
+        loc = await self.locatamatron(ctx, location)
+        if not loc:
+            return
+
+        url="https://api.met.no/weatherapi/locationforecast/2.0/complete?lat={}&lon={}"
+        url = url.format(loc.latitude, loc.longitude)
+        async with self.bot.session.get(url) as resp:
+            data = await resp.json()
+            now = data['properties']['timeseries'][0]['data']
+
+        weather = self.parse_yr(now)
+
+        if ctx.invoked_with.lower() == "yr":
+            await ctx.send(await self.fio_text(weather, loc))
+        else:
+            await ctx.send(embed=await self.fio_embed(weather, loc))
+
+
+    def parse_yr(self, data):
+        units = self.bot.utils.units
+        now = data['instant']['details']
+
+        temp_c = f"{int(round(now['air_temperature'],0))}°C"
+        temp_f = f"{units.c_to_f(now['air_temperature'])}°F"
+
+        wind_direction = now['wind_from_direction']
+        wind_arrow = units.bearing_to_arrow(wind_direction)
+        wind_direction = f"{wind_arrow} {units.bearing_to_compass(wind_direction)}"
+
+        wind_speed = int(round(now['wind_speed'] * 3.6, 0))
+        wind_speed_km = f"{wind_speed} km/h"
+        wind_speed_mi = f"{units.km_to_mi(wind_speed)} mph"
+
+        dewpoint_c = f"{now['dew_point_temperature']}°C"
+        dewpoint_f = f"{units.c_to_f(now['dew_point_temperature'])}°F"
+
+        low = data['next_6_hours']['details']['air_temperature_min']
+        high = data['next_6_hours']['details']['air_temperature_max']
+        low_c = f"{int(round(low, 0))}°C"
+        low_f = f"{units.c_to_f(low)}°F"
+        high_c = f"{int(round(high, 0))}°C"
+        high_f = f"{units.c_to_f(high)}°F"
+
+        fc = data['next_12_hours']['summary']['symbol_code']
+
+        condition = data['next_6_hours']['summary']['symbol_code']
+        precip = data['next_6_hours']['details']['precipitation_amount']
+        outlook = f"{condition} with precipitation {precip}mm in next 6 hours. Next 12hr is {fc}"
+
+        weather = {
+                'condition' : data['next_1_hours']['summary']['symbol_code'],
+                'icon': "", #TODO : wicons with day/night based on condition
+                'humidity': f"{int(now['relative_humidity'])}%",
+                'wind_direction': wind_direction,
+                'wind_speed_km': wind_speed_km,
+                'wind_speed_mi': wind_speed_mi,
+                'cloud_cover':  f"{int(now['cloud_area_fraction'])}%",
+                'outlook_imperial': outlook,
+                'outlook_metric': outlook,
+                'temp_c': temp_c,
+                'temp_f': temp_f,
+                'feels_like_c': temp_c,
+                'feels_like_f': temp_f,
+                'low_c': low_c,
+                'low_f': low_f,
+                'high_c': high_c,
+                'high_f': high_f,
+                'dewpoint_c': dewpoint_c,
+                'dewpoint_f': dewpoint_f,
+                }
         return weather
 
 
