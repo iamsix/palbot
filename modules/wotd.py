@@ -35,14 +35,21 @@ class WotdPrompt(discord.ui.Modal):
         self.wotd = wotd
     good_word = False
     word = ""
+    fullword = False
     s_re = re.compile("[^a-z0-9 !'_-]*",re.I)
     new_wotd = discord.ui.TextInput(label="New Word of the Day", min_length=3, required=True)
     async def on_submit(self, interaction: discord.Interaction):
         word = str(self.new_wotd)
+        self.fullword = (word[0] == '"' and word[-1] == '"')
         word = self.s_re.sub("", word)
         word = word.strip()
         self.word = word
-        count = self.wotd.count_wotd(word)
+        fw = ""
+        if self.fullword:
+            count = self.wotd.count_wotd(word, fullword=True)
+            fw = "\nThis is a full-word only match. It will only hit on the complete word and not a substring of another word - the count will also reflect that"
+        else:
+            count = self.wotd.count_wotd(word)
         if count < 100 or len(word) < 3:
             self.wotd.wotd_count = None
             self.wotd.bot.logger.info(f"Bad WOTD is: {word}")
@@ -54,10 +61,11 @@ class WotdPrompt(discord.ui.Modal):
                     usage = "Has only ever been used **once**,"
                 case _:
                     usage = f"Has only ever been used **{count}** times,"
-            await interaction.response.send_message(f"**{word}** {usage} and is such a terrible word that I'm not going to set it to that.\nClick the button again to set a different word that has been used at least 100 times.", ephemeral=True)
+            await interaction.response.send_message(f"**{word}** {usage} and is such a terrible word that I'm not going to set it to that.\nClick the button again to set a different word that has been used at least 100 times.{fw}", ephemeral=True)
+            
         else:
             self.good_word = True
-            await interaction.response.send_message(f'WOTD has been set to: **{word}** which has been used **{count}** times.\nIf you want to set a new word before someone finds it use the command `!newwotd` to spawn a new button.\nYou can also use `!wotdhint` if you want the bot to give a hint', ephemeral=True)
+            await interaction.response.send_message(f'WOTD has been set to: **{word}** which has been used **{count}** times.\nIf you want to set a new word before someone finds it use the command `!newwotd` to spawn a new button.\nYou can also use `!wotdhint` if you want the bot to give a hint.{fw}', ephemeral=True)
 
 class WotdButton(discord.ui.View):
     message = None
@@ -80,7 +88,9 @@ class WotdButton(discord.ui.View):
         word = str(modal.word)
         if modal.good_word:
             self.wotd.hint = ""
-            self.wotd.bot.logger.info(f"New WOTD is: {word}")
+            self.wotd.full_word_match = modal.fullword
+            self.wotd.fwr = re.compile(f"\\b{word}\\b", flags=re.IGNORECASE)
+            self.wotd.bot.logger.info(f"New WOTD is: {word} - Fullword is: {modal.fullword}")
             self.wotd.wotd = word
             count = self.wotd.count_wotd()
             chan = self.message.channel.id
@@ -89,8 +99,11 @@ class WotdButton(discord.ui.View):
             self.wotd.single_setter(chan, "wotd", self.wotd.wotd)
             self.wotd.single_setter(chan, "message", self.message.id)
             self.wotd.single_setter(chan, "hint", self.wotd.hint)
+            self.wotd.single_setter(chan, "fullword", modal.fullword)
             self.stop()
             msg = self.message.content + f"\n\nWord has been set. The new WOTD has been used {count} times."
+            if modal.fullword:
+                msg += "\nThe setter has specified full word only matching."
             await self.message.edit(content=msg, view=None)
 
     async def on_timeout(self):
@@ -113,6 +126,8 @@ class Wotd(commands.Cog):
     expire_timer = None
     hint = ""
     wotd_count = None
+    full_word_match = False
+    fwr = re.compile("#INVALID_WORD#")
 
     def __init__(self, bot):
         self.bot = bot
@@ -126,7 +141,7 @@ class Wotd(commands.Cog):
 
         q = '''CREATE TABLE IF NOT EXISTS 'settings' ("channel" integer, "setting" text, "value" text);'''
         self.c.execute(q)
-        q = '''CREATE TABLE IF NOT EXISTS 'hitlog' ("channel" integer, "timestamp" text, "finder" integer, "word" text, "wordcount" integer, "setter" integer, "wordage" integer);'''
+        q = '''CREATE TABLE IF NOT EXISTS 'hitlog' ("channel" integer, "timestamp" text, "finder" integer, "word" text, "wordcount" integer, "setter" integer, "wordage" integer, "fullword" boolean);'''
         self.c.execute(q)
         self.conn.commit()
 
@@ -137,15 +152,20 @@ class Wotd(commands.Cog):
         if self.single_getter(self.bot.config.wotd_whitelist[0], "wotd"):
             # have to wait until ready so that it can get_channel properly
             await self.bot.wait_until_ready()
+            #TODO do this properly for mutli-channel
+            chan = self.bot.config.wotd_whitelist[0]
 
-            self.wotd = self.single_getter(self.bot.config.wotd_whitelist[0], "wotd")
-            self.hint = self.single_getter(self.bot.config.wotd_whitelist[0], "hint") 
-            setterid = self.single_getter(self.bot.config.wotd_whitelist[0], "setter")
+            self.wotd = self.single_getter(chan, "wotd")
+            self.hint = self.single_getter(chan, "hint")
+            self.full_word_match = self.single_getter(chan, "fullword")
+            if self.full_word_match:
+                self.fwr = re.compile(f"\\b{self.wotd}\\b", flags=re.IGNORECASE)
+            setterid = self.single_getter(chan, "setter")
             try:
                 self.setter = await self.bot.fetch_user(setterid)
             except:
                 self.setter = self.bot.user
-            ts = self.single_getter(self.bot.config.wotd_whitelist[0], "timestamp")
+            ts = self.single_getter(chan, "timestamp")
             self.timestamp = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S.%f")
             tssec = int((datetime.utcnow() - self.timestamp).total_seconds())
            # waittime = 24*60*60 - tssec 
@@ -228,7 +248,10 @@ class Wotd(commands.Cog):
         print("Sending wotd expire message")
         hrs = int((datetime.utcnow() - self.timestamp).total_seconds()) // 60 // 60
         count = self.count_wotd()
-        await channel.send(f"The WOTD was set {hrs} hours ago by {self.setter.display_name} and no one has found it yet. So here's a hint: `{hint}` has been used {count} times")
+        fw = ""
+        if self.full_word_match:
+            fw = " This is a full word match only, substrings will not match."
+        await channel.send(f"The WOTD was set {hrs} hours ago by {self.setter.display_name} and no one has found it yet. So here's a hint: `{hint}` has been used {count} times.{fw}")
         print("Sent expire message... setting new timer")
         self.expire_timer = asyncio.ensure_future(self.expire_word(channel, 6*60*60))
 
@@ -245,7 +268,7 @@ class Wotd(commands.Cog):
         """Debug function shows you the current wotd, who set it, and when"""
         ago = human_timedelta(self.timestamp, source=datetime.utcnow(), suffix=True)
 
-        await ctx.send(f"wotd is: ||{self.wotd}|| set by **{self.setter.display_name}** on {self.timestamp} UTC {ago} - hint: `{self.hint}`")
+        await ctx.send(f"wotd is: ||{self.wotd}|| set by **{self.setter.display_name}** on {self.timestamp} UTC {ago} - hint: `{self.hint}` - Fullword: {self.full_word_match}")
 
     @commands.command(hidden=True)
     @commands.is_owner()
@@ -290,16 +313,24 @@ class Wotd(commands.Cog):
         else:
             hint = ""
 
-        await ctx.send(f"The WOTD {hint}was set by **{self.setter.display_name}** {ago}.\nThe word has been used {wordcount} times in this channel")
+        fw = ""
+        if self.full_word_match:
+            fw = " This is a full word only match, substrings will not match."
+
+        await ctx.send(f"The WOTD {hint}was set by **{self.setter.display_name}** {ago}.\nThe word has been used {wordcount} times in this channel.{fw}")
 
     s_re = re.compile("[^a-z0-9 !'_-]*",re.I)
 
-    def count_wotd(self, word = None):
+    def count_wotd(self, word = None, *, fullword=False):
         if self.wotd_count and not word:
             return self.wotd_count
         if not word and self.wotd:
             word = self.wotd
-        wordcount = self.count_word(word) 
+
+        if self.full_word_match:
+            wordcount = self.count_word(word, fullword=True)
+        else:
+            wordcount = self.count_word(word) 
         self.wotd_count = wordcount
         return wordcount
 
@@ -338,7 +369,8 @@ class Wotd(commands.Cog):
            not self.wotd:
              return
 
-        if self.wotd.lower() in message.content.lower():
+        if (not self.full_word_match and self.wotd.lower() in message.content.lower()) or \
+                (self.full_word_match and self.fwr.search(message.content.lower())):
             self.expire_timer.cancel()
             self.record_hit(message)
 
@@ -380,10 +412,10 @@ class Wotd(commands.Cog):
         return count
 
     def record_hit(self, message):
-        q = "INSERT INTO hitlog VALUES (?, ?, ?, ?, ?, ?, ?)"
+        q = "INSERT INTO hitlog VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
         timestamp = datetime.utcnow().strftime('%Y-%m-%d-%H-%M-%S')
         age = int((datetime.utcnow() - self.timestamp).total_seconds())
-        self.c.execute(q, (message.channel.id, timestamp, message.author.id, self.wotd, self.wotd_count, self.setter.id, age))
+        self.c.execute(q, (message.channel.id, timestamp, message.author.id, self.wotd, self.wotd_count, self.setter.id, age, self.full_word_match))
         self.conn.commit()
 
 
