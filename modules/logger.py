@@ -43,6 +43,8 @@ class Logger(commands.Cog):
 
     @commands.Cog.listener()
     async def on_member_update(self, old, new):
+        if old.roles != new.roles:
+            await self.tag_logger(old, new)
         if old.display_name == new.display_name:
             return
         # for now only interested in nicks.
@@ -61,6 +63,30 @@ class Logger(commands.Cog):
                 self.files[chan.id].write(line)
                 self.files[chan.id].flush()
     
+    async def tag_logger(self, old, new):
+        if len(new.roles) > len(old.roles):
+            diff = list(set(new.roles).difference(old.roles))[0]
+            line = f"ADDED: {diff.name}"
+        else:
+            diff = list(set(old.roles).difference(new.roles))[0]
+            line = f"REMOVED: {diff.name}"
+
+
+        fmt = "{}:{}::{}!{} TAG : {}\n"
+        timestamp = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+        host = str(old).replace("#", "@")
+        oldnick = old.display_name.replace(' ', '_').replace('!', "_")
+
+
+        # this depends...
+        for chan in old.guild.channels:
+            if chan.id in self.files:
+                svr = chan.id
+                line = fmt.format(timestamp, svr, oldnick, host, line)
+                self.files[chan.id].write(line)
+                self.files[chan.id].flush()
+        
+
     @commands.Cog.listener()
     async def on_guild_channel_update(self, before, after):
         if before.type != discord.ChannelType.text:
