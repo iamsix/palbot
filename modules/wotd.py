@@ -40,6 +40,7 @@ class WotdPrompt(discord.ui.Modal):
     new_wotd = discord.ui.TextInput(label="New Word of the Day", min_length=3, required=True)
     async def on_submit(self, interaction: discord.Interaction):
         word = str(self.new_wotd)
+        # This might fail from those stupid fancy quotes
         self.fullword = (word[0] == '"' and word[-1] == '"')
         word = self.s_re.sub("", word)
         word = word.strip()
@@ -52,7 +53,7 @@ class WotdPrompt(discord.ui.Modal):
             count = self.wotd.count_wotd(word)
         if count < 100 or len(word) < 3:
             self.wotd.wotd_count = None
-            self.wotd.bot.logger.info(f"Bad WOTD is: {word}")
+            self.wotd.bot.logger.info(f"Bad WOTD is: {word}. Fullword is {self.fullword}")
             print(f"Bad WOTD is: {word} with {count}")
             match count:
                 case 0:
@@ -110,12 +111,13 @@ class WotdButton(discord.ui.View):
         self.wotd.wotd = random.choice(common_words)
 #        self.wotd.setter = self.wotd.bot.user
         self.wotd.timestamp = datetime.utcnow()
+        self.wotd.full_word_match = False
         await self.message.channel.send("New WOTD button has expired, so it has been set to a random common word\nThe WOTD finder can still use `!newwotd` to set it again")
         await self.message.edit(content=self.message.content, view=None)
 
 
 
-#This is currently written to assume only 1 channel does WOTD and the word is the same across all servers
+# TODO This is currently written to assume only 1 channel does WOTD and the word is the same across all servers
 # The DB is designed to support multiple channels/servers but code assumes 1 specific channel
 
 
@@ -149,15 +151,15 @@ class Wotd(commands.Cog):
 
     
     async def load_wotd(self):
+        # have to wait until ready so that it can get_channel properly
+        await self.bot.wait_until_ready()
+        #TODO do this properly for mutli-channel
         if self.single_getter(self.bot.config.wotd_whitelist[0], "wotd"):
-            # have to wait until ready so that it can get_channel properly
-            await self.bot.wait_until_ready()
-            #TODO do this properly for mutli-channel
             chan = self.bot.config.wotd_whitelist[0]
 
             self.wotd = self.single_getter(chan, "wotd")
             self.hint = self.single_getter(chan, "hint")
-            self.full_word_match = self.single_getter(chan, "fullword")
+            self.full_word_match = int(self.single_getter(chan, "fullword")) == 1
             if self.full_word_match:
                 self.fwr = re.compile(f"\\b{self.wotd}\\b", flags=re.IGNORECASE)
             setterid = self.single_getter(chan, "setter")
@@ -168,13 +170,9 @@ class Wotd(commands.Cog):
             ts = self.single_getter(chan, "timestamp")
             self.timestamp = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S.%f")
             tssec = int((datetime.utcnow() - self.timestamp).total_seconds())
-           # waittime = 24*60*60 - tssec 
             waittime = 6*60*60 - (tssec % (6*60*60))
-            #if waittime < 0:
-                #Over 24hrs have elapsed so we're on to 6hr hints
-           #     tssec -= 24*60*60
-           #     waittime = 6*60*60 - (tssec % (6*60*60))
-            channel = self.bot.get_channel(self.bot.config.wotd_whitelist[0])
+            
+            channel = self.bot.get_channel(chan)
             self.expire_timer = asyncio.ensure_future(self.expire_word(channel, waittime))
 
 
@@ -299,7 +297,7 @@ class Wotd(commands.Cog):
 
 
 
-    @commands.command(hidden=True)
+    @commands.command(aliases=['gotd'])
     async def wotd(self, ctx):
         """Shows some stats about the current wotd"""
         if not self.wotd:
@@ -389,7 +387,6 @@ class Wotd(commands.Cog):
             self.wotd_count = None
             self.setter = message.author
             self.timestamp = datetime.utcnow()
-          #  self.save_hitcount(message.author, count, selfpwn)
             
             mymsg = await message.reply(msg, view=button)
             button.message = mymsg
