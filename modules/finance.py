@@ -15,6 +15,7 @@ CURR = ["AUD", "BRL", "CAD", "CHF", "CLP", "CNY", "CZK", "DKK", "EUR",
 
 
 class Finance(commands.Cog):
+    yahoo_crumb = None
     def __init__(self, bot):
         self.bot = bot
 
@@ -157,6 +158,19 @@ class Finance(commands.Cog):
         """Look up a stock and show its current price, change, etc"""
         symbol = name
 
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/112.0",
+                   "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"}
+        
+        if not self.yahoo_crumb:
+            url = "https://finance.yahoo.com/"
+            async with self.bot.session.get(url, headers=headers) as resp:
+                cookies = resp.cookies
+            
+            url = "https://query1.finance.yahoo.com/v1/test/getcrumb"
+            async with self.bot.session.get(url, headers=headers, cookies=cookies) as resp:
+                crumb = await resp.read()
+                self.yahoo_crumb = crumb.decode()
+
         url = f'https://query1.finance.yahoo.com/v1/finance/search?q={uriquote(name)}&lang=en-US&region=US&newsCount=0'
 
         async with self.bot.session.get(url) as resp:
@@ -166,7 +180,9 @@ class Finance(commands.Cog):
             except:
                 symbol = name
 
-        url = f"http://query1.finance.yahoo.com/v7/finance/quote?symbols={symbol}"
+
+        url = f"http://query1.finance.yahoo.com/v7/finance/quote?symbols={symbol}&crumb={self.yahoo_crumb}"
+       # print(url)
         async with self.bot.session.get(url) as resp:
             data = await resp.json()
             if not data["quoteResponse"]["result"]:

@@ -254,8 +254,8 @@ class Weather(commands.Cog):
         if not loc:
             return
         
-
-        locurl = f"http://api.accuweather.com/locations/v1/search?q={loc.city},{loc.country}&apikey={key}"
+        latlong = f'{loc.latitude},{loc.longitude}'
+        locurl = f"http://api.accuweather.com/locations/v1/search?q={latlong}&apikey={key}"
         async with self.bot.session.get(locurl) as resp:
             data = await resp.json()
             accu_loc = data[0]['Key']

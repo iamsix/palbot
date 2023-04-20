@@ -6,6 +6,7 @@ from dateutil import relativedelta
 from utils.time import HumanTime
 import pytz
 from urllib.parse import quote as uriquote
+import asyncio
 
 
 class User(commands.Cog):
@@ -27,6 +28,15 @@ class User(commands.Cog):
 #    @tagme.error
 #    async def tagme_error(self, ctx, error):
 #        await ctx.send(str(error))
+
+
+    @commands.command()
+    async def whopper (self, ctx):
+        tag = discord.utils.get(ctx.guild.roles, name="WHOPPER WHOPPER WHOPPER WHOPPER")
+        await ctx.author.add_roles(tag, reason="!whopper")
+        await ctx.reply("You have been given the 12 hour whopper buff, go forth and use this power wisely!")
+        await asyncio.sleep(12 * 60 * 60)
+        await ctx.author.remove_roles(tag, reason="the whopper has worn off")
 
     @commands.group(name="set", case_insensitive=True)
     async def _set (self, ctx):

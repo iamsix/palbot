@@ -201,6 +201,9 @@ class Wotd(commands.Cog):
         """Lets the WOTD owner set a new word"""
         if ctx.author.id != self.setter.id:
             return
+        if self.hint:
+            ctx.send("The WOTD can't be changed after a hint has been given.")
+            return
 
         button = WotdButton(self, ctx.message.author)
         mymsg = await ctx.send("The WOTD owner can set a new WOTD with the button below", view=button)
@@ -213,7 +216,7 @@ class Wotd(commands.Cog):
         """Lets you set a new WOTD for testing.
         Sets WOTD author to the bot so that you can test trigger it"""
         button = WotdButton(self, ctx.message.author)
-        mymsg = await ctx.send("What does this do...", view=button)
+        mymsg = await ctx.send("Nevermind this button...", view=button)
         button.message = mymsg
         self.setter = self.bot.user
         self.timestamp = datetime.utcnow()
@@ -256,7 +259,7 @@ class Wotd(commands.Cog):
     @commands.command(hidden=True)
     async def wotdhint(self, ctx):
         """Send a WOTD hint either by the word owner or the bot owner"""
-        if ctx.author.id == self.setter.id or ctx.author.id == self.bot.owner_id:
+        if ctx.author.id == self.setter.id or await self.bot.is_owner(ctx.author):
             self.expire_timer.cancel()
             await self.expire_word(ctx.channel, 1)
 
@@ -325,7 +328,7 @@ class Wotd(commands.Cog):
         if not word and self.wotd:
             word = self.wotd
 
-        if self.full_word_match:
+        if fullword or self.full_word_match:
             wordcount = self.count_word(word, fullword=True)
         else:
             wordcount = self.count_word(word) 
@@ -385,6 +388,7 @@ class Wotd(commands.Cog):
             self.wotd = ""
             self.hint = ""
             self.wotd_count = None
+            self.full_word_match = False
             self.setter = message.author
             self.timestamp = datetime.utcnow()
             
@@ -412,7 +416,7 @@ class Wotd(commands.Cog):
         q = "INSERT INTO hitlog VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
         timestamp = datetime.utcnow().strftime('%Y-%m-%d-%H-%M-%S')
         age = int((datetime.utcnow() - self.timestamp).total_seconds())
-        self.c.execute(q, (message.channel.id, timestamp, message.author.id, self.wotd, self.wotd_count, self.setter.id, age, self.full_word_match))
+        self.c.execute(q, (message.channel.id, timestamp, message.author.id, self.wotd, self.count_wotd(), self.setter.id, age, self.full_word_match))
         self.conn.commit()
 
 
