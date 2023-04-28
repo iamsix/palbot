@@ -36,9 +36,9 @@ WEMOJI ={
         12: "\N{CLOUD WITH RAIN}",
         13: "\N{WHITE SUN BEHIND CLOUD WITH RAIN}",
         14: "\N{WHITE SUN BEHIND CLOUD WITH RAIN}",
-        15: "\N{THUNDER CLOUD AND RAIN}",
-        16: "\N{WHITE SUN BEHIND CLOUD}\N{THUNDER CLOUD AND RAIN}",
-        17: "\N{WHITE SUN BEHIND CLOUD}\N{THUNDER CLOUD AND RAIN}",
+        15: "\N{THUNDER CLOUD AND RAIN}\N{VARIATION SELECTOR-16}",
+        16: "\N{WHITE SUN BEHIND CLOUD}\N{THUNDER CLOUD AND RAIN}\N{VARIATION SELECTOR-16}",
+        17: "\N{WHITE SUN BEHIND CLOUD}\N{THUNDER CLOUD AND RAIN}\N{VARIATION SELECTOR-16}",
         18: "\N{CLOUD WITH RAIN}",
         19: "\N{DASH SYMBOL}\N{SNOWFLAKE}",
         20: "\N{DASH SYMBOL}\N{SNOWFLAKE}\N{WHITE SUN BEHIND CLOUD}",
@@ -61,8 +61,8 @@ WEMOJI ={
         38: "\N{CRESCENT MOON}\N{CLOUD}",
         39: "\N{CRESCENT MOON}\N{CLOUD WITH RAIN}",
         40: "\N{CRESCENT MOON}\N{CLOUD WITH RAIN}",
-        41: "\N{CRESCENT MOON}\N{THUNDER CLOUD AND RAIN}",
-        42: "\N{CRESCENT MOON}\N{THUNDER CLOUD AND RAIN}",
+        41: "\N{CRESCENT MOON}\N{THUNDER CLOUD AND RAIN}\N{VARIATION SELECTOR-16}",
+        42: "\N{CRESCENT MOON}\N{THUNDER CLOUD AND RAIN}\N{VARIATION SELECTOR-16}",
         43: "\N{CRESCENT MOON}\N{DASH SYMBOL}\N{SNOWFLAKE}",
         44: "\N{CRESCENT MOON}\N{SNOWFLAKE}",
         "wc0": "\N{CLOUD WITH TORNADO}",
@@ -677,6 +677,18 @@ class Weather(commands.Cog):
 
         out = f"{loc.formatted_address} / Sunrise: {sunrise} / Sunset: {sunset} / Day Length: {sunlength}"
         await ctx.send(out)
+
+
+    @commands.command(hidden=True)
+    @commands.is_owner()
+    async def wemojitest(self, ctx, *, emoji):
+        try:
+            emoji = int(emoji)
+        except:
+            pass
+        msg = WEMOJI[emoji]
+        await ctx.send(msg)
+
 
 
 async def setup(bot):

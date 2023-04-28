@@ -167,12 +167,14 @@ class Sports(commands.Cog):
         
         for game in data['dates'][0]['games']:
             gamestatus = game['status']['statusCode'] 
-            if gamestatus == "1" or gamestatus == "2" or gamestatus == "9":
+            if gamestatus == "1" or gamestatus == "2" or gamestatus == "9" or gamestatus == "8":
                 # game is scheduled in future
                 starttime = datetime.datetime.strptime(game['gameDate'], "%Y-%m-%dT%H:%M:%SZ")
                 starttime = starttime.replace(tzinfo=pytz.utc).astimezone(tz=date.tzinfo)
                 tzname = starttime.tzname()
                 starttime = starttime.strftime('%I:%M%p').lstrip('0').replace(':00', '')
+                if gamestatus == "8":
+                    starttime = "TBD"
 
                 gametxt = "{} @    {} | {} {}".format(
                     game['teams']['away']['team']['teamName'].ljust(17),

@@ -51,9 +51,13 @@ class WotdPrompt(discord.ui.Modal):
             fw = "\nThis is a full-word only match. It will only hit on the complete word and not a substring of another word - the count will also reflect that"
         else:
             count = self.wotd.count_wotd(word)
-        if count < 100 or len(word) < 3:
+        if len(word) < 3:
+            self.wotd.bot.logger.info(f"Short WOTD: {word}. OG: {self.new_wotd} Fullword: {self.fullword}")
+            await interaction.response.send_message(f"**{word}** only has {len(word)} characters after removing disallowed characters. It's too short to set.")
             self.wotd.wotd_count = None
-            self.wotd.bot.logger.info(f"Bad WOTD is: {word}. Fullword is {self.fullword}")
+        elif count < 100:
+            self.wotd.wotd_count = None
+            self.wotd.bot.logger.info(f"Bad WOTD: {word} count: {count} Fullword: {self.fullword}")
             print(f"Bad WOTD is: {word} with {count}")
             match count:
                 case 0:
@@ -202,7 +206,7 @@ class Wotd(commands.Cog):
         if ctx.author.id != self.setter.id:
             return
         if self.hint:
-            ctx.send("The WOTD can't be changed after a hint has been given.")
+            await ctx.send("The WOTD can't be changed after a hint has been given.")
             return
 
         button = WotdButton(self, ctx.message.author)

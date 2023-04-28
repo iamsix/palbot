@@ -55,6 +55,7 @@ class OwnerCog(commands.Cog, name="Owner Commands"):
     async def die(self, ctx):
         await ctx.send("Goodbye.")
         await self.bot.close()
+    
 
     @commands.command(hidden=True)
     @commands.is_owner()
