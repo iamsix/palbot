@@ -53,7 +53,7 @@ class WotdPrompt(discord.ui.Modal):
             count = self.wotd.count_wotd(word)
         if len(word) < 3:
             self.wotd.bot.logger.info(f"Short WOTD: {word}. OG: {self.new_wotd} Fullword: {self.fullword}")
-            await interaction.response.send_message(f"**{word}** only has {len(word)} characters after removing disallowed characters. It's too short to set.")
+            await interaction.response.send_message(f"**{word}** only has {len(word)} characters after removing disallowed characters. It's too short to set. You can click the button to set a different one.", ephemeral=True)
             self.wotd.wotd_count = None
         elif count < 100:
             self.wotd.wotd_count = None
