@@ -71,7 +71,8 @@ class Paginator:
             except asyncio.TimeoutError:
                 self.paginating = False
                 try:
-                    await self.message.clear_reactions()
+                    await self.message.clear_reaction('\N{BLACK LEFT-POINTING TRIANGLE}')
+                    await self.message.clear_reaction('\N{BLACK RIGHT-POINTING TRIANGLE}')
                 except:
                     pass
                 finally:
