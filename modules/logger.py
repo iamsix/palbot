@@ -18,12 +18,12 @@ class Logger(commands.Cog):
         timestamp = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
         svr = message.channel.id
         if not reaction:
-            host = str(message.author).replace('#', '@')
+            host = f"{message.author.name}@{message.author.id}"
             say = message.clean_content.replace('\n', ' ').replace('\r', ' ')
             say = say.replace("@", "")
             nick = message.author.display_name
         else:
-            host = str(reactor).replace('#', '@')
+            host = f"{reactor.name}@{reactor.id}"
             nick = reactor.display_name
             say = f"\001ACTION reacted with {reaction.emoji}"
         nick = nick.replace(' ', '_').replace('!', "_")
@@ -51,7 +51,7 @@ class Logger(commands.Cog):
 
         fmt = "{}:{}::{}!{} NICK : {}\n"
         timestamp = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-        host = str(old).replace("#", "@")
+        host = f"{old.name}@{old.id}"
         oldnick = old.display_name.replace(' ', '_').replace('!', "_")
         newnick = new.display_name.replace(' ', '_').replace('!', "_")
 
@@ -74,7 +74,7 @@ class Logger(commands.Cog):
 
         fmt = "{}:{}::{}!{} TAG : {}\n"
         timestamp = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-        host = str(old).replace("#", "@")
+        host = f"{old.name}@{old.id}"
         oldnick = old.display_name.replace(' ', '_').replace('!', "_")
 
 

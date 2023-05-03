@@ -210,8 +210,11 @@ class Wotd(commands.Cog):
             return
 
         button = WotdButton(self, ctx.message.author)
-        mymsg = await ctx.send("The WOTD owner can set a new WOTD with the button below", view=button)
         self.wotd_count = None
+        self.wotd = ""
+        self.hint = ""
+        self.fwr = re.compile("#INVALID_WORD#")
+        mymsg = await ctx.send("The WOTD owner can set a new WOTD with the button below", view=button)
         button.message = mymsg
 
     @commands.command(hidden=True)
@@ -391,6 +394,7 @@ class Wotd(commands.Cog):
             banword = self.wotd
             self.wotd = ""
             self.hint = ""
+            self.fwr = re.compile("#INVALID_WORD#")
             self.wotd_count = None
             self.full_word_match = False
             self.setter = message.author

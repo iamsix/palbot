@@ -87,7 +87,8 @@ class OwnerCog(commands.Cog, name="Owner Commands"):
         timezone: {ctx.author_info.timezone}
         strava: {ctx.author_info.strava}
         lastfm: {ctx.author_info.lastfm}
-        birthday: {ctx.author_info.birthday}"""
+        birthday: {ctx.author_info.birthday}
+        username: {ctx.author.name}"""
 
         await ctx.send(out)
 
