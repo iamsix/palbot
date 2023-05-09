@@ -134,6 +134,8 @@ class Sports(commands.Cog):
             if game['gameStatus'] == 1:
                 gstart = starttime.strftime('%-I:%M%p').replace(':00', '')
                 out = f"{awayt}     @     {homet} | {gstart} {date.tzname()}"
+                if 'seriesText' in game:
+                    out += f" - {game['seriesText']}"
             else:
                 ascore = str(away['score']).rjust(3)
                 hscore = str(home['score']).ljust(3)
@@ -155,7 +157,7 @@ class Sports(commands.Cog):
 
         url = "http://statsapi.web.nhl.com/api/v1/schedule"
         par = {'startDate': str(date.date()), 'endDate': str(date.date()),
-               'expand': "schedule.teams,schedule.linescore"}
+               'expand': "schedule.teams,schedule.linescore,schedule.game.seriesSummary"}
         
         async with self.bot.session.get(url, params=par) as resp:
             data = await resp.json()
@@ -182,6 +184,8 @@ class Sports(commands.Cog):
                     starttime, tzname)
                 if gamestatus == "9":
                     gametxt += " Postponed"
+                if str(game['gamePk'])[4:6] == "03":
+                    gametxt += f" - {game['seriesSummary']['seriesStatusShort']}"
             else:
                 # game finished or currently on
                 away = '{} {}'.format(

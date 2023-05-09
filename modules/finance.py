@@ -204,8 +204,10 @@ class Finance(commands.Cog):
         
         if 'postMarketPrice' in data and (data['marketState'] == "CLOSED" or "POST" in data['marketState']):
             pdu = "\N{CHART WITH UPWARDS TREND}" if data['postMarketChange'] > 0 else "\N{CHART WITH DOWNWARDS TREND}"
-            outstr += " :: After Hours: {:.2f} - Change: {:.2f} {}".format(data['postMarketPrice'],
-                                                                        data['postMarketChange'], pdu)
+            if  float(data['postMarketChangePercent']) > 20.0:
+                pdu += "\N{ROCKET}"
+            outstr += " :: After Hours: {:.2f} - Change: {:.2f} ({:.2f}%) {}".format(data['postMarketPrice'],
+                        data['postMarketChange'], data['postMarketChangePercent'], pdu)
 
         await ctx.send(html.unescape(outstr))
 
