@@ -70,30 +70,44 @@ class Reminder(commands.Cog):
         task.add_done_callback(self.reminders.discard)
 
 
+    def reminder_parser(self, line, tz):
+        words = line.split(" ")
+        date = None
+        message = ""
+        for i in range(len(words)):
+            tempdate = dateparser.parse(" ".join(words[:i+1]), settings={'TIMEZONE': tz, 
+                                      'PREFER_DATES_FROM': 'future'})
+            if tempdate:
+                date = tempdate
+                skip = 1
+                if words[i+1] == "to":
+                    skip = 2
+                message = " ".join(words[i+skip:])
+
+        return date, message
+
+
     @commands.command()
     async def timetest(self, ctx, *, time):
         tz = ctx.author_info.timezone
-        date = dateparser.parse(time, settings={'TIMEZONE': tz, 
-                                      'PREFER_DATES_FROM': 'future'})
+
+        date, message = self.reminder_parser(time, tz)
         if tz and date:
             ntz = ZoneInfo(tz)
             utc = ZoneInfo("UTC")
             date = date.replace(tzinfo=ntz).astimezone(tz=utc).replace(tzinfo=None)
-        await ctx.send(f"<t:{int(date.timestamp())}>")
+        if date:
+            await ctx.send(f"<t:{int(date.timestamp())}> {message}")
 
-    @commands.command()
+    @commands.command(aliases=['remind'])
     async def remindme(self, ctx, *, message: commands.clean_content):
-        try:
-            when, what = message.split(" to ", 1)
-        except ValueError:
-            await ctx.reply("You're probably missing a 'to' - format is `!remindme <when> to <what>`")
-            return
-
+        if ctx.invoked_with.lower() == "remind" and message[:2] == "me":
+            message = message[3:]
+            print(message)
         tz = ctx.author_info.timezone
-        date = dateparser.parse(when, settings={'TIMEZONE': tz, 
-                                      'PREFER_DATES_FROM': 'future'})
+        date, what = self.reminder_parser(message, tz)
         if not date:
-            await ctx.reply("I don't understand when you want this done. Try something like `tomorrow at 8pm` or `jan 3rd 2pm` or `in 5 minutes` - format is `!remindme <when> to <what>`")
+            await ctx.reply("I don't understand when you want this done. Try something like `tomorrow at 8pm` or `jan 3rd 2pm` or `in 5 minutes` - format is `!remindme <when> <what>`")
             return
 
         if tz:
@@ -114,7 +128,7 @@ class Reminder(commands.Cog):
         await self.save_timer(reminder)
 
 
-        await ctx.send (f"I will remind you on <t:{int(date.timestamp())}> to: {what}")
+        await ctx.send (f"I will remind you on <t:{int(date.timestamp())}>: {what}")
 
     async def call_reminder(self, reminder):
         channel = self.bot.get_channel(reminder.channel)
