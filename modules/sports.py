@@ -140,6 +140,8 @@ class Sports(commands.Cog):
                 ascore = str(away['score']).rjust(3)
                 hscore = str(home['score']).ljust(3)
                 out = f"{awayt} {ascore} - {hscore} {homet} | {status}"
+                if game['gameStatus'] == 3 and 'seriesText' in game:
+                    out += f" - {game['seriesText']}"
 
             games.append(out)
         
@@ -202,6 +204,7 @@ class Sports(commands.Cog):
                                         
                 if game['status']['statusCode'] == "7":
                     status = status.replace("3rd", "").strip()
+                    status += f" - {game['seriesSummary']['seriesStatusShort']}"
                     
                 gametxt = "{} - {} | {}".format(away, home, status)
                 

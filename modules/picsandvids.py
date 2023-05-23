@@ -226,6 +226,10 @@ class Vids(commands.Cog):
 
     async def reddit_video(self, message, url):
         # This is a reddit url... but now I need the mpd URL...
+
+        spoiler = False
+        if "spoiler" in message.content.lower():
+            spoiler = True
         if message.author.id == self.bot.user.id:
             return
         token = await reddittoken(self)
@@ -311,6 +315,7 @@ class Vids(commands.Cog):
             vidsize = 0
             async with self.bot.session.get(vidurl, headers=headers) as resp:
                 if resp.status != 200:
+                    self.bot.logger.info(f"Failed to load {vidurl} code {resp.status}" )
                     return await ctx.send("Failed to load reddit video")
                 vidsize = int(resp.headers['Content-Length'])    
                 if vidsize >= filesize:
