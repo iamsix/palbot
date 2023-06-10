@@ -1,11 +1,11 @@
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 import asyncio
 import random
 import re
 from urllib.parse import quote as uriquote
 import sqlite3
-from datetime import timedelta
+from datetime import timedelta, datetime
 
 FACES = [" ͡° ͜ʖ ͡°", " ͡° ʖ̯ ͡°", " ͠° ͟ʖ ͡°", " ͡ᵔ ͜ʖ ͡ᵔ", " . •́ _ʖ •̀ .", " ఠ ͟ʖ ఠ", " ͡ಠ ʖ̯ ͡ಠ",
          " ಠ ʖ̯ ಠ", " ಠ ͜ʖ ಠ", " ͡• ͜ʖ ͡• ", " ･ิ ͜ʖ ･ิ", " ͡ ͜ʖ ͡ ", "≖ ͜ʖ≖", "ʘ ʖ̯ ʘ", "ʘ ͟ʖ ʘ",
@@ -23,8 +23,15 @@ class TestView(discord.ui.View):
         await interaction.response.send_message(f"Hi {interaction.user.mention}", ephemeral=True)
 
 class Chat(commands.Cog):
+    reminders = set()
     def __init__(self, bot):
         self.bot = bot
+        self.tags_conn = sqlite3.connect("tags.sqlite")
+        self.tags_c = self.tags_conn.cursor()
+        q = '''CREATE TABLE IF NOT EXISTS 'tags' ("untag_timestamp" integer, "guild" integer, "user" integer, "tag" integer, "plaintext" text);'''
+        self.tags_c.execute(q)
+        self.check_userthings.start()
+
         self.custom_command_conn = sqlite3.connect("customcommands.sqlite")
         cursor = self.custom_command_conn.cursor()
         self.custom_command_cursor = cursor
@@ -182,6 +189,12 @@ class Chat(commands.Cog):
             return
         else:
             return result[0].strip()
+        
+    @commands.command()
+    async def pdl(self, ctx):
+        pg = await self.bot.utils.bs_from_url(self.bot, "https://poorlydrawnlines.com/")
+        comic = pg.find('a',href=re.compile('poorlydrawnlines.com/wp-content/uploads/\d{4}/\d{2}/'))
+        await ctx.send(comic.get('href'))
              
 
 
@@ -206,6 +219,65 @@ class Chat(commands.Cog):
         conn = self.custom_command_conn
         c.execute("DELETE FROM commands WHERE cmd = (?)", [cmd.lower()])
         conn.commit()
+
+
+    @commands.command()
+    @commands.has_any_role('Admins', 'GOD')
+    async def tag(self, ctx, user: discord.Member, tag: discord.Role):
+        # might change the interface to only work on replies
+  
+        await user.add_roles(tag, reason=f"{ctx.author.display_name} used !tag")
+  
+        when = int(datetime.utcnow().timestamp() + (7 * 24 * 60 * 60))
+        plaintext = f"Untag `{tag}` from `{user.display_name}` in `{ctx.guild}` on: {datetime.fromtimestamp(when)} UTC"
+        q = "INSERT INTO tags VALUES (?, ?, ?, ?, ?)"
+        self.tags_c.execute(q, (when,ctx.guild.id, user.id, tag.id, plaintext))
+        self.tags_conn.commit()
+
+    @tasks.loop(minutes=60)
+    async def check_userthings(self):
+        # TODO : Check user birthdays here and set/unset birthday tag automagically
+        # I'll have to assume the guild as I don't have that recorded in the userdata db
+
+
+        for reminder in self.reminders:
+            reminder.cancel()
+        self.reminders.clear()
+        ts = int(datetime.utcnow().timestamp())
+        ts += 60*60
+
+        q = 'SELECT untag_timestamp, guild, user, tag, plaintext FROM tags WHERE untag_timestamp <= ?'
+        res = self.tags_c.execute(q, [(ts)])
+        for row in res:
+            self.bot.logger.debug("tagloop:", row[4])
+            when = datetime.fromtimestamp(row[0])
+            guild = await self.bot.fetch_guild(row[1])
+            user = await guild.fetch_member(row[2])
+            tag = guild.get_role(row[3])
+
+            task = asyncio.create_task(self.untag(when, user, tag))
+            self.reminders.add(task)
+            task.add_done_callback(self.reminders.discard)
+
+    async def untag(self, when, user, tag):
+        seconds = max(0,int((when - datetime.utcnow()).total_seconds()))
+        self.bot.debug(f"untag: {user} tag: {tag} waiting: {seconds}s")
+        await asyncio.sleep(seconds)
+        await user.remove_roles(tag, reason="expired 7 days")
+        
+
+        q = 'DELETE FROM tags WHERE untag_timestamp <= ?'
+        self.tags_c.execute(q, [(int(when.timestamp()))])
+        self.tags_conn.commit()
+
+
+    async def cog_unload(self):
+        self.check_userthings.stop()
+        # cancel all the timers here
+        for reminder in self.reminders:
+            reminder.cancel()
+        self.reminders.clear()
+
 
 async def setup(bot):
     await bot.add_cog(Chat(bot))
