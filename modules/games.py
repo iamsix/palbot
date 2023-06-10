@@ -94,33 +94,35 @@ class Games(commands.Cog):
         page = await self.bot.utils.bs_from_url(self.bot, url)
         jsonhtml = page.find('script', id='__NEXT_DATA__')
         data = json.loads(jsonhtml.string)
-#        matches = data['props']['pageProps']['blocks'][0]['owlHeader']['scoreStripList']['scoreStrip']['matches']
-        matches = data['props']['pageProps']['blocks'][2]['schedule']['tableData']['events'][0]['matches']
-        if len(data['props']['pageProps']['blocks'][2]['schedule']['tableData']['events']) == 2:
-            matches.extend(data['props']['pageProps']['blocks'][2]['schedule']['tableData']['events'][1]['matches'])
-
-        out = []
-        for match in matches:
-            date = datetime.datetime.fromtimestamp(match['startDate']/1000, tz=now.tzinfo)
-            if date.date() != now.date():
-                continue
-            teams = match['competitors']
-            line = ""
-            if match['status'] == 'PENDING':
-                line = f"{teams[0]['name']} - {teams[1]['name']} : {date.strftime('%-I:%M%p')}"
-            if match['status'] == 'IN_PROGRESS':
-                if not match['scores']:
-                    # TODO look for the IsEncore thing and make a special status for it
+        try:      
+            matches = data['props']['pageProps']['blocks'][2]['scheduleV2']['matchSegments'][0]['matches']
+            # matches[0] = Pending
+            # matches[1] = In progress
+            # matches[2] = Complete
+            out = []
+            for match in matches[0]['data'] + matches[1]['data'] + matches[2]['data']:
+                date = datetime.datetime.fromtimestamp(match['startDate']/1000, tz=now.tzinfo)
+                if date.date() != now.date():
                     continue
-                line = f"{teams[0]['name']} {match['scores'][0]} - {match['scores'][1]} {teams[1]['name']} : Live"
-            if match['status'] == 'CONCLUDED':
-                line = f"{teams[0]['name']} {match['scores'][0]} - {match['scores'][1]} {teams[1]['name']} : End"
-            if line:
-                out.append(line)
+                teams = match['competitors']
+                line = ""
+                if match['status'] == 'PENDING':
+                    line = f"{teams[0]['name']} - {teams[1]['name']} : {date.strftime('%-I:%M%p')}"
+                if match['status'] == 'IN_PROGRESS':
+                    if not match['scores']:
+                        # TODO look for the IsEncore thing and make a special status for it
+                        continue
+                    line = f"{teams[0]['name']} {match['scores'][0]} - {match['scores'][1]} {teams[1]['name']} : Live"
+                if match['status'] == 'CONCLUDED':
+                    line = f"{teams[0]['name']} {match['scores'][0]} - {match['scores'][1]} {teams[1]['name']} : End"
+                if line:
+                    out.append(line)
 
-        if out:
-            await ctx.send("```{}```".format("\n".join(out)))
-        else:
+            if not out:
+                await ctx.send(f"Doesn't appear to be any games on {now.date()}")
+            else:
+                await ctx.send("```{}```".format("\n".join(out)))
+        except:
             await ctx.send(f"Either there's no games on {now.date()} or the OWL site broke this")
 
 
