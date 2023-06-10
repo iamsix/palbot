@@ -373,12 +373,12 @@ class Wotd(commands.Cog):
     async def on_message(self, message):
         if message.channel.id not in self.bot.config.wotd_whitelist or \
            message.author.id == self.bot.user.id or \
-           " " not in message.content or \
+           " " not in message.clean_content or \
            not self.wotd:
              return
 
-        if (not self.full_word_match and self.wotd.lower() in message.content.lower()) or \
-                (self.full_word_match and self.fwr.search(message.content.lower())):
+        if (not self.full_word_match and self.wotd.lower() in message.clean_content.lower()) or \
+                (self.full_word_match and self.fwr.search(message.clean_content.lower())):
             self.expire_timer.cancel()
             self.record_hit(message)
 
