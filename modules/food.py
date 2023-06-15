@@ -202,16 +202,18 @@ class Food(commands.Cog):
         url = await self.bot.utils.google_for_urls(self.bot, 
                                             "site:distiller.com {}".format(spirit),
                                             url_regex="distiller.com/spirits/")
+        
         if not url:
             await ctx.send(f"Unabled to find a spirit named `{spirit}` on Distiller")
             return
-
+        self.bot.logger.debug(url)
         jsurl = url[0].replace('r.com/', 'r.com/api/')
         headers = {'User-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:57.0) Gecko/20100101 Firefox/57.0',
                    'X-DISTILLER-DEVELOPER-TOKEN': self.bot.config.distillertoken}
                    
         async with self.bot.session.get(jsurl, headers=headers) as resp:
             data = await resp.json()
+            self.bot.logger.debug(data)
             data = data['spirit']
         
         style = data['spirit_family']['name']

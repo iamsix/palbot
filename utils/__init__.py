@@ -26,6 +26,7 @@ async def google_for_urls(bot, search_term, *, url_regex=None, return_full_data=
 
     async with bot.session.get(url) as resp:
         json = await resp.json()
+        bot.logger.debug(json)
         if resp.status != 200:
             print(resp, json)
             return
