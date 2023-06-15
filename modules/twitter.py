@@ -8,14 +8,15 @@ import base64
 
 
 class Twitter(commands.Cog):
+    PUBLIC_TOKEN = "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA"
     """All twittery functions like subscribe and lasttweet"""
     def __init__(self, bot):
         self.bot = bot
-        self.tweet_subscriptions.start() # pylint: disable=no-member
-        self.last_checked = {}
+    #    self.tweet_subscriptions.start() # pylint: disable=no-member
+    #    self.last_checked = {}
 
-    def cog_unload(self):
-        self.tweet_subscriptions.cancel() # pylint: disable=no-member
+    #def cog_unload(self):
+    #    self.tweet_subscriptions.cancel() # pylint: disable=no-member
 
     # TODO : Subscribe/unsubscribe functions here. 
     # Need a different config method for subs
@@ -61,28 +62,40 @@ class Twitter(commands.Cog):
     
     @commands.command(hidden=True)
     async def kexp(self, ctx):
-        """Show ye's most recent words of wisdom"""
-        await self.last_tweet(ctx, handle='kexpnowplaying')
+        """show what's playing on KEXP"""
+        # This is in twitter.py for historical reasons
+        #await self.last_tweet(ctx, handle='kexpnowplaying')
+        url = "https://api.kexp.org/v2/plays/?format=json&limit=1&ordering=-airdate"
+        async with self.bot.session.get(url) as res:
+            data = await res.json()
+            data = data['results'][0]
+
+        await ctx.send(f"{data['artist']} - {data['song']} - {data['album']}")
+
+        
 
     # TODO Handle retweets better
     def embed_tweet(self, tweet):
-        if 'retweeted_status' in tweet:
-            tweet = tweet['retweeted_status']
-        handle = tweet['user']['screen_name']
-        link = f"https://twitter.com/{handle}/status/{tweet['id']}"
+        content = tweet['content']['itemContent']['tweet_results']['result']['legacy']
+        user = tweet['content']['itemContent']['tweet_results']['result']['core']['user_results']['result']['legacy']
+        if 'retweeted_status_result' in content:
+            user = content['retweeted_status_result']['result']['core']['user_results']['result']['legacy']
+            content = content['retweeted_status_result']['result']['legacy']
+        handle = user['screen_name']
+        link = f"https://twitter.com/{handle}/status/{content['id_str']}"
         e = discord.Embed(title='Tweet', url=link, color=0x1da1f2)
-        verified = "\N{BALLOT BOX WITH CHECK}" if tweet['user']['verified'] else ""
-        author = f"{tweet['user']['name']} (@{handle}){verified}"
+        verified = "\N{BALLOT BOX WITH CHECK}\N{VARIATION SELECTOR-16}" if user['verified'] else ""
+        author = f"{user['name']} (@{handle}){verified}"
         aurl = f"https://twitter.com/{handle}"
-        e.set_author(name=author, url=aurl, icon_url=tweet['user']['profile_image_url_https'])
-        e.description = html.unescape(tweet['full_text'].strip())
+        e.set_author(name=author, url=aurl, icon_url=user['profile_image_url_https'])
+        e.description = html.unescape(content['full_text'].strip())
         image = None
-        if 'media' in tweet['entities'] and 'media_url_https' in tweet['entities']['media'][0]:
-            image = tweet['entities']['media'][0]['media_url_https']
+        if 'media' in content['entities'] and 'media_url_https' in content['entities']['media'][0]:
+            image = content['entities']['media'][0]['media_url_https']
         if image and image.lower().endswith(('png', 'jpeg', 'jpg', 'gif', 'webp')):
             e.set_image(url=image)
         
-        ts = datetime.strptime(tweet['created_at'], "%a %b %d %H:%M:%S +0000 %Y")
+        ts = datetime.strptime(content['created_at'], "%a %b %d %H:%M:%S +0000 %Y")
         e.timestamp = ts
 
         return e
@@ -95,16 +108,31 @@ class Twitter(commands.Cog):
         return {'author': author, 'text': text, "ago": ago, "updated": updated}
 
 
-    async def read_timeline(self, user, count=1):
-        url = "https://api.twitter.com/1.1/statuses/user_timeline.json"
-        params = {"screen_name": user, "count": count, "tweet_mode": "extended"}
-        headers = {"Authorization": "Bearer " + self.bot.config.twitter_token}
-        async with self.bot.session.get(url, params=params, headers=headers) as resp:
-            if resp.status == 200:
-                return await resp.json()
-            else:
-                return None
+    async def read_timeline(self, user, count=5):
+        gturl = "https://api.twitter.com/1.1/guest/activate.json"
+        gthead = { 'Authorization' : self.PUBLIC_TOKEN}
+        async with self.bot.session.post(gturl, headers=gthead) as resp:
+            gt = await resp.json()
+            gt = gt['guest_token']
+        
+        gqlh = { 'authorization' : self.PUBLIC_TOKEN,
+             "content-type" : "application/json",
+             'x-guest-token' : gt,
+        }
+        rid_url = f"https://twitter.com/i/api/graphql/mCbpQvZAw6zu_4PvuAUVVQ/UserByScreenName?variables=%7B%22screen_name%22%3A%22{user}%22%2C%22withSafetyModeUserFields%22%3Atrue%2C%22withSuperFollowsUserFields%22%3Atrue%7D"
+        async with self.bot.session.get(rid_url, headers=gqlh) as resp:
+            ridjson = await resp.json()
+            rid = ridjson['data']['user']['result']['rest_id']
 
+        tweets_url = f"https://twitter.com/i/api/graphql/3ywp9kIIW-VQOssauKmLiQ/UserTweets?variables=%7B%22userId%22%3A%22{rid}%22%2C%22count%22%3A{count}%2C%22includePromotedContent%22%3Atrue%2C%22withQuickPromoteEligibilityTweetFields%22%3Atrue%2C%22withSuperFollowsUserFields%22%3Atrue%2C%22withDownvotePerspective%22%3Afalse%2C%22withReactionsMetadata%22%3Afalse%2C%22withReactionsPerspective%22%3Afalse%2C%22withSuperFollowsTweetFields%22%3Atrue%2C%22withVoice%22%3Atrue%2C%22withV2Timeline%22%3Atrue%7D&features=%7B%22dont_mention_me_view_api_enabled%22%3Atrue%2C%22interactive_text_enabled%22%3Atrue%2C%22responsive_web_uc_gql_enabled%22%3Afalse%2C%22vibe_tweet_context_enabled%22%3Afalse%2C%22responsive_web_edit_tweet_api_enabled%22%3Afalse%2C%22standardized_nudges_misinfo%22%3Afalse%2C%22responsive_web_enhance_cards_enabled%22%3Afalse%2C%22include_rts%22%3Atrue%7D"
+        async with self.bot.session.get(tweets_url, headers=gqlh) as resp:
+            tweets = await resp.json()
+
+        entries = tweets['data']['user']['result']['timeline_v2']['timeline']['instructions'][1]['entries']
+        # Note I'm only returning non-pinned tweets here so the count might not match
+        return entries
+    #
+        
     @tasks.loop(minutes=1.0)
     async def tweet_subscriptions(self):
         """Reads a twitter timeline and posts the new tweets to any channels that sub it"""
