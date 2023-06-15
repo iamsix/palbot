@@ -594,7 +594,10 @@ class Weather(commands.Cog):
 
         data = data['data']
         
-        pm25 = data['iaqi']['pm25']['v']
+        try:
+            pm25 = data['iaqi']['pm25']['v']
+        except:
+            pm25 = data['aqi']
 
         conditions = {
             50 :  " (Good)",
