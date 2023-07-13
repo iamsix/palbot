@@ -261,9 +261,12 @@ class Chat(commands.Cog):
 
     async def untag(self, when, user, tag):
         seconds = max(0,int((when - datetime.utcnow()).total_seconds()))
-        self.bot.debug(f"untag: {user} tag: {tag} waiting: {seconds}s")
+        self.bot.logger.debug(f"untag: {user} tag: {tag} waiting: {seconds}s")
         await asyncio.sleep(seconds)
-        await user.remove_roles(tag, reason="expired 7 days")
+        try:
+            await user.remove_roles(tag, reason="expired 7 days")
+        except Exception as e:
+            print(e)
         
 
         q = 'DELETE FROM tags WHERE untag_timestamp <= ?'

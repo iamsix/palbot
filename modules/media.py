@@ -114,7 +114,7 @@ class Media(commands.Cog):
         headers = {'User-Agent': "Mozilla/5.0 (X11; Linux x86_64; rv:91.0) Gecko/20100101 Firefox/91.0"}
         page = await self.bot.utils.bs_from_url(self.bot, url, headers=headers)
         data = json.loads(page.find('script', type='application/ld+json').string)
-
+        self.bot.logger.debug(data)
         self.bot.utils.dict_merge(imdb_m, data)
 
         movie_title = f"{imdb_m['name']} ({imdb_m['datePublished'][:4]})"
@@ -189,6 +189,16 @@ class Media(commands.Cog):
 
         await ctx.send(embed=e)
 
+    async def read_goodreads_data(self, url):
+        headers = {'User-Agent': "Mozilla/5.0 (X11; Linux x86_64; rv:91.0) Gecko/20100101 Firefox/91.0"}
+        for _ in range(3):
+            page = await self.bot.utils.bs_from_url(self.bot, url, headers=headers)
+            data = json.loads(page.find('script', id="__NEXT_DATA__", type='application/json').string)
+            data = data['props']['pageProps']['apolloState']
+            if data:
+                break
+        return data
+
     @commands.command(name='gr', aliases=['book'])
     async def get_goodreads_book_rating(self, ctx, *, book: str):
         """Find a <book> on goodreads.com and return some rating info and a link"""
@@ -201,11 +211,9 @@ class Media(commands.Cog):
             await ctx.send(f"Couldn't find a book named `{book}` on goodreads")
             return
 
-        headers = {'User-Agent': "Mozilla/5.0 (X11; Linux x86_64; rv:91.0) Gecko/20100101 Firefox/91.0"}
-        page = await self.bot.utils.bs_from_url(self.bot, urls[0], headers=headers)
-        data = json.loads(page.find('script', id="__NEXT_DATA__", type='application/json').string)
-        data = data['props']['pageProps']['apolloState']
-
+        data = await self.read_goodreads_data(urls[0])
+        if not data:
+            await ctx.send(f"Failed to retrieve data for {urls[0]}")
 
         bookdata = None
         for k in data.keys():
@@ -214,7 +222,8 @@ class Media(commands.Cog):
                 break
 
         if not bookdata:
-            self.bot.logger.info("Failed to load bookdata in query: {book}")
+            self.bot.logger.info(f"Failed to load bookdata in query: {book} {urls[0]}")
+            self.bot.logger.info(data)
             return
         authorkey = bookdata['primaryContributorEdge']['node']['__ref']
         name = data[authorkey]['name']
@@ -224,8 +233,11 @@ class Media(commands.Cog):
         avgrating = workdata['stats']['averageRating']
         ratingscount = workdata['stats']['ratingsCount']
 
-        pubyear = datetime.fromtimestamp(workdata['details']['publicationTime']/1000)
-        year = pubyear.year
+        try: 
+            pubyear = datetime.fromtimestamp(workdata['details']['publicationTime']/1000)
+            year = pubyear.year
+        except TypeError:
+            year = "NA"
 
 
         title = bookdata['titleComplete']

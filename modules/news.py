@@ -24,14 +24,23 @@ class News(commands.Cog):
             newest_news = dom.getElementsByTagName('item')[0]
             title = newest_news.getElementsByTagName('title')[0].childNodes[0].data.strip()
             link = newest_news.getElementsByTagName('link')[0].childNodes[0].data
-            try:
-                headers = {'User-Agent': "Wget/1.21.2"}
-                async with self.bot.session.get(link, timeout=5, allow_redirects=True, headers=headers) as resp:
-                    link = resp.url
-            except TimeoutError:
-                pass
+            link = await self.follow_news(link)
             await ctx.send(f'{title} [ {link} ]')
 
+
+    async def follow_news(self, url):
+        headers = {"User-Agent": "Wget/1.21.2"}
+        # Have to manually follow the redirects to account for timeouts
+        try:
+            async with self.bot.session.get(url, headers=headers, timeout=3, allow_redirects=False) as resp:
+                if resp.status == 302:
+                    newurl = resp.headers['Location']
+                    print(resp.status, url)
+                    return await self.follow_news(newurl)
+                else:
+                    return resp.url
+        except TimeoutError:
+            return url
 
     @commands.command(name='approval')
     async def get_presidential_approval(self, ctx):
