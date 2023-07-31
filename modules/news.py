@@ -35,7 +35,7 @@ class News(commands.Cog):
             async with self.bot.session.get(url, headers=headers, timeout=3, allow_redirects=False) as resp:
                 if resp.status == 302:
                     newurl = resp.headers['Location']
-                    print(resp.status, url)
+                    #print(resp.status, url)
                     return await self.follow_news(newurl)
                 else:
                     return resp.url

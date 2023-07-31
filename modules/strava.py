@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+from aiohttp import web
 
 import datetime
 import time
@@ -9,6 +10,26 @@ from urllib.parse import quote as uriquote
 class Strava(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+
+    async def webserver(self):
+        async def handler(request):
+            print(request)
+            user = request.match_info['user']
+            code = request.rel_url.query['code']
+            state = request.rel_url.query['state']
+            return web.Response(text=f"Set user {user} to code {code} - state {state}")
+        app = web.Application()
+        app.router.add_get('/strava/{user:\d+}', handler)
+        runner = web.AppRunner(app)
+        await runner.setup()
+        self.site = web.TCPSite(runner, "127.0.0.1", 5000)
+        print(self.site)
+        await self.bot.wait_until_ready()
+        await self.site.start()
+
+    async def cog_unload(self):
+        await self.site.stop()
+
 
     @commands.group(name="strava", case_insensitive=True, invoke_without_command=True)
     async def _strava(self, ctx, user: int = 0):
@@ -23,10 +44,12 @@ class Strava(commands.Cog):
         if user:
             if await self.strava_is_valid_user(user):
                 # Process a last ride request for a specific strava id.
-                url = f"https://www.strava.com/api/v3/athletes/{user}/activities"
+                url = f"https://m.strava.com/api/v3/feed/athlete/{user}"
                 headers = {'Authorization': 'access_token ' + token}
+                print(token)
                 async with self.bot.session.get(url, headers=headers) as resp:
                     if resp.status != 200:
+                        print(await resp.read())
                         output = f"Unable to retrieve rides from Strava ID: {user}"
                     else:
                         data = await resp.json()
@@ -54,6 +77,16 @@ class Strava(commands.Cog):
         if isinstance(error, commands.MissingRequiredArgument):
             await ctx.send(error)
     
+    @_strava.command(name="activity")
+    async def check_activity(self, ctx, activity: int, user: int):
+        self.token = token = self.bot.config.stravaToken
+        recent_ride = await self.strava_get_ride_extended_info(activity)
+        if recent_ride:
+            measurements = await self.strava_get_measurement_pref(user)
+            out = await self.parse_strava_ride(recent_ride, user, measurements)
+            await ctx.send(out)
+
+
 
     async def check_strava_token(self, token):
         url = "https://www.strava.com/api/v3/athlete"
@@ -67,7 +100,7 @@ class Strava(commands.Cog):
     async def strava_extract_latest_ride(self, data, user):
         """ Grab the latest ride from a list of rides and gather some statistics about it """
         if data:
-            recent_ride = data[0]
+            recent_ride = data[0]['item']
             recent_ride = await self.strava_get_ride_extended_info(recent_ride['id'])
             if recent_ride:
                 self.bot.logger.debug(recent_ride)
@@ -200,4 +233,7 @@ class Strava(commands.Cog):
         return round(feet, 1)
 
 async def setup(bot):
-    await bot.add_cog(Strava(bot))
+    strava = Strava(bot)
+    await bot.add_cog(strava)
+    bot.loop.create_task(strava.webserver())
+

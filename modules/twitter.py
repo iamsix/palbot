@@ -5,6 +5,7 @@ import html
 from utils.time import human_timedelta
 from datetime import datetime
 import base64
+import json
 
 
 class Twitter(commands.Cog):
@@ -39,11 +40,16 @@ class Twitter(commands.Cog):
     @commands.command(name='lasttweet')
     async def last_tweet(self, ctx, *, handle: str):
         """Show the last tweet of a twitter user"""
-        tweet = await self.read_timeline(handle)
-        if tweet:
+        tweets = await self.read_timeline(handle)
+        if tweets:
             #print(tweet)
+            actual_tweet = None
+            for tweet in tweets:
+                if 'legacy' in tweet['content']['itemContent']['tweet_results']['result']:
+                    actual_tweet = tweet
+                    break
             #parsed = self.parse_tweet(tweet[0])
-            e = self.embed_tweet(tweet[0])
+            e = self.embed_tweet(actual_tweet)
             await ctx.send(embed=e)
             #await ctx.send("{author}: {text} ({ago})".format(**parsed))
         else:
@@ -121,14 +127,20 @@ class Twitter(commands.Cog):
         }
         rid_url = f"https://twitter.com/i/api/graphql/mCbpQvZAw6zu_4PvuAUVVQ/UserByScreenName?variables=%7B%22screen_name%22%3A%22{user}%22%2C%22withSafetyModeUserFields%22%3Atrue%2C%22withSuperFollowsUserFields%22%3Atrue%7D"
         async with self.bot.session.get(rid_url, headers=gqlh) as resp:
-            ridjson = await resp.json()
+            riddata = await resp.read()
+            if not riddata:
+                return
+            ridjson = json.loads(riddata)
             rid = ridjson['data']['user']['result']['rest_id']
 
         tweets_url = f"https://twitter.com/i/api/graphql/3ywp9kIIW-VQOssauKmLiQ/UserTweets?variables=%7B%22userId%22%3A%22{rid}%22%2C%22count%22%3A{count}%2C%22includePromotedContent%22%3Atrue%2C%22withQuickPromoteEligibilityTweetFields%22%3Atrue%2C%22withSuperFollowsUserFields%22%3Atrue%2C%22withDownvotePerspective%22%3Afalse%2C%22withReactionsMetadata%22%3Afalse%2C%22withReactionsPerspective%22%3Afalse%2C%22withSuperFollowsTweetFields%22%3Atrue%2C%22withVoice%22%3Atrue%2C%22withV2Timeline%22%3Atrue%7D&features=%7B%22dont_mention_me_view_api_enabled%22%3Atrue%2C%22interactive_text_enabled%22%3Atrue%2C%22responsive_web_uc_gql_enabled%22%3Afalse%2C%22vibe_tweet_context_enabled%22%3Afalse%2C%22responsive_web_edit_tweet_api_enabled%22%3Afalse%2C%22standardized_nudges_misinfo%22%3Afalse%2C%22responsive_web_enhance_cards_enabled%22%3Afalse%2C%22include_rts%22%3Atrue%7D"
         async with self.bot.session.get(tweets_url, headers=gqlh) as resp:
-            tweets = await resp.json()
+            tdata = await resp.read()
+            if not tdata:
+                return
+            tweets = json.loads(tdata)
 
-        entries = tweets['data']['user']['result']['timeline_v2']['timeline']['instructions'][1]['entries']
+        entries = tweets['data']['user']['result']['timeline_v2']['timeline']['instructions'][2]['entries']
         # Note I'm only returning non-pinned tweets here so the count might not match
         return entries
     #
