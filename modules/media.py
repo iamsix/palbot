@@ -157,6 +157,8 @@ class Media(commands.Cog):
         urlparts = list(filter(None, url.path.split("/")))
         mediatype = urlparts[0]
         slug = urlparts[1]
+        if mediatype == 'game' and len(urlparts) > 2:
+            slug = urlparts[2]
         apiurl_t = "https://fandom-prod.apigee.net/v1/xapi/{}/metacritic/{}/web?apiKey={}"
 
         apiurl = apiurl_t.format(self.MC_MEDIA_MAP[mediatype], slug, self.bot.config.mc_api_key)
@@ -186,13 +188,9 @@ class Media(commands.Cog):
         e.description = data['description']
         imgurl = self.MC_IMG_URL.format(data['images'][0]['bucketPath'])
         e.set_thumbnail(url=imgurl)
-
-
-             
-
         
         mc_rating = critics['score']
-        count = "{}: +{} ~{} -{}"
+        count = "{} : {}\N{THUMBS UP SIGN} {}\N{NEUTRAL FACE} {}\N{THUMBS DOWN SIGN}"
         count = count.format(critics['reviewCount'], 
                              critics['positiveCount'], 
                              critics['neutralCount'], 
