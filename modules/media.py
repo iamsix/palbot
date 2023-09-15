@@ -154,9 +154,9 @@ class Media(commands.Cog):
             await ctx.send(f"`{title}` not found on metacritic")
             return
         url = URL(urls[0])
-        urlparts = url.path.split("/")
-        mediatype = urlparts[1]
-        slug = urlparts[2]
+        urlparts = list(filter(None, url.path.split("/")))
+        mediatype = urlparts[0]
+        slug = urlparts[1]
         apiurl_t = "https://fandom-prod.apigee.net/v1/xapi/{}/metacritic/{}/web?apiKey={}"
 
         apiurl = apiurl_t.format(self.MC_MEDIA_MAP[mediatype], slug, self.bot.config.mc_api_key)
@@ -168,8 +168,8 @@ class Media(commands.Cog):
         title = data['title']
         year = data['premiereYear']
         critics = data['criticScoreSummary']
-        if mediatype == 'tv' and len(urlparts) > 3:
-             slug = f"{slug}/seasons/{urlparts[3]}"
+        if mediatype == 'tv' and len(urlparts) > 2:
+             slug = f"{slug}/seasons/{urlparts[2]}"
              s_apiurl = apiurl_t.format(self.MC_MEDIA_MAP[mediatype], 
                                         slug, 
                                         self.bot.config.mc_api_key)
