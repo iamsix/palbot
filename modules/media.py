@@ -8,6 +8,7 @@ import xml.dom.minidom
 import html
 import re
 from datetime import datetime
+from yarl import URL
 
 
 class Media(commands.Cog):
@@ -138,55 +139,58 @@ class Media(commands.Cog):
 
         await ctx.send(embed=e)
 
+    MC_MEDIA_MAP = {"tv": "shows", "game": "games", "movie": "movies"}
+    MC_FRIENDLY_NAME = {"tv": "TV", "movie": "Movie", "game": "Game"}
+    MC_IMG_URL = "https://www.metacritic.com/a/img/catalog{}"
     @commands.command(name='mc')
     async def metacritic(self, ctx, *, title: str):
         """Search for a metacrtic entry to get its MC rating and info"""
 
-        mc_model = {'name': '',
-                    '@type': '',
-                    'gamePlatform': '',
-                    'datePublished': '',
-                    'description': '',
-                    'aggregateRating': {
-                        'ratingValue': '',
-                        'ratingCount': '',
-                    },
-                    'genre': [],
-                    'image': ''
-        }
-
         urls = await self.bot.utils.google_for_urls(self.bot,
                 "site:metacritic.com " + title,
-                url_regex="metacritic.com/(tv|game|movie|music)")
+                url_regex="metacritic.com/(tv|game|movie)")
+    
+        url = URL(urls[0])
+        urlparts = url.path.split("/")
+        print(urlparts)
+        mediatype = urlparts[1]
+        slug = urlparts[2]
+        apiurl = "https://fandom-prod.apigee.net/v1/xapi/{}/metacritic/{}/web?apiKey={}"
 
-        page = await self.bot.utils.bs_from_url(self.bot, urls[0])
+        # if mediatype == 'tv' and len(urlparts) > 3:
+        #     slug = f"{slug}/seasons/{urlparts[3]}"
+        
+        apiurl = apiurl.format(self.MC_MEDIA_MAP[mediatype], slug, self.bot.config.mc_api_key)
+        
+        
+        async with self.bot.session.get(apiurl) as resp:
+            data = await resp.json()
+            data = data['data']['item']
 
-        data = json.loads(page.find('script', type='application/ld+json').string)
 
-        self.bot.utils.dict_merge(mc_model, data)
+        platform = data.get("platform", "")
+        mediatype = platform if platform else self.MC_FRIENDLY_NAME[mediatype]
+        e = discord.Embed(title=f"{data['title']} {data['premiereYear']} ({mediatype})", 
+                          url=urls[0])
+        e.description = data['description']
+        imgurl = self.MC_IMG_URL.format(data['images'][0]['bucketPath'])
+        print(imgurl)
+        e.set_thumbnail(url=imgurl)
 
-        title = mc_model['name']
-        category = mc_model['@type']
-        if mc_model['@type'] == "VideoGame":
-            category = mc_model['gamePlatform']
-        elif mc_model['@type'] == "Movie":
-            category = "Film"
-            title += " ({})".format(mc_model['datePublished'][-4:])
-
-        e = discord.Embed(title=f"{title} ({category})", url=urls[0])
-        e.description = mc_model['description']
-        e.set_thumbnail(url=mc_model['image'])
-
-        mc_rating = mc_model['aggregateRating']['ratingValue']
-        mc_rating_count = mc_model['aggregateRating']['ratingCount']
-        rating = "{}{}".format(mc_rating, f' ({mc_rating_count} reviews)' if mc_rating_count else '')
-
-        embed_fields = {"MC Rating": rating, "Genres": ", ".join(mc_model['genre'])}
-
-        for k,v in embed_fields.items():
-            if str(v).strip():
-                e.add_field(name=k, value=str(v))
-
+        critics = data['criticScoreSummary']
+        mc_rating = critics['score']
+        count = "{}: +{} ~{} -{}"
+        count = count.format(critics['reviewCount'], 
+                             critics['positiveCount'], 
+                             critics['neutralCount'], 
+                             critics['negativeCount'])
+        
+        e.add_field(name="Rating", value=mc_rating)
+        e.add_field(name="Reviews", value=count)
+        
+        genres = ", ".join([g['name'] for g in data['genres'] ])
+        e.add_field(name="Genres", value=genres)
+        
         await ctx.send(embed=e)
 
     async def read_goodreads_data(self, url):
@@ -225,8 +229,11 @@ class Media(commands.Cog):
             self.bot.logger.info(f"Failed to load bookdata in query: {book} {urls[0]}")
             self.bot.logger.info(data)
             return
-        authorkey = bookdata['primaryContributorEdge']['node']['__ref']
-        name = data[authorkey]['name']
+        try:
+            authorkey = bookdata['primaryContributorEdge']['node']['__ref']
+            name = data[authorkey]['name']
+        except:
+            name = "?"
 
         workkey = bookdata['work']['__ref']
         workdata = data[workkey]

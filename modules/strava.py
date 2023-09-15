@@ -46,7 +46,6 @@ class Strava(commands.Cog):
                 # Process a last ride request for a specific strava id.
                 url = f"https://m.strava.com/api/v3/feed/athlete/{user}"
                 headers = {'Authorization': 'access_token ' + token}
-                print(token)
                 async with self.bot.session.get(url, headers=headers) as resp:
                     if resp.status != 200:
                         print(await resp.read())
@@ -235,5 +234,5 @@ class Strava(commands.Cog):
 async def setup(bot):
     strava = Strava(bot)
     await bot.add_cog(strava)
-    bot.loop.create_task(strava.webserver())
+#    bot.loop.create_task(strava.webserver())
 

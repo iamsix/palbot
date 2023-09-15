@@ -107,11 +107,11 @@ class Chat(commands.Cog):
                  3) starvation
          """
          options = re.split(r"(\d\.|\d\))", msg)
-         emoji = ['1⃣', '2⃣', '3⃣', '4⃣', '5⃣', '6⃣', '7⃣', '8⃣', '9⃣']
+         emoji = ['0️⃣', '1⃣', '2⃣', '3⃣', '4⃣', '5⃣', '6⃣', '7⃣', '8⃣', '9⃣']
          for opt in options[1:]:
              try:
                  number = int(opt[0])
-                 await ctx.message.add_reaction(emoji[number-1])
+                 await ctx.message.add_reaction(emoji[number])
              except:
                  pass
             
