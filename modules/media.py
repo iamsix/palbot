@@ -150,32 +150,47 @@ class Media(commands.Cog):
                 "site:metacritic.com " + title,
                 url_regex="metacritic.com/(tv|game|movie)")
     
+        if not urls:
+            await ctx.send(f"`{title}` not found on metacritic")
+            return
         url = URL(urls[0])
         urlparts = url.path.split("/")
         mediatype = urlparts[1]
         slug = urlparts[2]
-        apiurl = "https://fandom-prod.apigee.net/v1/xapi/{}/metacritic/{}/web?apiKey={}"
+        apiurl_t = "https://fandom-prod.apigee.net/v1/xapi/{}/metacritic/{}/web?apiKey={}"
 
-        # if mediatype == 'tv' and len(urlparts) > 3:
-        #     slug = f"{slug}/seasons/{urlparts[3]}"
-        
-        apiurl = apiurl.format(self.MC_MEDIA_MAP[mediatype], slug, self.bot.config.mc_api_key)
-        
+        apiurl = apiurl_t.format(self.MC_MEDIA_MAP[mediatype], slug, self.bot.config.mc_api_key)
         
         async with self.bot.session.get(apiurl) as resp:
             data = await resp.json()
             data = data['data']['item']
 
+        title = data['title']
+        year = data['premiereYear']
+        critics = data['criticScoreSummary']
+        if mediatype == 'tv' and len(urlparts) > 3:
+             slug = f"{slug}/seasons/{urlparts[3]}"
+             s_apiurl = apiurl_t.format(self.MC_MEDIA_MAP[mediatype], 
+                                        slug, 
+                                        self.bot.config.mc_api_key)
+             async with self.bot.session.get(s_apiurl) as resp:
+                s_data = await resp.json()
+                s_data = s_data['data']['item']
+                critics = s_data['criticScoreSummary']
+                title += f" ({s_data['tvTaxonomy']['season']['name']})"
+                year = s_data['releaseYear']
 
         platform = data.get("platform", "")
         mediatype = platform if platform else self.MC_FRIENDLY_NAME[mediatype]
-        e = discord.Embed(title=f"{data['title']} {data['premiereYear']} ({mediatype})", 
-                          url=urls[0])
+        e = discord.Embed(title=f"{title} {year} ({mediatype})", url=urls[0])
         e.description = data['description']
         imgurl = self.MC_IMG_URL.format(data['images'][0]['bucketPath'])
         e.set_thumbnail(url=imgurl)
 
-        critics = data['criticScoreSummary']
+
+             
+
+        
         mc_rating = critics['score']
         count = "{}: +{} ~{} -{}"
         count = count.format(critics['reviewCount'], 
