@@ -152,7 +152,6 @@ class Media(commands.Cog):
     
         url = URL(urls[0])
         urlparts = url.path.split("/")
-        print(urlparts)
         mediatype = urlparts[1]
         slug = urlparts[2]
         apiurl = "https://fandom-prod.apigee.net/v1/xapi/{}/metacritic/{}/web?apiKey={}"
@@ -174,7 +173,6 @@ class Media(commands.Cog):
                           url=urls[0])
         e.description = data['description']
         imgurl = self.MC_IMG_URL.format(data['images'][0]['bucketPath'])
-        print(imgurl)
         e.set_thumbnail(url=imgurl)
 
         critics = data['criticScoreSummary']
