@@ -36,12 +36,13 @@ class WotdPrompt(discord.ui.Modal):
     good_word = False
     word = ""
     fullword = False
-    s_re = re.compile("[^a-z0-9 !'_-]*",re.I)
+    s_re = re.compile("[^a-z0-9!'_-]*",re.I)
     new_wotd = discord.ui.TextInput(label="New Word of the Day", min_length=3, required=True)
     async def on_submit(self, interaction: discord.Interaction):
         word = str(self.new_wotd)
         # This might fail from those stupid fancy quotes
-        self.fullword = (word[0] == '"' and word[-1] == '"')
+        # self.fullword = (word[0] == '"' and word[-1] == '"')
+        self.fullword = True
         word = self.s_re.sub("", word)
         word = word.strip()
         self.word = word
@@ -55,7 +56,7 @@ class WotdPrompt(discord.ui.Modal):
             self.wotd.bot.logger.info(f"Short WOTD: {word}. OG: {self.new_wotd} Fullword: {self.fullword}")
             await interaction.response.send_message(f"**{word}** only has {len(word)} characters after removing disallowed characters. It's too short to set. You can click the button to set a different one.", ephemeral=True)
             self.wotd.wotd_count = None
-        elif count < 100:
+        elif count < 1:
             self.wotd.wotd_count = None
             self.wotd.bot.logger.info(f"Bad WOTD: {word} count: {count} Fullword: {self.fullword}")
             print(f"Bad WOTD is: {word} with {count}")
@@ -327,7 +328,7 @@ class Wotd(commands.Cog):
 
         await ctx.send(f"The WOTD {hint}was set by **{self.setter.display_name}** {ago}.\nThe word has been used {wordcount} times in this channel.{fw}")
 
-    s_re = re.compile("[^a-z0-9 !'_-]*",re.I)
+    s_re = re.compile("[^a-z0-9!'_-]*",re.I)
 
     def count_wotd(self, word = None, *, fullword=False):
         if self.wotd_count and not word:

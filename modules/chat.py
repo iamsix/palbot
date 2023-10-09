@@ -191,10 +191,13 @@ class Chat(commands.Cog):
             return result[0].strip()
         
     @commands.command()
-    async def pdl(self, ctx):
-        pg = await self.bot.utils.bs_from_url(self.bot, "https://poorlydrawnlines.com/")
-        comic = pg.find('a',href=re.compile('poorlydrawnlines.com/wp-content/uploads/\d{4}/\d{2}/'))
-        await ctx.send(comic.get('href'))
+    async def pdl(self, ctx, *, td: str = ""):
+        url = "https://poorlydrawnlines.com/?random"
+        if td.lower() == "today":
+            url = "https://poorlydrawnlines.com/"
+        pg = await self.bot.utils.bs_from_url(self.bot, url)
+        comic = pg.find('img',src=re.compile('poorlydrawnlines.com/wp-content/uploads/\d{4}/\d{2}/'))
+        await ctx.send(comic.get('src'))
              
 
 

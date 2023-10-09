@@ -190,14 +190,18 @@ class Media(commands.Cog):
         e.set_thumbnail(url=imgurl)
         
         mc_rating = critics['score']
-        count = "{} : {}\N{THUMBS UP SIGN} {}\N{NEUTRAL FACE} {}\N{THUMBS DOWN SIGN}"
-        count = count.format(critics['reviewCount'], 
+        if mc_rating:
+            e.add_field(name="Rating", value=mc_rating)
+        count = ""
+
+        if 'reviewCount' in critics and critics['reviewCount']:
+            count = "{} : {}\N{THUMBS UP SIGN} {}\N{NEUTRAL FACE} {}\N{THUMBS DOWN SIGN}"
+            count = count.format(critics['reviewCount'], 
                              critics['positiveCount'], 
                              critics['neutralCount'], 
                              critics['negativeCount'])
-        
-        e.add_field(name="Rating", value=mc_rating)
-        e.add_field(name="Reviews", value=count)
+        if count: 
+            e.add_field(name="Reviews", value=count)
         
         genres = ", ".join([g['name'] for g in data['genres'] ])
         e.add_field(name="Genres", value=genres)
