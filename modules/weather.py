@@ -627,15 +627,12 @@ class Weather(commands.Cog):
     @commands.command()
     async def metar(self, ctx, station: str):
         """Get the Metar aviation weather report for an airport <station>"""
-        url = ('http://aviationweather.gov/adds/dataserver_current/httpparam?'
-               'dataSource=metars&requestType=retrieve&format=xml&' 
-              f'stationString={station}&hoursBeforeNow=2&mostRecent=true')
+        url = f"https://aviationweather.gov/api/data/metar?ids={station}"
         async with self.bot.session.get(url) as resp:
             data = await resp.read()
-            dom = xml.dom.minidom.parseString(data)
-            text = dom.getElementsByTagName('raw_text')
-            if text:
-                await ctx.send(text[0].childNodes[0].data)
+            data = data.decode()
+            if data:
+                await ctx.send(data)
             else:
                 await ctx.send(f"Failed to find METAR for `{station}` - it needs an airpot ICAO code such as KJFK")
     @metar.error

@@ -186,7 +186,7 @@ class Sports(commands.Cog):
                     starttime, tzname)
                 if gamestatus == "9":
                     gametxt += " Postponed"
-                if str(game['gamePk'])[4:6] == "03":
+                if str(game['gamePk'])[4:6] == "03" and 'seriesSummary' in game:
                     gametxt += f" - {game['seriesSummary']['seriesStatusShort']}"
             else:
                 # game finished or currently on
@@ -204,7 +204,8 @@ class Sports(commands.Cog):
                                         
                 if game['status']['statusCode'] == "7":
                     status = status.replace("3rd", "").strip()
-                    status += f" - {game['seriesSummary']['seriesStatusShort']}"
+                    if 'seriesSummary' in game:
+                        status += f" - {game['seriesSummary']['seriesStatusShort']}"
                     
                 gametxt = "{} - {} | {}".format(away, home, status)
                 

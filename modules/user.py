@@ -38,6 +38,10 @@ class User(commands.Cog):
         await asyncio.sleep(12 * 60 * 60)
         await ctx.author.remove_roles(tag, reason="the whopper has worn off")
 
+    @commands.command()
+    async def bounce (self, ctx):
+        await ctx.send(file=discord.File("../media/yeah_Bounce.webm"))
+
     @commands.group(name="set", case_insensitive=True)
     async def _set (self, ctx):
         """Use '!help set' for more info. Lets you set user related information for convenience"""

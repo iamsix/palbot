@@ -98,6 +98,7 @@ class WotdButton(discord.ui.View):
             self.wotd.fwr = re.compile(f"\\b{word}\\b", flags=re.IGNORECASE)
             self.wotd.bot.logger.info(f"New WOTD is: {word} - Fullword is: {modal.fullword}")
             self.wotd.wotd = word
+            self.wotd.timestamp = datetime.utcnow()
             count = self.wotd.count_wotd()
             chan = self.message.channel.id
             self.wotd.single_setter(chan, "setter", self.wotd_finder.id)
