@@ -283,6 +283,10 @@ class Vids(commands.Cog):
             filename += ".mp4"
             mpdurl = submission['url'] + "/DASHPlaylist.mpd"
         
+        try:
+            await message.edit(suppress=True)
+        except Exception as e:
+            print(e)
             
         async with message.channel.typing():
             pass

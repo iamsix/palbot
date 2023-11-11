@@ -134,13 +134,13 @@ class Sports(commands.Cog):
             if game['gameStatus'] == 1:
                 gstart = starttime.strftime('%-I:%M%p').replace(':00', '')
                 out = f"{awayt}     @     {homet} | {gstart} {date.tzname()}"
-                if 'seriesText' in game:
+                if 'seriesText' in game and game['seriesText']:
                     out += f" - {game['seriesText']}"
             else:
                 ascore = str(away['score']).rjust(3)
                 hscore = str(home['score']).ljust(3)
                 out = f"{awayt} {ascore} - {hscore} {homet} | {status}"
-                if game['gameStatus'] == 3 and 'seriesText' in game:
+                if 'seriesText' in game and game['seriesText']:
                     out += f" - {game['seriesText']}"
 
             games.append(out)
@@ -157,55 +157,53 @@ class Sports(commands.Cog):
         """Show today's or [date]s NHL games with score, status"""
         date = await self.sports_date(ctx, date)
 
-        url = "http://statsapi.web.nhl.com/api/v1/schedule"
-        par = {'startDate': str(date.date()), 'endDate': str(date.date()),
-               'expand': "schedule.teams,schedule.linescore,schedule.game.seriesSummary"}
+        url = "https://api-web.nhle.com/v1/score/" + str(date.date())
         
-        async with self.bot.session.get(url, params=par) as resp:
+        async with self.bot.session.get(url) as resp:
             data = await resp.json()
             
         games = []
-        if not data['dates']:
+        if not data['games']:
             await ctx.send(f"No games found for {date.date()}")
             return
         
-        for game in data['dates'][0]['games']:
-            gamestatus = game['status']['statusCode'] 
-            if gamestatus == "1" or gamestatus == "2" or gamestatus == "9" or gamestatus == "8":
+        for game in data['games']:
+            gamestatus = game['gameState'] 
+            # Might need to use 'gameScheduleState' at some point
+            if gamestatus == "PRE" or gamestatus == "FUT":
                 # game is scheduled in future
-                starttime = datetime.datetime.strptime(game['gameDate'], "%Y-%m-%dT%H:%M:%SZ")
+                starttime = datetime.datetime.strptime(game['startTimeUTC'], "%Y-%m-%dT%H:%M:%SZ")
                 starttime = starttime.replace(tzinfo=pytz.utc).astimezone(tz=date.tzinfo)
                 tzname = starttime.tzname()
                 starttime = starttime.strftime('%I:%M%p').lstrip('0').replace(':00', '')
-                if gamestatus == "8":
-                    starttime = "TBD"
+                if game['gameScheduleState'] != "OK":
+                    starttime += f"* {game['gameScheduleState']}"
 
                 gametxt = "{} @    {} | {} {}".format(
-                    game['teams']['away']['team']['teamName'].ljust(17),
-                    game['teams']['home']['team']['teamName'].ljust(14),
+                    game['awayTeam']['name']['default'].ljust(17),
+                    game['homeTeam']['name']['default'].ljust(14),
                     starttime, tzname)
-                if gamestatus == "9":
-                    gametxt += " Postponed"
-                if str(game['gamePk'])[4:6] == "03" and 'seriesSummary' in game:
-                    gametxt += f" - {game['seriesSummary']['seriesStatusShort']}"
             else:
+                # "LIVE" for on. "OFF" for finished?
                 # game finished or currently on
                 away = '{} {}'.format(
-                    game['teams']['away']['team']['teamName'].ljust(14),
-                    str(game['linescore']['teams']['away']['goals']).rjust(2))
+                    game['awayTeam']['name']['default'].ljust(14),
+                    str(game['awayTeam']['score']).rjust(2))
                 
                 home = '{} {}'.format(
-                    str(game['linescore']['teams']['home']['goals']).ljust(2),
-                    game['teams']['home']['team']['teamName'].ljust(14))
+                    str(game['homeTeam']['score']).ljust(2),
+                    game['homeTeam']['name']['default'].ljust(14))
                                     
+                # Check ['clock']['running']?
                 status = '{} {}'.format(
-                    game['linescore']['currentPeriodTimeRemaining'],
-                    game['linescore']['currentPeriodOrdinal'])
+                    game['clock']['timeRemaining'],
+                    self.bot.utils.ordinal(game['period']))
+                # ['periodDescriptor']['periodType'] shows OT?
                                         
-                if game['status']['statusCode'] == "7":
-                    status = status.replace("3rd", "").strip()
-                    if 'seriesSummary' in game:
-                        status += f" - {game['seriesSummary']['seriesStatusShort']}"
+                if gamestatus == "OFF":     
+                    status = "Final"
+                    if game['gameOutcome']['lastPeriodType'] == "OT":
+                        status += " OT"
                     
                 gametxt = "{} - {} | {}".format(away, home, status)
                 
