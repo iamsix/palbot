@@ -157,8 +157,9 @@ class Strava(commands.Cog):
 
         out = f"{name} {near}on {time_start} [ <http://www.strava.com/activities/{ride_id}> ]\n"
         if recent_ride['type'].lower() == "run":
-            avg_pace = self.meters_per_second_to_minutes_per_mile(recent_ride['average_speed'])
-            out += f"{recent_ride['type']} Stats: {distance} in {moving_time} | Avg pace: {avg_pace} /mi | {climbed} climbed"
+            avg_pace_mi = self.meters_per_second_to_minutes_per_mile(recent_ride['average_speed'])
+            avg_pace_km = self.meters_per_second_to_minutes_per_km(recent_ride['average_speed'])
+            out += f"{recent_ride['type']} Stats: {distance} in {moving_time} | Avg pace: {avg_pace_mi} /mi - {avg_pace_km} /km | {climbed} climbed"
             if avg_hr:
                 out += f" | Avg HR: {int(avg_hr)} bpm"
         else:
@@ -207,6 +208,12 @@ class Strava(commands.Cog):
             return 0
         secs_per_mile = round(1/(0.000621371 * float(mps)), 1)
         return time.strftime("%M:%S", time.gmtime(secs_per_mile))
+    
+    def meters_per_second_to_minutes_per_km(self, mps):
+        if mps == 0:
+            return 0
+        secs_per_km = round(1000.0 / mps, 1)
+        return time.strftime("%M:%S", time.gmtime(secs_per_km))
 
     def meters_per_second_to_miles_per_hour(self, mps):
         """ Converts meters per second to miles per hour, who the fuck uses this to measure bike speed? Idiots. """
