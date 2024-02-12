@@ -16,7 +16,7 @@ from io import BytesIO
 class Games(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.CARD_REGEX = re.compile("\[([^\(]*?)(?:\((.*?)\))?\]")
+        self.CARD_REGEX = re.compile(r"\[([^\(]*?)(?:\((.*?)\))?\]")
 
     @commands.command()
     async def mtg(self, ctx, *, card: str):

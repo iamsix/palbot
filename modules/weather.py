@@ -643,7 +643,7 @@ class Weather(commands.Cog):
 
 
     # TODO change this to twc or accuweather
-    @commands.command()
+    @commands.command(aliases=['sunrise, sunset'])
     async def sun(self, ctx, *, location: str = None):
         """Show sunrise/sunset for a <location>
            Can be invoked without location if you have done a `set location`"""
@@ -659,7 +659,10 @@ class Weather(commands.Cog):
         async with self.bot.session.get(url) as resp:
             data = await resp.json()
 
-        tmz = pytz.timezone(data['timezone'])
+        try:
+            tmz = pytz.timezone(data['timezone'])
+        except:
+            tmz = pytz.timezone("UTC")
         now = datetime.fromtimestamp(int(data['currently']['time']), tz=tmz)
         data = data['daily']['data'][0]
 

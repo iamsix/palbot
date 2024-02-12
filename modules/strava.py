@@ -19,7 +19,7 @@ class Strava(commands.Cog):
             state = request.rel_url.query['state']
             return web.Response(text=f"Set user {user} to code {code} - state {state}")
         app = web.Application()
-        app.router.add_get('/strava/{user:\d+}', handler)
+        app.router.add_get(r'/strava/{user:\d+}', handler)
         runner = web.AppRunner(app)
         await runner.setup()
         self.site = web.TCPSite(runner, "127.0.0.1", 5000)
@@ -99,7 +99,10 @@ class Strava(commands.Cog):
     async def strava_extract_latest_ride(self, data, user):
         """ Grab the latest ride from a list of rides and gather some statistics about it """
         if data:
-            recent_ride = data[0]['item']
+            for ride in data:
+                if ride['item']['entity_type'] == "Activity":
+                    recent_ride = ride['item']
+                    break
             recent_ride = await self.strava_get_ride_extended_info(recent_ride['id'])
             if recent_ride:
                 self.bot.logger.debug(recent_ride)

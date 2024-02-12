@@ -21,7 +21,7 @@ class Finance(commands.Cog):
 
     @commands.command()
     async def coin(self, ctx, *, line: str):
-        await self.stock(ctx, line + "-usd")
+        await self.stock(ctx, name=line + "-usd")
 
     @commands.command()
     async def oldcoin(self, ctx, *, line: str):
