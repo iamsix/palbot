@@ -195,9 +195,12 @@ class Sports(commands.Cog):
                     game['homeTeam']['name']['default'].ljust(14))
                                     
                 # Check ['clock']['running']?
+
                 status = '{} {}'.format(
                     game['clock']['timeRemaining'],
                     self.bot.utils.ordinal(game['period']))
+                if game['clock']['inIntermission']:
+                    status += " Int"
                 # ['periodDescriptor']['periodType'] shows OT?
                                         
                 if gamestatus == "OFF":     

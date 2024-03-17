@@ -77,9 +77,10 @@ class Strava(commands.Cog):
             await ctx.send(error)
     
     @_strava.command(name="activity")
-    async def check_activity(self, ctx, activity: int, user: int):
+    async def check_activity(self, ctx, activity: int):
         self.token = token = self.bot.config.stravaToken
         recent_ride = await self.strava_get_ride_extended_info(activity)
+        user = recent_ride['athlete']['id']
         if recent_ride:
             measurements = await self.strava_get_measurement_pref(user)
             out = await self.parse_strava_ride(recent_ride, user, measurements)

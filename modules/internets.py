@@ -95,7 +95,7 @@ class Internets(commands.Cog):
         
         text = re.sub(r'\[\d*?\]', '', str(pg))
         t = html2text.HTML2Text(bodywidth=5000)
-        t.emphasis_mark = "*"
+        # t.emphasis_mark = "*"
         text = t.handle(text).strip()
 #       text = html2text.html2text(text, bodywidth=5000).strip()
         text = text.replace('](/wiki', f'](https://{url.host}/wiki')

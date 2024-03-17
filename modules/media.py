@@ -159,7 +159,7 @@ class Media(commands.Cog):
         slug = urlparts[1]
         if mediatype == 'game' and len(urlparts) > 2:
             slug = urlparts[2]
-        apiurl_t = "https://fandom-prod.apigee.net/v1/xapi/{}/metacritic/{}/web?apiKey={}"
+        apiurl_t = "https://internal-prod.apigee.fandom.net/v1/xapi/{}/metacritic/{}/web?apiKey={}"
 
         apiurl = apiurl_t.format(self.MC_MEDIA_MAP[mediatype], slug, self.bot.config.mc_api_key)
         

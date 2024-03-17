@@ -91,6 +91,8 @@ class Reminder(commands.Cog):
     async def timetest(self, ctx, *, time):
         tz = ctx.author_info.timezone
 
+        time += " to test"
+
         date, message = self.reminder_parser(time, tz)
         if tz and date:
             ntz = ZoneInfo(tz)
