@@ -123,15 +123,21 @@ class Strava(commands.Cog):
         time_start = time.strftime("%B %d, %Y at %I:%M %p", ride_datetime)
 
         name = recent_ride['name']
-        location = None
+        location = ""
 
-        if recent_ride['location_city'] is None or recent_ride['location_state'] is None:
-            try:
-                location = await self.bot.utils.Location.get_location_by_latlon(self.bot, recent_ride['start_latlng'][0], recent_ride['start_latlng'][1])
-            except:
-                location = "Unknown"
+        if not recent_ride['location_city'] or not recent_ride['location_state']:
+            if not recent_ride['type'] == "VirtualRide":
+                try:
+                    location = await self.bot.utils.Location.get_location_by_latlon(self.bot, 
+                                                                                    recent_ride['start_latlng'][0], 
+                                                                                    recent_ride['start_latlng'][1])
+                except:
+                    location = ""
         else:
             location = f"{recent_ride['location_city']}, {recent_ride['location_state']}"
+
+        if location:
+            location = f"near {location} "
         ride_id = recent_ride['id']
 
         # Try to get the average heart rate
@@ -154,12 +160,8 @@ class Strava(commands.Cog):
 
         # Figure out if we need to add average watts to the string.
         # Users who don't have a weight won't have average watts.
-        
-        near = ""
-        if location is not None:
-            near = f"near {location} "
 
-        out = f"{name} {near}on {time_start} [ <http://www.strava.com/activities/{ride_id}> ]\n"
+        out = f"{name} {location}on {time_start} [ <http://www.strava.com/activities/{ride_id}> ]\n"
         if recent_ride['type'].lower() == "run":
             avg_pace_mi = self.meters_per_second_to_minutes_per_mile(recent_ride['average_speed'])
             avg_pace_km = self.meters_per_second_to_minutes_per_km(recent_ride['average_speed'])
