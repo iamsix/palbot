@@ -196,7 +196,8 @@ class Chat(commands.Cog):
         if td.lower() == "today":
             url = "https://poorlydrawnlines.com/"
         pg = await self.bot.utils.bs_from_url(self.bot, url)
-        comic = pg.find('img',src=re.compile(r'poorlydrawnlines.com/wp-content/uploads/\d{4}/\d{2}/'))
+        div = pg.find('div', attrs={'class' : "entry-content"})
+        comic = div.find('img',src=re.compile(r'poorlydrawnlines.com/wp-content/uploads/\d{4}/\d{2}/'))
         await ctx.send(comic.get('src'))
              
 

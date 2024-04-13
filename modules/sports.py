@@ -216,7 +216,7 @@ class Sports(commands.Cog):
             await ctx.send("```{}```".format("\n".join(games)))
 
 
-    @commands.command(aliases=['cfl', 'xfl'])
+    @commands.command(aliases=['cfl', 'xfl', 'ufl'])
     async def nfl(self, ctx, *, date: HumanTime = None):
         """Show today's NFL games with score, status
            While a date can be provided the API is weird and only works for the current week?"""
@@ -226,6 +226,8 @@ class Sports(commands.Cog):
             url = 'https://site.api.espn.com/apis/site/v2/sports/football/cfl/scoreboard'
         if ctx.invoked_with.lower() == "xfl":
             url = 'https://site.api.espn.com/apis/site/v2/sports/football/xfl/scoreboard'
+        if ctx.invoked_with.lower() == "ufl":
+            url = 'https://site.api.espn.com/apis/site/v2/sports/football/ufl/scoreboard'
         date = await self.sports_date(ctx, date)
         async with self.bot.session.get(url) as resp:
             data = await resp.json()
