@@ -196,6 +196,47 @@ class Food(commands.Cog):
                                 drink["strInstructions"])
         await ctx.send(output)
 
+    wine_pat = re.compile(r'window.__PRELOADED_STATE__.winePageInformation = (.*);\n')
+    @commands.command()
+    async def wine(self, ctx, *, wine: str):
+        """Search vivino.com for a <wine> and return some information about it"""
+        url = await self.bot.utils.google_for_urls(self.bot, 
+                    "site:vivino.com {}".format(wine),
+                    url_regex="vivino.com/.*/w/\d+")
+        
+        if not url:
+            await ctx.send(f"Unabled to find a wine named `{wine}` on Vivino")
+            return
+        
+        winepage = await self.bot.utils.bs_from_url(self.bot, url[0])
+
+        script = winepage.find("script", text=self.wine_pat)
+        js_data = None
+        if script:
+            data = self.wine_pat.search(script.text)
+            if data:
+                js_data = json.loads(data.group(1))
+            else:
+                await ctx.send("Scraping the wine data json failed")
+                return
+        else:
+            await ctx.send("The wine json data isn't in the scraped page")
+            return
+        
+        vintage = js_data['vintage']
+        stats = vintage['statistics']
+        wine = js_data['wine']
+        
+        e = discord.Embed(title=f"{vintage['name']}", url=url[0])
+        e.add_field(name="Rating", value=f"{stats['ratings_average']} ({stats['reviews_count']} ratings)")
+        e.add_field(name="ABV", value=str(wine['alcohol']) + "%")
+        e.set_footer(text=wine['description'])
+        e.set_thumbnail(url=f"https:{vintage['image']['location']}")
+
+        await ctx.send(embed=e)
+
+
+
     @commands.command(aliases=['liquor', 'booze'])
     async def spirits(self, ctx, *, spirit: str):
         """Search Distiller.com for a <spirit> and return some information about it"""
