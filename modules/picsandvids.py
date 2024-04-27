@@ -173,7 +173,7 @@ class Vids(commands.Cog):
 
     REDDIT_URL = re.compile(r'v\.redd\.it|reddit\.com/r/')
     REDDIT_GIF = re.compile(r'preview.redd.it/.+\.gif\?format=mp4')
-    IG_URL = re.compile(r'instagram.com\/p\/')
+    IG_URL = re.compile(r'[www\.|\/\/]instagram.com\/.+')
     URL_REGEX = re.compile(r"(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>])*\))+(?:\(([^\s()<>])*\)|[^\s`!()\[\]{};:'\".,<>?«»“”‘’]))")
     @commands.Cog.listener()
     async def on_message(self, message):
@@ -191,21 +191,23 @@ class Vids(commands.Cog):
                 return
             await self.reddit_gif(message, url)
 
-        #ig = self.IG_URL.search(message.content)
-        #if ig:
-        #    url = self.URL_REGEX.search(message.content).group(0)
-        #    if not url:
-        #        return
-        #    await self.ig_url(message, url)
+        ig = self.IG_URL.search(message.content)
+        if ig:
+            url = self.URL_REGEX.search(message.content).group(0)
+            if not url:
+                return
+            await self.ig_url(message, url)
 
     async def ig_url(self, message, url):
-        page = await self.bot.utils.bs_from_url(self.bot, url)
-        title = page.find(property="og:title").get("content")
-        picture = page.find(property="og:image").get("content")
-        e = discord.Embed(title=title, url=url)
-        e.set_image(url=picture)
         ctx = await self.bot.get_context(message, cls=self.bot.utils.MoreContext)
-        await ctx.send(embed=e)
+        try:
+            await message.edit(suppress=True)
+        except Exception as e:
+            print(e)
+        url = URL(url)
+        url = url.with_host("ddinstagram.com")
+        await ctx.send(url)
+        
 
     async def reddit_gif(self, message, url):
         ctx = await self.bot.get_context(message, cls=self.bot.utils.MoreContext)

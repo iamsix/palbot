@@ -61,9 +61,11 @@ class Sports(commands.Cog):
                 
                 o = "{} {} - {} {} | {}".format(
                                         away['team']['teamName'].ljust(9),
+#                                        away['team']['abbreviation'].ljust(3),
                                         str(away['score']).rjust(2),
                                         str(home['score']).ljust(2),
                                         home['team']['teamName'].ljust(9),
+#                                        home['team']['abbreviation'].ljust(3),
                                         status)
             
             elif code == "S" or code == "P":
@@ -74,8 +76,10 @@ class Sports(commands.Cog):
                 starttime = starttime.strftime('%I:%M%p').lstrip('0').replace(':00', '')
 
                 o = "{} @    {} | {} {}".format(
+#                                            away['team']['abbreviation'].ljust(3),
                                             away['team']['teamName'].ljust(12),
                                             home['team']['teamName'].ljust(9),
+#                                            home['team']['abbreviation'].ljust(3),
                                             starttime, tzname)
             else:
                 continue
@@ -122,7 +126,7 @@ class Sports(commands.Cog):
         for game in data['games']:
             starttime = datetime.datetime.strptime(game[startkey], "%Y-%m-%dT%H:%M:%SZ")
             starttime = starttime.replace(tzinfo=pytz.utc).astimezone(tz=date.tzinfo)
-            if starttime.date() != date.date():
+            if starttime.date() != date.date() and not today:
                 continue
 
             home = game['homeTeam']
@@ -151,6 +155,15 @@ class Sports(commands.Cog):
             await ctx.send(f"No games found for {date.date()}")
 
 
+    NHL_TEAM_NAMES = {"Maple Leafs": "Leafs", 
+                      "Blue Jackets": "B Jackets", 
+                      "Golden Knights": "G Knights",
+                      }
+    def short_nhl_name(self, name):
+        if name in self.NHL_TEAM_NAMES:
+            return self.NHL_TEAM_NAMES[name]
+        else:
+            return name
 		
     @commands.command()
     async def nhl(self, ctx, *, date: HumanTime = None):
@@ -167,8 +180,13 @@ class Sports(commands.Cog):
             await ctx.send(f"No games found for {date.date()}")
             return
         
+        
         for game in data['games']:
             gamestatus = game['gameState'] 
+            home = self.short_nhl_name(game['homeTeam']['name']['default'])
+            away = self.short_nhl_name(game['awayTeam']['name']['default'])
+#            home = self.short_nhl_name(game['homeTeam']['abbrev'])
+#            away = self.short_nhl_name(game['awayTeam']['abbrev'])
             # Might need to use 'gameScheduleState' at some point
             if gamestatus == "PRE" or gamestatus == "FUT":
                 # game is scheduled in future
@@ -176,23 +194,29 @@ class Sports(commands.Cog):
                 starttime = starttime.replace(tzinfo=pytz.utc).astimezone(tz=date.tzinfo)
                 tzname = starttime.tzname()
                 starttime = starttime.strftime('%I:%M%p').lstrip('0').replace(':00', '')
-                if game['gameScheduleState'] != "OK":
-                    starttime += f"* {game['gameScheduleState']}"
 
-                gametxt = "{} @    {} | {} {}".format(
-                    game['awayTeam']['name']['default'].ljust(17),
-                    game['homeTeam']['name']['default'].ljust(14),
-                    starttime, tzname)
+                status = ""
+                if 'seriesStatus' in game and game['seriesStatus']:
+                    status = f" - {self.parse_nhl_playoff(game)}"
+
+                gametxt = "{} @    {} | {} {}{}".format(
+                    away.ljust(13),
+                    home.ljust(10),
+#                    away.ljust(6),
+#                    home.ljust(3),
+                    starttime, tzname, status)
             else:
                 # "LIVE" for on. "OFF" for finished?
                 # game finished or currently on
                 away = '{} {}'.format(
-                    game['awayTeam']['name']['default'].ljust(14),
+                    away.ljust(10),
+#                    away.ljust(3),
                     str(game['awayTeam']['score']).rjust(2))
                 
                 home = '{} {}'.format(
                     str(game['homeTeam']['score']).ljust(2),
-                    game['homeTeam']['name']['default'].ljust(14))
+                    home.ljust(10))
+#                    home.ljust(3))
                                     
                 # Check ['clock']['running']?
 
@@ -200,13 +224,16 @@ class Sports(commands.Cog):
                     game['clock']['timeRemaining'],
                     self.bot.utils.ordinal(game['period']))
                 if game['clock']['inIntermission']:
-                    status += " Int"
+                    status = f"{self.bot.utils.ordinal(game['period'])} Int"
                 # ['periodDescriptor']['periodType'] shows OT?
                                         
                 if gamestatus == "OFF":     
                     status = "Final"
                     if game['gameOutcome']['lastPeriodType'] == "OT":
                         status += " OT"
+
+                if 'seriesStatus' in game and game['seriesStatus']:
+                    status += f" - {self.parse_nhl_playoff(game)}"
                     
                 gametxt = "{} - {} | {}".format(away, home, status)
                 
@@ -214,6 +241,25 @@ class Sports(commands.Cog):
         
         if games:
             await ctx.send("```{}```".format("\n".join(games)))
+
+    def parse_nhl_playoff(self, game):
+        tscore = game['seriesStatus']['topSeedWins']
+        bscore = game['seriesStatus']['bottomSeedWins']
+       # gmnum = game['seriesStatus']['gameNumberOfSeries']
+
+        if tscore > bscore:
+            wscore = tscore
+            lscore = bscore
+            winner = game['seriesStatus']['topSeedTeamAbbrev']
+        else:
+            wscore = bscore
+            lscore = tscore
+            if wscore == lscore:
+                winner = "TIED"
+            else:
+                winner = game['seriesStatus']['bottomSeedTeamAbbrev']
+
+        return f"{winner} {wscore}-{lscore}"
 
 
     @commands.command(aliases=['cfl', 'xfl', 'ufl'])

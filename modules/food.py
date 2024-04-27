@@ -196,7 +196,7 @@ class Food(commands.Cog):
                                 drink["strInstructions"])
         await ctx.send(output)
 
-    wine_pat = re.compile(r'window.__PRELOADED_STATE__.winePageInformation = (.*);\n')
+    wine_pat = re.compile(r'window.__PRELOADED_STATE__.(winePageInformation|vintagePageInformation) = (.*);\n')
     @commands.command()
     async def wine(self, ctx, *, wine: str):
         """Search vivino.com for a <wine> and return some information about it"""
@@ -215,7 +215,7 @@ class Food(commands.Cog):
         if script:
             data = self.wine_pat.search(script.text)
             if data:
-                js_data = json.loads(data.group(1))
+                js_data = json.loads(data.group(2))
             else:
                 await ctx.send("Scraping the wine data json failed")
                 return

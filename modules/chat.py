@@ -210,6 +210,8 @@ class Chat(commands.Cog):
         if cmd in [c.name for c in self.bot.commands]:
             await ctx.send("No shadowing real commands.")
             return
+        if cmd.startswith("!"):
+            cmd = cmd[1:]
         owner = str(ctx.author)
         c = self.custom_command_cursor
         conn = self.custom_command_conn
