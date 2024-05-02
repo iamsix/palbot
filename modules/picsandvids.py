@@ -173,7 +173,7 @@ class Vids(commands.Cog):
 
     REDDIT_URL = re.compile(r'v\.redd\.it|reddit\.com/r/')
     REDDIT_GIF = re.compile(r'preview.redd.it/.+\.gif\?format=mp4')
-    IG_URL = re.compile(r'[www\.|\/\/]instagram.com\/.+')
+    IG_URL = re.compile(r'[www\.|\/\/]instagram.com\/(p/|reel/).+')
     URL_REGEX = re.compile(r"(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>])*\))+(?:\(([^\s()<>])*\)|[^\s`!()\[\]{};:'\".,<>?«»“”‘’]))")
     @commands.Cog.listener()
     async def on_message(self, message):
@@ -200,13 +200,15 @@ class Vids(commands.Cog):
 
     async def ig_url(self, message, url):
         ctx = await self.bot.get_context(message, cls=self.bot.utils.MoreContext)
-        try:
-            await message.edit(suppress=True)
-        except Exception as e:
-            print(e)
+
         url = URL(url)
         url = url.with_host("ddinstagram.com")
         await ctx.send(url)
+        try:
+            await asyncio.sleep(1)
+            await message.edit(suppress=True)
+        except Exception as e:
+            print(e)
         
 
     async def reddit_gif(self, message, url):

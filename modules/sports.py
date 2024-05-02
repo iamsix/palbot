@@ -19,19 +19,6 @@ class Sports(commands.Cog):
         else:
             return date.dt
 
-
-    MLB_TEAMS = [
-         144, #   'ATL',
-         114, #   'CLE',
-         147, #   'NYY',
-         121, #   'NYM',
-         111, #   'BOS',
-         110, #   'BAL',
-         133, #   'OAK',
-         137, #   'SF',
-         119, #   'LAD'
-        ]
-
     @commands.command()
     async def mlb(self, ctx, *, date: HumanTime = None):
         """Show today's or [date]s MLB games with score, status"""
@@ -121,38 +108,33 @@ class Sports(commands.Cog):
                 await ctx.send(f"No games found for {date.date()}")
                 return
 
-       
-        games = []
+        e = discord.Embed()
         for game in data['games']:
             starttime = datetime.datetime.strptime(game[startkey], "%Y-%m-%dT%H:%M:%SZ")
-            starttime = starttime.replace(tzinfo=pytz.utc).astimezone(tz=date.tzinfo)
-            if starttime.date() != date.date() and not today:
-                continue
+            starttime = f"<t:{int(starttime.timestamp())}:t>"
 
             home = game['homeTeam']
             away = game['awayTeam']
-            status = game['gameStatusText']
+            status = game['gameStatusText'].strip()
+            series = ""
+            if 'seriesText' in game and game['seriesText']:
+                    series = game['seriesText']
 
-            homet = home['teamName'].ljust(13)
+            homet = home['teamName'].rjust(13)
             awayt = away['teamName'].ljust(13)
             if game['gameStatus'] == 1:
-                gstart = starttime.strftime('%-I:%M%p').replace(':00', '')
-                out = f"{awayt}     @     {homet} | {gstart} {date.tzname()}"
-                if 'seriesText' in game and game['seriesText']:
-                    out += f" - {game['seriesText']}"
+                e.add_field(name=f"`{awayt}     @     {homet}`", 
+                            value=f"{starttime}`{series.rjust(29)}`", inline=False)
+                
             else:
                 ascore = str(away['score']).rjust(3)
                 hscore = str(home['score']).ljust(3)
-                out = f"{awayt} {ascore} - {hscore} {homet} | {status}"
-                if 'seriesText' in game and game['seriesText']:
-                    out += f" - {game['seriesText']}"
 
-            games.append(out)
+                e.add_field(name=f"`{awayt} {ascore} - {hscore} {homet}`", 
+                            value=f"`{status.ljust(12)}{series.rjust(25)}`", inline=False)
+               
         
-        if games:
-            await ctx.send("```{}```".format("\n".join(games)))
-        else:
-            await ctx.send(f"No games found for {date.date()}")
+        await ctx.send(embed=e)
 
 
     NHL_TEAM_NAMES = {"Maple Leafs": "Leafs", 
@@ -180,43 +162,36 @@ class Sports(commands.Cog):
             await ctx.send(f"No games found for {date.date()}")
             return
         
+        e = discord.Embed()
         
         for game in data['games']:
             gamestatus = game['gameState'] 
             home = self.short_nhl_name(game['homeTeam']['name']['default'])
             away = self.short_nhl_name(game['awayTeam']['name']['default'])
-#            home = self.short_nhl_name(game['homeTeam']['abbrev'])
-#            away = self.short_nhl_name(game['awayTeam']['abbrev'])
+
             # Might need to use 'gameScheduleState' at some point
             if gamestatus == "PRE" or gamestatus == "FUT":
                 # game is scheduled in future
                 starttime = datetime.datetime.strptime(game['startTimeUTC'], "%Y-%m-%dT%H:%M:%SZ")
-                starttime = starttime.replace(tzinfo=pytz.utc).astimezone(tz=date.tzinfo)
-                tzname = starttime.tzname()
-                starttime = starttime.strftime('%I:%M%p').lstrip('0').replace(':00', '')
+                starttime = f"<t:{int(starttime.timestamp())}:t>"
 
                 status = ""
                 if 'seriesStatus' in game and game['seriesStatus']:
-                    status = f" - {self.parse_nhl_playoff(game)}"
+                    status = f"{self.parse_nhl_playoff(game)}"
 
-                gametxt = "{} @    {} | {} {}{}".format(
-                    away.ljust(13),
-                    home.ljust(10),
-#                    away.ljust(6),
-#                    home.ljust(3),
-                    starttime, tzname, status)
+                e.add_field(name=f"`{away.ljust(13)} @    {home.rjust(10)}`", 
+                            value=f"{starttime}`{status.rjust(21)}`", inline=False)
+
             else:
                 # "LIVE" for on. "OFF" for finished?
                 # game finished or currently on
                 away = '{} {}'.format(
                     away.ljust(10),
-#                    away.ljust(3),
                     str(game['awayTeam']['score']).rjust(2))
                 
                 home = '{} {}'.format(
                     str(game['homeTeam']['score']).ljust(2),
-                    home.ljust(10))
-#                    home.ljust(3))
+                    home.rjust(10))
                                     
                 # Check ['clock']['running']?
 
@@ -227,20 +202,17 @@ class Sports(commands.Cog):
                     status = f"{self.bot.utils.ordinal(game['period'])} Int"
                 # ['periodDescriptor']['periodType'] shows OT?
                                         
-                if gamestatus == "OFF":     
+                if gamestatus == "OFF":   
                     status = "Final"
                     if game['gameOutcome']['lastPeriodType'] == "OT":
                         status += " OT"
 
                 if 'seriesStatus' in game and game['seriesStatus']:
-                    status += f" - {self.parse_nhl_playoff(game)}"
-                    
-                gametxt = "{} - {} | {}".format(away, home, status)
+                    status = status.ljust(12) + f"{self.parse_nhl_playoff(game).rjust(17)}"
                 
-            games.append(gametxt)
+                e.add_field(name=f"`{away} - {home}`", value=f"`{status.ljust(29)}`", inline=False)
         
-        if games:
-            await ctx.send("```{}```".format("\n".join(games)))
+        await ctx.send(embed=e)
 
     def parse_nhl_playoff(self, game):
         tscore = game['seriesStatus']['topSeedWins']
@@ -258,8 +230,13 @@ class Sports(commands.Cog):
                 winner = "TIED"
             else:
                 winner = game['seriesStatus']['bottomSeedTeamAbbrev']
+        leads = "leads"
+        if wscore == 4:
+            leads = "wins"
+        elif winner == "TIED":
+            leads = ""
 
-        return f"{winner} {wscore}-{lscore}"
+        return f"{winner} {leads} {wscore}-{lscore}"
 
 
     @commands.command(aliases=['cfl', 'xfl', 'ufl'])
