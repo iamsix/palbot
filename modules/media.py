@@ -170,7 +170,7 @@ class Media(commands.Cog):
         title = data['title']
         year = data['premiereYear']
         critics = data['criticScoreSummary']
-        if mediatype == 'tv' and len(urlparts) > 2:
+        if mediatype == 'tv' and 'season' in str(url).lower() and len(urlparts) > 2:
              slug = f"{slug}/seasons/{urlparts[2]}"
              s_apiurl = apiurl_t.format(self.MC_MEDIA_MAP[mediatype], 
                                         slug, 

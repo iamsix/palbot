@@ -252,6 +252,7 @@ class Weather(commands.Cog):
         key = self.bot.config.accuweather_key
         loc = await self.locatamatron(ctx, location)
         if not loc:
+            await ctx.send(f"Location not found: `{location}`")
             return
         
         latlong = f'{loc.latitude},{loc.longitude}'
@@ -290,6 +291,17 @@ class Weather(commands.Cog):
         summary = f"{forecast[0]['Day']['LongPhrase']} in the day, "
         summary += f"{forecast[0]['Night']['LongPhrase']} at night."
         outlook_imp = f"{summary} {data['ForecastSummary']['Headline']['Text']}"
+
+        # extended stuff if necessary
+        uv = f"UV Index: {current['UVIndex']} ({current['UVIndexText']}) " if current['UVIndex'] > 0 else ""
+        pollen = ""
+        for pol in forecast[0]['AirAndPollen']:
+            if pol['Name'] == "Tree" and  pol['Value'] > 0:
+                pollen = f"Tree Pollen: {pol['Value']} ({pol['Category']})"
+
+        if uv or pollen:
+             outlook_imp += f"\n{uv}{pollen}"
+        # end of jank
         outlook_metric = units.imperial_string_to_metric(outlook_imp)
 
         temp_c = f"{units.f_to_c(current['Temperature']['Value'])}°C"

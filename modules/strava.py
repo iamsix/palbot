@@ -37,7 +37,12 @@ class Strava(commands.Cog):
            Optionally provide a [user] ID to show the most recent ride of
            use `set strava <id>` to set your strava ID"""
 
-        user = user or ctx.author_info.strava
+        index = 0
+        if user < 0:
+            index = abs(user)
+            user = ctx.author_info.strava or 0
+        else:
+            user = user or ctx.author_info.strava
         self.token = token = self.bot.config.stravaToken
 
         output = ""
@@ -52,7 +57,7 @@ class Strava(commands.Cog):
                         output = f"Unable to retrieve rides from Strava ID: {user}"
                     else:
                         data = await resp.json()
-                        output = await self.strava_extract_latest_ride(data, user)
+                        output = await self.strava_extract_latest_ride(data, user, index)
             else:
                 output = f"Sorry, `{user}` doesn't seem to be a valid Strava user."
             
@@ -97,14 +102,14 @@ class Strava(commands.Cog):
             else:
                 return True
 
-    async def strava_extract_latest_ride(self, data, user):
+    async def strava_extract_latest_ride(self, data, user, index):
         """ Grab the latest ride from a list of rides and gather some statistics about it """
         if data:
+            rides = []
             for ride in data:
                 if ride['item']['entity_type'] == "Activity":
-                    recent_ride = ride['item']
-                    break
-            recent_ride = await self.strava_get_ride_extended_info(recent_ride['id'])
+                    rides.append(ride['item'])
+            recent_ride = await self.strava_get_ride_extended_info(rides[index]['id'])
             if recent_ride:
                 self.bot.logger.debug(recent_ride)
                 measurements = await self.strava_get_measurement_pref(user)

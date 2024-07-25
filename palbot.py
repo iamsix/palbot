@@ -1,5 +1,7 @@
 import asyncio
 import aiohttp
+from socket import AF_INET
+from aiohttp import ClientSession, ClientTimeout, TCPConnector
 
 import discord
 from discord.ext import commands
@@ -46,7 +48,17 @@ class PalBot(commands.Bot):
 
 
     async def setup_hook(self):
-        self.session = aiohttp.ClientSession()
+        try:
+          connector = TCPConnector(family=AF_INET, limit_per_host=10)
+          timeout = ClientTimeout(total=5)
+          self.session = ClientSession(
+                timeout=timeout,
+                connector=connector,
+                max_line_size=8190 * 2,
+                max_field_size=8190 * 2,
+                )
+        except Exception as e:
+            print(e)
         for module in Path(self.moddir).glob('*.py'):
             try:
                 await self.load_extension("{}.{}".format(self.moddir,module.stem))

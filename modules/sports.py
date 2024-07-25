@@ -104,9 +104,9 @@ class Sports(commands.Cog):
                 if day.date() == date.date():
                     data = gameday
             startkey = 'gameDateTimeUTC'
-            if 'games' not in data:
-                await ctx.send(f"No games found for {date.date()}")
-                return
+        if 'games' not in data or not data['games']:
+            await ctx.send(f"No games found for {date.date()}")
+            return
 
         e = discord.Embed()
         for game in data['games']:
