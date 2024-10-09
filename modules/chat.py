@@ -201,6 +201,24 @@ class Chat(commands.Cog):
         await ctx.send(comic.get('src'))
              
 
+    @commands.command()
+    async def find(self, ctx, find: str):
+        #vt = "CREATE VIRTUAL TABLE IF NOT EXISTS cfind USING FTS5(cmd,description);"
+        #vt2 = "INSERT INTO cfind(cmd, description) SELECT cmd, description FROM commands;"
+        c = self.custom_command_cursor
+        #c.execute(vt)
+        #c.execute(vt2)
+        q = "SELECT commands.cmd, output, commands.description FROM commands JOIN cfind ON commands.cmd = cfind.cmd WHERE cfind MATCH (?) ORDER BY rank;"
+        res = c.execute(q, [find]).fetchall()
+        if res:
+            lines = []
+            for row in res:
+                lines.append(f"**!{row[0].strip()}** *{row[2].strip()}*")
+
+            await ctx.send("\n".join(lines))
+        else:
+            await ctx.send("Not found")
+        #c.execute("DROP TABLE cfind;")
 
     @commands.command()
 #    @commands.has_role('Admins')
@@ -215,7 +233,7 @@ class Chat(commands.Cog):
         owner = str(ctx.author)
         c = self.custom_command_cursor
         conn = self.custom_command_conn
-        c.execute("INSERT INTO commands VALUES (?,?,?)", (cmd.lower(), output, owner))
+        c.execute("INSERT INTO commands VALUES (?,?,?,?)", (cmd.lower(), output, owner, ""))
         conn.commit()
             
     @commands.command()

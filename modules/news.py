@@ -4,7 +4,7 @@ import csv
 from urllib.parse import quote as uriquote
 import xml.dom.minidom
 import base64
-
+from yarl import URL
 
 class News(commands.Cog):
     """Contains news and other current event functions"""
@@ -12,6 +12,30 @@ class News(commands.Cog):
         self.bot = bot
 
     @commands.command(name='news')
+    async def bing_news(self, ctx, *, query: str = "cats"):
+        url = f"https://www.bing.com/news/search?q={query}&format=rss"
+        async with self.bot.session.get(url) as resp:
+            data = await resp.read()
+            dom = xml.dom.minidom.parseString(data)
+            newest_news = dom.getElementsByTagName('item')[0]
+            title = newest_news.getElementsByTagName('title')[0].childNodes[0].data.strip()
+            link = newest_news.getElementsByTagName('link')[0].childNodes[0].data
+            desc = newest_news.getElementsByTagName('description')[0].childNodes[0].data
+            link = URL(link)
+            url = URL(link.query['url'])
+            #if url.host.lower() == "msn.com" or url.host.lower() == "www.msn.com":
+            e = discord.Embed(title=title, url=url, description=desc)
+            try:
+                e.set_thumbnail(url=newest_news.getElementsByTagName('News:Image')[0].childNodes[0].data)
+            except:
+                pass
+            await ctx.send(embed=e)
+            #else:
+            #    await ctx.send(f'{title}\n{url}')
+
+
+
+    @commands.command(name='gnews')
     async def google_news(self, ctx, *, query: str = ""):
         """Search for a story on google news - returns the headline and a link"""
         if not query:

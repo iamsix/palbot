@@ -140,6 +140,7 @@ class Sports(commands.Cog):
     NHL_TEAM_NAMES = {"Maple Leafs": "Leafs", 
                       "Blue Jackets": "B Jackets", 
                       "Golden Knights": "G Knights",
+                      "Utah Hockey Club": "Utah",
                       }
     def short_nhl_name(self, name):
         if name in self.NHL_TEAM_NAMES:
@@ -202,7 +203,7 @@ class Sports(commands.Cog):
                     status = f"{self.bot.utils.ordinal(game['period'])} Int"
                 # ['periodDescriptor']['periodType'] shows OT?
                                         
-                if gamestatus == "OFF":   
+                if gamestatus == "OFF" or gamestatus == "FINAL":   
                     status = "Final"
                     if game['gameOutcome']['lastPeriodType'] == "OT":
                         status += " OT"

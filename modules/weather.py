@@ -258,12 +258,12 @@ class Weather(commands.Cog):
         latlong = f'{loc.latitude},{loc.longitude}'
         locurl = f"http://api.accuweather.com/locations/v1/search?q={latlong}&apikey={key}"
         async with self.bot.session.get(locurl) as resp:
-            data = await resp.json()
+            data = await resp.json(content_type=None)
             accu_loc = data[0]['Key']
 
         url = f'http://api.accuweather.com/localweather/v1/{accu_loc}.json?apikey={key}&details=true'
         async with self.bot.session.get(url) as resp:
-            data = await resp.json()
+            data = await resp.json(content_type=None)
             weather = self.parse_accu(data)
             if ctx.invoked_with.lower() == "w":
                 await ctx.send(await self.fio_text(weather, loc))
@@ -655,7 +655,7 @@ class Weather(commands.Cog):
 
 
     # TODO change this to twc or accuweather
-    @commands.command(aliases=['sunrise, sunset'])
+    @commands.command(aliases=['sunrise', 'sunset', 'moon'])
     async def sun(self, ctx, *, location: str = None):
         """Show sunrise/sunset for a <location>
            Can be invoked without location if you have done a `set location`"""
@@ -667,9 +667,9 @@ class Weather(commands.Cog):
         url = f"https://api.pirateweather.net/forecast/{key}/{loc.latitude},{loc.longitude}?exclude=alerts,hourly,minutely"
 #        url = "https://api.forecast.io/forecast/{}/{},{}"
 #        url = url.format(key, loc.latitude, loc.longitude)
-
+        print(url)
         async with self.bot.session.get(url) as resp:
-            data = await resp.json()
+            data = await resp.json(content_type=None)
 
         try:
             tmz = pytz.timezone(data['timezone'])
@@ -690,8 +690,34 @@ class Weather(commands.Cog):
         sunset = sunsetobj.strftime("%H:%M")
         sunset = f"{sunset} ({til})"
 
-        out = f"{loc.formatted_address} / Sunrise: {sunrise} / Sunset: {sunset} / Day Length: {sunlength}"
+        moonphase = self.moonphase(data['moonPhase'])
+
+        out = f"{loc.formatted_address} / Sunrise: {sunrise} / Sunset: {sunset} / Day Length: {sunlength}\nMoon: {moonphase}"
         await ctx.send(out)
+
+    def moonphase(self, lunation):
+        word = ""
+        if  lunation <= 0.0624 or lunation >= 0.9375:
+            word = "\N{NEW MOON SYMBOL} New Moon"
+        elif 0.8125 <= lunation <= 0.9374:
+            word = "\N{WANING CRESCENT MOON SYMBOL} Waning Crescent Moon"
+        elif 0.6875 <= lunation <= 0.8124:
+            word = "\N{LAST QUARTER MOON SYMBOL} Last Quarter Moon"
+        elif 0.5625 <= lunation <= 0.6874:
+            word = "\N{WANING GIBBOUS MOON SYMBOL} Waning Gibbous Moon"
+        elif 0.4375 <= lunation <= 0.5624:
+            word = "\N{FULL MOON SYMBOL} Full Moon"
+        elif 0.3125 <= lunation <= 0.4374:
+            word = "\N{WAXING GIBBOUS MOON SYMBOL} Waxing Gibbous Moon"
+        elif 0.1875 <= lunation <= 0.3124:
+            word = "\N{FIRST QUARTER MOON SYMBOL} First Quarter Moon"
+        elif 0.0625 <= lunation <= 0.1874:
+            word = "\N{WAXING CRESCENT MOON SYMBOL} Waxing Crescent Moon"
+        else:
+            word = "uhh.. \N{FULL MOON WITH FACE} moon?"
+        
+        return word
+
 
 
     @commands.command(hidden=True)

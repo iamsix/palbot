@@ -220,6 +220,7 @@ class Food(commands.Cog):
                 await ctx.send("Scraping the wine data json failed")
                 return
         else:
+            print(url[0], "no wine data found")
             await ctx.send("The wine json data isn't in the scraped page")
             return
         
@@ -301,7 +302,7 @@ class Food(commands.Cog):
             params['titleMatch'] = inpt
             url = 'https://api.spoonacular.com/recipes/complexSearch'
             async with self.bot.session.get(url, params=params) as resp:
-                res = await resp.json()
+                res = await resp.json(content_type=None)
                 if not res['results']:
                     await ctx.send(f"No recipes with `{inpt}` found")
                     return
@@ -310,12 +311,14 @@ class Food(commands.Cog):
 
             url = f'https://api.spoonacular.com/recipes/{rid}/information'
             async with self.bot.session.get(url, params=params) as resp:
-                data = await resp.json()
+                data = await resp.json(content_type=None)
 
         else:
             url = "https://api.spoonacular.com/recipes/random"
             async with self.bot.session.get(url, params=params) as resp:
-                data = await resp.json()
+#                data = await resp.read()
+#                print(data)
+                data = await resp.json(content_type=None)
                 data = data['recipes'][0]
         
         try:
