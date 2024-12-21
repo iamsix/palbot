@@ -254,7 +254,8 @@ class Food(commands.Cog):
                    'X-DISTILLER-DEVELOPER-TOKEN': self.bot.config.distillertoken}
                    
         async with self.bot.session.get(jsurl, headers=headers) as resp:
-            data = await resp.json()
+            data = await resp.read()
+            data = json.loads(data)
             self.bot.logger.debug(data)
             data = data['spirit']
         

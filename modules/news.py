@@ -26,7 +26,9 @@ class News(commands.Cog):
             #if url.host.lower() == "msn.com" or url.host.lower() == "www.msn.com":
             e = discord.Embed(title=title, url=url, description=desc)
             try:
-                e.set_thumbnail(url=newest_news.getElementsByTagName('News:Image')[0].childNodes[0].data)
+                thurl = newest_news.getElementsByTagName('News:Image')[0].childNodes[0].data
+                if "http" in thurl:
+                    e.set_thumbnail(url=thurl)
             except:
                 pass
             await ctx.send(embed=e)

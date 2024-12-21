@@ -37,7 +37,7 @@ class WotdPrompt(discord.ui.Modal):
     word = ""
     fullword = False
     s_re = re.compile("[^a-z0-9!'_-]*",re.I)
-    new_wotd = discord.ui.TextInput(label="New Word of the Day", min_length=3, required=True)
+    new_wotd = discord.ui.TextInput(label="New Word of the Day", min_length=3, max_length=20, required=True)
     async def on_submit(self, interaction: discord.Interaction):
         word = str(self.new_wotd)
         # This might fail from those stupid fancy quotes

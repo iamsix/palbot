@@ -183,8 +183,10 @@ class Finance(commands.Cog):
 
         url = f"http://query1.finance.yahoo.com/v7/finance/quote?symbols={symbol}&crumb={self.yahoo_crumb}"
        # print(url)
-        async with self.bot.session.get(url) as resp:
+        async with self.bot.session.get(url, headers=headers) as resp:
             data = await resp.json()
+            if "quoteResponse" not in data:
+                print(data)
             if not data["quoteResponse"]["result"]:
                 await ctx.send(f"Unable to find a stonk named `{name}`")
                 return
