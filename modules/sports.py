@@ -18,6 +18,45 @@ class Sports(commands.Cog):
                 return datetime.datetime.now(pytz.timezone("US/Eastern"))
         else:
             return date.dt
+        
+    async def sports_formatter(self, data):
+        out = []
+        lmax, rmax = 0, 0
+        slen = 1
+        for g in data:
+            if len(g['ateam']) > lmax:
+                lmax = len(g['ateam'])
+            if len(g['hteam']) > rmax:
+                rmax = len(g['hteam'])
+            if not g['scheduled']:
+                if slen < 2 and (int(g['ascore']) > 10 or int(g['hscore']) > 10):
+                    slen = 2
+                if slen < 3 and (int(g['ascore']) > 100 or int(g['hscore']) > 100):
+                    slen = 3
+        
+        for g in data:
+            if g['scheduled']:
+                out.append(f"`{g['ateam'].ljust(lmax + slen)}  @ {" " * slen} {g['hteam'].ljust(rmax)} |`{g['status']}")
+            else:
+                out.append(f"`{g['ateam'].ljust(lmax)} {str(g['ascore']).rjust(slen)} - {str(g['hscore']).ljust(slen)} {g['hteam'].ljust(rmax)} | {g['status']}`")
+
+        return out
+
+    @commands.command() 
+    async def nhlt(self, ctx, *, date: HumanTime = None):
+        """Test command of a self-updating scoreboard"""
+        post = await ctx.send("testing")
+        await asyncio.sleep(1)
+        await post.add_reaction("\N{HIGH VOLTAGE SIGN}")
+        for repeat in range(10):
+            data = await self.nhl(ctx, date=date, test=True)
+            out = await self.sports_formatter(data)
+            await post.edit(content="\n".join(out))
+            await asyncio.sleep(30)
+        await post.clear_reaction("\N{HIGH VOLTAGE SIGN}")
+
+
+
 
     @commands.command()
     async def mlb(self, ctx, *, date: HumanTime = None):
@@ -32,7 +71,7 @@ class Sports(commands.Cog):
                 await ctx.send(f"No games found for {date.date()}")
                 return
             data = data['dates'][0]['games']
-        games = []
+        gdata = []
         for game in data:
             home = game['teams']['home']
             away = game['teams']['away']
@@ -46,46 +85,60 @@ class Sports(commands.Cog):
                      status = "{} {}".format(game['linescore']['inningState'],
                                             self.bot.utils.ordinal(game['linescore']['currentInning']))
                 
-                o = "{} {} - {} {} | {}".format(
-                                        away['team']['teamName'].ljust(9),
-#                                        away['team']['abbreviation'].ljust(3),
-                                        str(away['score']).rjust(2),
-                                        str(home['score']).ljust(2),
-                                        home['team']['teamName'].ljust(9),
-#                                        home['team']['abbreviation'].ljust(3),
-                                        status)
+                gdata.append({"ateam": away['team']['teamName'], 
+                            "ascore": away['score'],
+                            "hteam": home['team']['teamName'],
+                            "hscore": home['score'],
+                            "status": status, 
+                            "scheduled": False})
+#                 o = "{} {} - {} {} | {}".format(
+#                                         away['team']['teamName'].ljust(9),
+# #                                        away['team']['abbreviation'].ljust(3),
+#                                         str(away['score']).rjust(2),
+#                                         str(home['score']).ljust(2),
+#                                         home['team']['teamName'].ljust(9),
+# #                                        home['team']['abbreviation'].ljust(3),
+#                                         status)
             
             elif code == "S" or code == "P":
                 #Scheduled
                 starttime = datetime.datetime.strptime(game['gameDate'], "%Y-%m-%dT%H:%M:%SZ")
-                starttime = starttime.replace(tzinfo=pytz.utc).astimezone(tz=date.tzinfo)
-                tzname = starttime.tzname()
-                starttime = starttime.strftime('%I:%M%p').lstrip('0').replace(':00', '')
+                starttime = f"<t:{int(starttime.timestamp())}:t>"
 
-                o = "{} @    {} | {} {}".format(
-#                                            away['team']['abbreviation'].ljust(3),
-                                            away['team']['teamName'].ljust(12),
-                                            home['team']['teamName'].ljust(9),
-#                                            home['team']['abbreviation'].ljust(3),
-                                            starttime, tzname)
+                gdata.append({"ateam": away['team']['teamName'], 
+                            "hteam": home['team']['teamName'], 
+                            "status": starttime, 
+                            "scheduled": True})
+                # starttime = starttime.replace(tzinfo=pytz.utc).astimezone(tz=date.tzinfo)
+                # tzname = starttime.tzname()
+                # starttime = starttime.strftime('%I:%M%p').lstrip('0').replace(':00', '')
+
+#                 o = "{} @    {} | {} {}".format(
+# #                                            away['team']['abbreviation'].ljust(3),
+#                                             away['team']['teamName'].ljust(12),
+#                                             home['team']['teamName'].ljust(9),
+# #                                            home['team']['abbreviation'].ljust(3),
+#                                             starttime, tzname)
             else:
                 continue
-            
-            games.append(o)
 
-        if games:
-            await ctx.send("```{}```".format("\n".join(games)))
+        if gdata:
+            out = await self.sports_formatter(gdata)
+            await ctx.send("\n".join(out))
         else:
             await ctx.send(f"No games found for {date.date()}")
 
 
-    @commands.command()
+    @commands.command(aliases=['wnba'])
     async def nba(self, ctx, *, date: HumanTime = None):
         """Show today's or [date]s NBA games with score, status"""
         todaydate = await self.sports_date(ctx, None)
         date = await self.sports_date(ctx, date)
         if date.date() == todaydate.date():
-            url = "https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json"
+            if ctx.invoked_with.lower() == "wnba":
+                url = "https://cdn.wnba.com/static/json/liveData/scoreboard/todaysScoreboard_10.json"
+            else:
+                url = "https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json"
             today = True
         else:
             url = "https://cdn.nba.com/static/json/staticData/scheduleLeagueV2.json"
@@ -108,7 +161,8 @@ class Sports(commands.Cog):
             await ctx.send(f"No games found for {date.date()}")
             return
 
-        e = discord.Embed()
+        #e = discord.Embed()
+        gdata = []
         for game in data['games']:
             starttime = datetime.datetime.strptime(game[startkey], "%Y-%m-%dT%H:%M:%SZ")
             starttime = f"<t:{int(starttime.timestamp())}:t>"
@@ -116,25 +170,33 @@ class Sports(commands.Cog):
             home = game['homeTeam']
             away = game['awayTeam']
             status = game['gameStatusText'].strip()
-            series = ""
-            if 'seriesText' in game and game['seriesText']:
-                    series = game['seriesText']
+            # series = ""
+            # if 'seriesText' in game and game['seriesText']:
+            #         series = game['seriesText']
 
-            homet = home['teamName'].rjust(13)
-            awayt = away['teamName'].ljust(13)
+            homet = home['teamName']
+            awayt = away['teamName']
             if game['gameStatus'] == 1:
-                e.add_field(name=f"`{awayt}     @     {homet}`", 
-                            value=f"{starttime}`{series.rjust(29)}`", inline=False)
+                gdata.append({"ateam": awayt, 
+                            "hteam": homet, 
+                            "status": starttime, 
+                            "scheduled": True})
+                #e.add_field(name=f"`{awayt}     @     {homet}`", 
+                #            value=f"{starttime}`{series.rjust(29)}`", inline=False)
                 
             else:
-                ascore = str(away['score']).rjust(3)
-                hscore = str(home['score']).ljust(3)
+                gdata.append({"ateam": awayt, 
+                            "ascore": away['score'],
+                            "hteam": homet,
+                            "hscore": home['score'],
+                            "status": status, 
+                            "scheduled": False})
 
-                e.add_field(name=f"`{awayt} {ascore} - {hscore} {homet}`", 
-                            value=f"`{status.ljust(12)}{series.rjust(25)}`", inline=False)
+                #e.add_field(name=f"`{awayt} {ascore} - {hscore} {homet}`", 
+                #            value=f"`{status.ljust(12)}{series.rjust(25)}`", inline=False)
                
-        
-        await ctx.send(embed=e)
+        out = await self.sports_formatter(gdata)
+        await ctx.send("\n".join(out))
 
 
     NHL_TEAM_NAMES = {"Maple Leafs": "Leafs", 
@@ -149,7 +211,7 @@ class Sports(commands.Cog):
             return name
 		
     @commands.command()
-    async def nhl(self, ctx, *, date: HumanTime = None):
+    async def nhl(self, ctx, *, date: HumanTime = None, test=False):
         """Show today's or [date]s NHL games with score, status"""
         date = await self.sports_date(ctx, date)
 
@@ -163,7 +225,8 @@ class Sports(commands.Cog):
             await ctx.send(f"No games found for {date.date()}")
             return
         
-        e = discord.Embed()
+        #e = discord.Embed()
+        gdata = []
         
         for game in data['games']:
             gamestatus = game['gameState'] 
@@ -180,19 +243,21 @@ class Sports(commands.Cog):
                 if 'seriesStatus' in game and game['seriesStatus']:
                     status = f"{self.parse_nhl_playoff(game)}"
 
-                e.add_field(name=f"`{away.ljust(13)} @    {home.rjust(10)}`", 
-                            value=f"{starttime}`{status.rjust(21)}`", inline=False)
+                gdata.append({"ateam": away, 
+                            "hteam": home, 
+                            "status": starttime, 
+                            "scheduled": True})
 
             else:
                 # "LIVE" for on. "OFF" for finished?
                 # game finished or currently on
-                away = '{} {}'.format(
-                    away.ljust(10),
-                    str(game['awayTeam']['score']).rjust(2))
+                # away = '{} {}'.format(
+                #     away.ljust(10),
+                #     str(game['awayTeam']['score']).rjust(2))
                 
-                home = '{} {}'.format(
-                    str(game['homeTeam']['score']).ljust(2),
-                    home.rjust(10))
+                # home = '{} {}'.format(
+                #     str(game['homeTeam']['score']).ljust(2),
+                #     home.ljust(10))
                                     
                 # Check ['clock']['running']?
 
@@ -208,12 +273,20 @@ class Sports(commands.Cog):
                     if game['gameOutcome']['lastPeriodType'] == "OT":
                         status += " OT"
 
-                if 'seriesStatus' in game and game['seriesStatus']:
-                    status = status.ljust(12) + f"{self.parse_nhl_playoff(game).rjust(17)}"
+                #if 'seriesStatus' in game and game['seriesStatus']:
+                #    status = status.ljust(12) + f"{self.parse_nhl_playoff(game).rjust(17)}"
                 
-                e.add_field(name=f"`{away} - {home}`", value=f"`{status.ljust(29)}`", inline=False)
-        
-        await ctx.send(embed=e)
+                gdata.append({"ateam": away, 
+                            "ascore": game['awayTeam']['score'],
+                            "hteam": home,
+                            "hscore": game['homeTeam']['score'],
+                            "status": status, 
+                            "scheduled": False})
+
+        if test:
+            return gdata
+        out = await self.sports_formatter(gdata)
+        await ctx.send("\n".join(out))
 
     def parse_nhl_playoff(self, game):
         tscore = game['seriesStatus']['topSeedWins']
@@ -240,7 +313,7 @@ class Sports(commands.Cog):
         return f"{winner} {leads} {wscore}-{lscore}"
 
 
-    @commands.command(aliases=['cfl', 'xfl', 'ufl'])
+    @commands.command(aliases=['cfl', 'xfl', 'ufl', 'cfb'])
     async def nfl(self, ctx, *, date: HumanTime = None):
         """Show today's NFL games with score, status
            While a date can be provided the API is weird and only works for the current week?"""
@@ -252,16 +325,23 @@ class Sports(commands.Cog):
             url = 'https://site.api.espn.com/apis/site/v2/sports/football/xfl/scoreboard'
         if ctx.invoked_with.lower() == "ufl":
             url = 'https://site.api.espn.com/apis/site/v2/sports/football/ufl/scoreboard'
+        if ctx.invoked_with.lower() == "cfb":
+            url = 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard'
+            if ctx.channel.id != 1243723119567310858:
+#                await ctx.message.author.timeout(timedelta(minutes=1), reason="spam")
+                await ctx.send("This command only works in <#1243723119567310858>")
+                return
         date = await self.sports_date(ctx, date)
         async with self.bot.session.get(url) as resp:
             data = await resp.json()
 
-        games = []
+        gdata = []
         for game in data['events']:
             starttime = datetime.datetime.strptime(game['date'], "%Y-%m-%dT%H:%MZ")
             starttime = starttime.replace(tzinfo=pytz.utc).astimezone(tz=date.tzinfo)
             if starttime.date() != date.date():
                 continue
+            starttime = f"<t:{int(starttime.timestamp())}:t>"
 
             home = game['competitions'][0]['competitors'][0]
             away = game['competitions'][0]['competitors'][1]
@@ -269,26 +349,36 @@ class Sports(commands.Cog):
 
 
             if status == "Scheduled":
-                homet = home['team']['shortDisplayName'].ljust(11)
-                awayt = away['team']['shortDisplayName'].ljust(14)
-                gstart = starttime.strftime('%-I:%M%p').replace(':00', '')
-                out = f"{awayt} @    {homet} | {gstart} {date.tzname()}"
+                gdata.append({"ateam": away['team']['shortDisplayName'], 
+                            "hteam": home['team']['shortDisplayName'], 
+                            "status": starttime, 
+                            "scheduled": True})
+                # homet = home['team']['shortDisplayName'].ljust(11)
+                # awayt = away['team']['shortDisplayName'].ljust(14)
+                # gstart = starttime.strftime('%-I:%M%p').replace(':00', '')
+                
+                # out = f"{awayt} @    {homet} | {gstart} {date.tzname()}"
             else:
-                homet = home['team']['shortDisplayName'].ljust(11)
-                awayt = away['team']['shortDisplayName'].ljust(11)
-                ascore = away['score'].rjust(2)
-                hscore = home['score'].rjust(2)
+                # homet = home['team']['shortDisplayName'].ljust(11)
+                # awayt = away['team']['shortDisplayName'].ljust(11)
+                # ascore = away['score'].rjust(2)
+                # hscore = home['score'].rjust(2)
                 period = self.bot.utils.ordinal(game['status']['period'])
                 if status == "In Progress":
                     status = f"{game['status']['displayClock']} {period}"
                 else:
                     status = game['status']['type']['detail']
-                out = f"{awayt} {ascore} - {hscore} {homet} | {status}"
+                #out = f"{awayt} {ascore} - {hscore} {homet} | {status}"
+                gdata.append({"ateam": away['team']['shortDisplayName'],
+                            "ascore": away['score'],
+                            "hteam": home['team']['shortDisplayName'],
+                            "hscore": home['score'],
+                            "status": status, 
+                            "scheduled": False})
 
-            games.append(out)
-
-        if games:
-            await ctx.send("```{}```".format("\n".join(games)))
+        if gdata:
+            out = await self.sports_formatter(gdata)
+            await ctx.send("\n".join(out))
         else:
             await ctx.send(f"No games found for {date.date()}")
 
