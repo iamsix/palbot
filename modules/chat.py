@@ -199,7 +199,12 @@ class Chat(commands.Cog):
         div = pg.find('div', attrs={'class' : "entry-content"})
         comic = div.find('img',src=re.compile(r'poorlydrawnlines.com/wp-content/uploads/\d{4}/\d{2}/'))
         await ctx.send(comic.get('src'))
-             
+
+    @commands.command()
+    async def mock(self, ctx, *, text: str):
+        """Converts text to mOcKiNg CaSe"""
+        mocked = ''.join(c.upper() if random.randint(0,1) else c.lower() for c in text)
+        await ctx.send(mocked)
 
     @commands.command()
     async def find(self, ctx, find: str):
