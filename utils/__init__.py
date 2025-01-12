@@ -49,7 +49,9 @@ async def bs_from_url(bot, url, return_url=False, *, headers={}):
     if not headers:
         headers = {'User-Agent': 'Mozilla/5.0 PalBot'}
     async with bot.session.get(url, headers=headers) as resp:
-        assert "text" in resp.headers['Content-Type']
+        if resp.status != 200:
+            print(resp.status)
+        # assert "text" in resp.headers['Content-Type']
         data = await resp.read()
         page = BeautifulSoup(data, 'lxml')
         if return_url:

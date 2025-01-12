@@ -112,7 +112,7 @@ class Media(commands.Cog):
         imdbid = re.search(r"tt\d+", urls[0]).group(0)
         url = f"https://imdb.com/title/{imdbid}/"
 
-        headers = {'User-Agent': "Mozilla/5.0 (X11; Linux x86_64; rv:91.0) Gecko/20100101 Firefox/91.0"}
+        headers = {'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0"}
         page = await self.bot.utils.bs_from_url(self.bot, url, headers=headers)
         data = json.loads(page.find('script', type='application/ld+json').string)
         self.bot.logger.debug(data)

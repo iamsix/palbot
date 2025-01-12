@@ -56,8 +56,15 @@ class Sports(commands.Cog):
         await post.clear_reaction("\N{HIGH VOLTAGE SIGN}")
 
 
+    async def sports_channel(ctx):
+        if ctx.author.id != 98356888755777536 and ctx.channel.id != 1243723119567310858:
+                await ctx.send("Sports commands only allowed in <#1243723119567310858>")
+                return False
+        else:
+            return True
 
 
+    @commands.check(sports_channel)
     @commands.command()
     async def mlb(self, ctx, *, date: HumanTime = None):
         """Show today's or [date]s MLB games with score, status"""
@@ -129,6 +136,7 @@ class Sports(commands.Cog):
             await ctx.send(f"No games found for {date.date()}")
 
 
+    @commands.check(sports_channel)
     @commands.command(aliases=['wnba'])
     async def nba(self, ctx, *, date: HumanTime = None):
         """Show today's or [date]s NBA games with score, status"""
@@ -210,6 +218,7 @@ class Sports(commands.Cog):
         else:
             return name
 		
+    @commands.check(sports_channel)
     @commands.command()
     async def nhl(self, ctx, *, date: HumanTime = None, test=False):
         """Show today's or [date]s NHL games with score, status"""
@@ -312,7 +321,7 @@ class Sports(commands.Cog):
 
         return f"{winner} {leads} {wscore}-{lscore}"
 
-
+    @commands.check(sports_channel)
     @commands.command(aliases=['cfl', 'xfl', 'ufl', 'cfb'])
     async def nfl(self, ctx, *, date: HumanTime = None):
         """Show today's NFL games with score, status
@@ -327,10 +336,6 @@ class Sports(commands.Cog):
             url = 'https://site.api.espn.com/apis/site/v2/sports/football/ufl/scoreboard'
         if ctx.invoked_with.lower() == "cfb":
             url = 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard'
-            if ctx.channel.id != 1243723119567310858:
-#                await ctx.message.author.timeout(timedelta(minutes=1), reason="spam")
-                await ctx.send("This command only works in <#1243723119567310858>")
-                return
         date = await self.sports_date(ctx, date)
         async with self.bot.session.get(url) as resp:
             data = await resp.json()

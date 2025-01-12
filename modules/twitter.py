@@ -25,6 +25,18 @@ class Twitter(commands.Cog):
     # Possibly just a simple json file?
     # consider ignore-retweets on subscription?
 
+    @commands.command()
+    async def bsky(self, ctx, *, nick: str):
+        url = f"https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor={nick}&limit=1"
+        async with self.bot.session.get(url) as resp:
+#            blah = await resp.read()
+#            print(blah)
+            feed = await resp.json(content_type=None)
+
+        last = feed['feed'][0]['post']
+        out = f"{last['author']['displayName']}: {last['record']['text']}"
+        await ctx.send(out)
+            
     @commands.command(hidden=True)
     @commands.is_owner()
     async def twitter_token(self, ctx):
@@ -59,7 +71,8 @@ class Twitter(commands.Cog):
     @commands.command(hidden=True)
     async def trump(self, ctx):
         """Show trump's most recent words of wisdom"""
-        await self.last_tweet(ctx, handle='realDonaldTrump')
+        await self.bsky(ctx, nick="did:plc:5lsn3rx7ezifdvsk2clxue24")
+#        await self.last_tweet(ctx, handle='realDonaldTrump')
 
     @commands.command(hidden=True)
     async def musk(self, ctx):
