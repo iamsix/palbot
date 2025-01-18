@@ -3,7 +3,7 @@ import re
 class units:
     f_to_c = lambda n: int(round((n - 32)*5/9,0))
     # (10°C × 9/5) + 32 = 50°F
-    c_to_f = lambda n: int(round((n * (5/9))+32))
+    c_to_f = lambda n: int(round((n * (9/5))+32))
     mi_to_km = lambda n: int(round(n * 1.609, 0))
     km_to_mi = lambda n: int(round(n / 1.609, 0))
     

@@ -2,6 +2,8 @@ import discord
 from discord.ext import commands
 import csv
 from urllib.parse import quote as uriquote
+import json
+
 import xml.dom.minidom
 import base64
 from yarl import URL
@@ -65,75 +67,45 @@ class News(commands.Cog):
                     # print(resp.status, url)
                     return await self.follow_news(newurl)
                 else:
-                    return await self.decode_google_news_url(resp.url)
+                    return await self.decode_single_url(resp.url)
         except TimeoutError:
             return url
 
-    async def fetch_decoded_batch_execute(self, id):
-        s = (
-            '[[["Fbv4je","[\\"garturlreq\\",[[\\"en-US\\",\\"US\\",[\\"FINANCE_TOP_INDICES\\",\\"WEB_TEST_1_0_0\\"],'
-            'null,null,1,1,\\"US:en\\",null,180,null,null,null,null,null,0,null,null,[1608992183,723341000]],'
-            '\\"en-US\\",\\"US\\",1,[2,3,4,8],1,0,\\"655000234\\",0,0,null,0],\\"' +
-            id +
-            '\\"]",null,"generic"]]]'
-        )
-
-        headers = {
-            "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
-            "Referer": "https://news.google.com/"
+    async def get_decoding_params(self, url):
+        soup = await self.bot.utils.bs_from_url(self.bot, url)
+        div = soup.select_one("c-wiz > div")
+        gn_art_id = url.path.split("/")[-1]
+        return {
+            "signature": div.get("data-n-a-sg"),
+            "timestamp": div.get("data-n-a-ts"),
+            "gn_art_id": gn_art_id,
         }
 
+
+    async def decode_urls(self, articles):
+        articles_reqs = [
+            [
+                "Fbv4je",
+                f'["garturlreq",[["X","X",["X","X"],null,null,1,1,"US:en",null,1,null,null,null,null,null,0,1],"X","X",1,[1,1,1],1,1,null,0,0,null,0],"{art["gn_art_id"]}",{art["timestamp"]},"{art["signature"]}"]',
+            ]
+            for art in articles
+        ]
+        payload = f"f.req={uriquote(json.dumps([articles_reqs]))}"
+        headers = {"content-type": "application/x-www-form-urlencoded;charset=UTF-8"}
         async with self.bot.session.post(
-            "https://news.google.com/_/DotsSplashUi/data/batchexecute?rpcids=Fbv4je",
+            "https://news.google.com/_/DotsSplashUi/data/batchexecute",
             headers=headers,
-            data={"f.req": s}
-            ) as response:
+            data=payload) as response:
+            
+            response = await response.read()
+            response = response.decode()
+            return [json.loads(res[2])[1] for res in json.loads(response.split("\n\n")[1])[:-2]]
 
-            if response.status != 200:
-                raise Exception("Failed to fetch data from Google.")
 
-            text = await response.read()
-            text = text.decode()
-            header = '[\\"garturlres\\",\\"'
-            footer = '\\",'
-            if header not in text:
-                raise Exception(f"Header not found in response: {text}")
-            start = text.split(header, 1)[1]
-            if footer not in start:
-                raise Exception("Footer not found in response.")
-            url = start.split(footer, 1)[0]
-            return url
-
-    async def decode_google_news_url(self, url):
-        # url = requests.utils.urlparse(source_url)
-        path = url.path.split("/")
-        if url.host == "news.google.com" and len(path) > 1 and path[-2] == "articles":
-            base64_str = path[-1]
-            decoded_bytes = base64.urlsafe_b64decode(base64_str + '==')
-            decoded_str = decoded_bytes.decode('latin1')
-
-            prefix = b'\x08\x13\x22'.decode('latin1')
-            if decoded_str.startswith(prefix):
-                decoded_str = decoded_str[len(prefix):]
-
-            suffix = b'\xd2\x01\x00'.decode('latin1')
-            if decoded_str.endswith(suffix):
-                decoded_str = decoded_str[:-len(suffix)]
-
-            bytes_array = bytearray(decoded_str, 'latin1')
-            length = bytes_array[0]
-            if length >= 0x80:
-                decoded_str = decoded_str[2:length+1]
-            else:
-                decoded_str = decoded_str[1:length+1]
-
-            if decoded_str.startswith("AU_yqL"):
-                return await self.fetch_decoded_batch_execute(base64_str)
-
-            return decoded_str
-        else:
-            return url
-
+    async def decode_single_url(self, url):
+        articles_params = [await self.get_decoding_params(url)]
+        decoded_urls = await self.decode_urls(articles_params)
+        return decoded_urls[0]
 
     @commands.command(name='approval')
     async def get_presidential_approval(self, ctx):

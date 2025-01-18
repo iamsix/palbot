@@ -19,6 +19,13 @@ class Sports(commands.Cog):
         else:
             return date.dt
         
+    async def cog_command_error(self, ctx, error):
+        if isinstance(error, commands.errors.CheckFailure):
+            return
+        else:
+            self.logger.info(error)
+
+        
     async def sports_formatter(self, data):
         out = []
         lmax, rmax = 0, 0
@@ -57,11 +64,15 @@ class Sports(commands.Cog):
 
 
     async def sports_channel(ctx):
-        if ctx.author.id != 98356888755777536 and ctx.channel.id != 1243723119567310858:
-                await ctx.send("Sports commands only allowed in <#1243723119567310858>")
-                return False
+        if  ctx.guild != None and ctx.channel.id != 1243723119567310858:
+            msg = await ctx.reply(f"`!{ctx.invoked_with}` is stored in the <#1243723119567310858>. This message will self destruct.")
+            await asyncio.sleep(5)
+            await msg.delete()
+
+            return False
         else:
             return True
+
 
 
     @commands.check(sports_channel)
