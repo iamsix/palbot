@@ -51,6 +51,92 @@ class Games(commands.Cog):
         return data
 
     @commands.command()
+    async def cs2(self, ctx, *, date: HumanTime = None):
+        #return
+        if not date:
+            today = datetime.datetime.now(pytz.timezone("UTC")).astimezone(pytz.timezone("US/Eastern"))
+        else:
+            today = date.dt
+
+        out = []
+        
+        tomorrow = today + datetime.timedelta(days=1)
+        url = "https://liquipedia.net/counterstrike/Liquipedia:Matches"
+        soup = await self.bot.utils.bs_from_url(self.bot, url)
+
+        div_content = soup.find('div', {'data-toggle-area-content': '2'})
+
+        tables = div_content.find_all('table', class_='wikitable wikitable-striped infobox_matches_content')
+
+        # Iterate through each table
+        for table in tables:
+            # Find all rows in the table
+            rows = table.find_all('tr')
+            # Iterate through each row
+            # Extract data from each table row (assuming there are multiple rows)
+            for row in rows:
+
+                # Extract team names from first row cells with 'team-left' and 'team-right' classes
+                if len(row.find_all('td', class_='team-left')) > 0 and len(row.find_all('td', class_='team-right')) > 0:
+
+                    team_left_cell = row.find('td', class_='team-left')
+                    team_right_cell = row.find('td', class_='team-right')
+                    versus_cell = row.find('td', class_='versus')
+                    
+                    # Extract all text content within the cell (may include extra spaces or newlines)
+                    team_left_name = team_left_cell.get_text(strip=True)  # Improved line
+                    team_right_name = team_right_cell.get_text(strip=True)  # Improved line
+                    
+                    versus_text = versus_cell.get_text(strip=True) 
+                
+                
+                # Extract match details from the second row (assuming it has 'match-filler' class)
+                if len(row.find_all('td', class_='match-filler')) > 0:
+                    match_details_cell = row.find('td', class_='match-filler')
+                    # Extract the ongoing match status (assuming it's within 'timer-object-countdown-live' class)
+                    match_status = match_details_cell.find('span', class_='timer-object-countdown-live')
+                    # Extract the league name from the anchor tag within 'league-icon-small-image' class
+                    league_details = match_details_cell.find('a', class_=None)  # Find anchor tag without a class
+                    
+                    # Find countdown element and extract date INSIDE the loop for each row
+                    countdown_span = row.find('span', class_='timer-object-countdown-only')
+                    #print(countdown_span)
+                    
+                    if countdown_span:
+                        timestamp = countdown_span['data-timestamp']
+                        dt_object = datetime.datetime.fromtimestamp(int(timestamp)).astimezone(pytz.timezone("US/Eastern"))
+                        #print(f"{team_left_name} vs. {team_right_name} {dt_object}")
+                        if today.date() == dt_object.date():
+                            # Teams
+                            outs = f"{team_left_name} {versus_text} {team_right_name} <t:{countdown_span['data-timestamp']}:t>"
+                            league_details = match_details_cell.find('a', class_=None)  # Find anchor tag without a class
+                            
+                            # League
+                            if league_details:
+                                outs += f" - {league_details.text.strip()}"
+
+                            # Stream
+                            # Check if Twitch stream link exists in data-stream-twitch attribute
+                            twitch_stream_link = None
+                            if countdown_span.has_attr('data-stream-twitch'):
+                                twitch_stream_link = countdown_span['data-stream-twitch']
+                            else:
+                                # If not found in data-stream-twitch attribute, try to extract from the href of the <a> tag
+                                twitch_stream_link_tag = match_details_cell.find('a', href=re.compile(r"/counterstrike/Special:Stream/twitch/"))
+                                if twitch_stream_link_tag:
+                                    twitch_stream_link = twitch_stream_link_tag['href']
+
+                            if twitch_stream_link:
+                                outs += f" [Stream](https://liquipedia.net{twitch_stream_link})"
+
+                            out.append(outs)
+        if out:
+            await ctx.send("\n".join(out))
+        else:
+            await ctx.send(f"No games found for {today.date()}")
+
+
+    @commands.command()
     async def poe(self, ctx, *, item: str):
         """Search for and post a POE <item> image"""
         item = Client().find_items({'_pageName': f'%{item}%'}, limit=1)

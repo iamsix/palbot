@@ -59,3 +59,4 @@ config.py
 debug.log
 __pycache__
 logfiles/
+modules/disabled

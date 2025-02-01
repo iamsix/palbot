@@ -205,7 +205,9 @@ class Wotd(commands.Cog):
     @commands.command(hidden=True)
     async def newwotd(self, ctx):
         """Lets the WOTD owner set a new word"""
-        if ctx.author.id != self.setter.id:
+        #print(f"{ctx.author} used newwotd in {ctx.channel}")
+        if ctx.channel.id not in self.bot.config.wotd_whitelist or \
+          ctx.author.id != self.setter.id:
             return
         if self.hint:
             await ctx.send("The WOTD can't be changed after a hint has been given.")

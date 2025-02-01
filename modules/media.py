@@ -154,30 +154,32 @@ class Media(commands.Cog):
             await ctx.send(f"`{title}` not found on metacritic")
             return
         url = URL(urls[0])
+        #print(url)
         urlparts = list(filter(None, url.path.split("/")))
         mediatype = urlparts[0]
         slug = urlparts[1]
         if mediatype == 'game' and len(urlparts) > 2:
             slug = urlparts[2]
-        apiurl_t = "https://backend.metacritic.com/v1/xapi/{}/metacritic/{}/web?apiKey={}"
+        apiurl_t = "https://backend.metacritic.com/composer/metacritic/pages/{}/{}/web?apiKey={}"
 
         apiurl = apiurl_t.format(self.MC_MEDIA_MAP[mediatype], slug, self.bot.config.mc_api_key)
         
         async with self.bot.session.get(apiurl) as resp:
             data = await resp.json()
-            data = data['data']['item']
+            data = data['components'][0]['data']['item']
 
         title = data['title']
         year = data['premiereYear']
         critics = data['criticScoreSummary']
         if mediatype == 'tv' and 'season' in str(url).lower() and len(urlparts) > 2:
-             slug = f"{slug}/seasons/{urlparts[2]}"
-             s_apiurl = apiurl_t.format(self.MC_MEDIA_MAP[mediatype], 
+             slug = f"{slug}/season/{urlparts[2]}"
+             s_apiurl = apiurl_t.format("shows-seasons", 
                                         slug, 
                                         self.bot.config.mc_api_key)
+             #print(s_apiurl)
              async with self.bot.session.get(s_apiurl) as resp:
                 s_data = await resp.json()
-                s_data = s_data['data']['item']
+                s_data = s_data['components'][5]['data']['item']
                 critics = s_data['criticScoreSummary']
                 title += f" ({s_data['tvTaxonomy']['season']['name']})"
                 year = s_data['releaseYear']

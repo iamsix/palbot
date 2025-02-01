@@ -23,7 +23,7 @@ class Sports(commands.Cog):
         if isinstance(error, commands.errors.CheckFailure):
             return
         else:
-            self.logger.info(error)
+            self.bot.logger.info(error)
 
         
     async def sports_formatter(self, data):
@@ -64,7 +64,7 @@ class Sports(commands.Cog):
 
 
     async def sports_channel(ctx):
-        if  ctx.guild != None and ctx.channel.id != 1243723119567310858:
+        if  (ctx.guild and ctx.guild.id == 124572142485504002) and ctx.channel.id != 1243723119567310858:
             msg = await ctx.reply(f"`!{ctx.invoked_with}` is stored in the <#1243723119567310858>. This message will self destruct.")
             await asyncio.sleep(5)
             await msg.delete()

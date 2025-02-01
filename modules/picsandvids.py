@@ -251,6 +251,10 @@ class Vids(commands.Cog):
                 url = str(resp.url)
         if url.lower().startswith("https://www.reddit.com/over18?dest="):
             url = url[35:]
+
+        if "/s/" in url.lower():
+            async with self.bot.session.get(url, headers=headers) as resp:
+                url = str(resp.url)
 #        url = url.replace("www", "oauth")
         url = url[:url.rfind("/")] + "/.json"
         # Might be able to do all the above easier with URL

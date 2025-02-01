@@ -164,6 +164,12 @@ class Internets(commands.Cog):
             else:
                 await ctx.send("Wolfram didn't understand that")
 
+    @wolfram.error
+    async def wolfram_error(self, ctx, error):
+        if isinstance(error, commands.errors.CommandInvokeError):
+            await ctx.send("Wolfram timed out, maybe try it again idk")
+
+
     async def get_wolfram(self, url, params, *, full=False):
         """The recursive method used to look up wolfram data or woflram related data"""
         async with self.bot.session.get(url, params=params) as resp:
