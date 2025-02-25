@@ -26,10 +26,12 @@ intents.message_content = True
 class PalBot(commands.Bot):
 
     def __init__(self):
+        help = commands.DefaultHelpCommand(dm_help=None)
+        help.verify_checks = False
         super().__init__(command_prefix=["!"],
                 description="https://github.com/iamsix/palbot/ by six",
                 case_insensitive=True,
-                help_command=commands.DefaultHelpCommand(dm_help=None),
+                help_command=help,
                 intents=intents)
         
         self.logger = logging.getLogger("palbot")

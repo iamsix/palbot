@@ -112,22 +112,17 @@ class News(commands.Cog):
         """
         Gets presidential approval ratings from fivethirtyeight
         """
-        data_url = "https://projects.fivethirtyeight.com/biden-approval-data/approval_topline.csv"
-        url = 'https://projects.fivethirtyeight.com/biden-approval-rating/'
+        data_url = "https://projects.fivethirtyeight.com/polls/approval/donald-trump/2/polling-average.json"
+        url = 'https://projects.fivethirtyeight.com/polls/approval/donald-trump/'
         async with self.bot.session.get(data_url) as resp:
-            data = await resp.read()
-
+            data = await resp.json()
             # Only grab the top 3 lines from the CSV including the header
-            data = data.decode('utf-8').splitlines()[0:4] 
-            reader = csv.DictReader(data)
 
-            for row in reader:
-                if row['subgroup'] == "All polls":
-                    break
 
-            output = "President: {} Approval: {}% Disapproval: {}% Date: {} [ <{}> ]"
-            output = output.format(row['politician'], round(float(row['approve_estimate']), 1),
-                                   round(float(row['disapprove_estimate']), 1), row['end_date'], url)
+            output = "President: Trump 2 - {}: {:2.1f}% {}: {:2.1f}% Date: {} [ <{}> ]"
+            output = output.format(data[0]['candidate'], data[0]['pct_estimate'],  
+                                   data[1]['candidate'], data[1]['pct_estimate'],
+                                   data[0]['date'], url)
             await ctx.send(output)
     
 
