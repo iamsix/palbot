@@ -168,7 +168,8 @@ class Wotd(commands.Cog):
             chan = self.bot.config.wotd_whitelist[0]
 
             self.wotd = self.single_getter(chan, "wotd")
-            self.hint = self.single_getter(chan, "hint")
+            hint = self.single_getter(chan, "hint")
+            self.hint = hint or "*" * len(self.wotd)
             for i, letter in enumerate(self.hint):
                 if letter == "*":
                     self.unrevealed.add(i)
@@ -184,7 +185,7 @@ class Wotd(commands.Cog):
             except:
                 self.setter = self.bot.user
             ts = self.single_getter(chan, "timestamp")
-            self.timestamp = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S.%f").astimezone(timezone.utc)
+            self.timestamp = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S.%f%z")
             tssec = int((datetime.now(timezone.utc) - self.timestamp).total_seconds())
             hinttime = 24*60*60 // len(self.wotd)
             waittime = hinttime - (tssec % hinttime)
@@ -285,7 +286,7 @@ class Wotd(commands.Cog):
         hinttime = 24*60*60 // len(self.wotd)
         self.expire_timer = asyncio.ensure_future(self.expire_word(channel, hinttime))
 
-    @commands.command(hidden=True)
+    # @commands.command(hidden=True)
     async def hinter(self, ctx, *, word):
         unrevealed_indices = set(range(len(word)))
         revealed_indices = set()
@@ -371,7 +372,7 @@ class Wotd(commands.Cog):
         if self.full_word_match:
             fw = " This is a full word only match, substrings will not match."
 
-        await ctx.send(f"The WOTD {hint}was set by **{self.setter.display_name}** {ago}.\nThe word has been used {wordcount} times in this channel.{fw}")
+        await ctx.send(f"The WOTD {hint}was set by **{self.setter.display_name}** {ago}.\nThe word has been used {wordcount} times in this channel.{fw}\nYou must use the word in a sentence.")
 
     s_re = re.compile("[^a-z0-9!'_-]*",re.I)
 

@@ -202,7 +202,7 @@ class Vids(commands.Cog):
         ctx = await self.bot.get_context(message, cls=self.bot.utils.MoreContext)
 
         url = URL(url)
-        url = url.with_host("instagramez.com")
+        url = url.with_host("instagramez.com").with_query(None)
         await ctx.send(url)
         try:
             await asyncio.sleep(1)

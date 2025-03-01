@@ -19,7 +19,7 @@ from collections import deque
 FORMAT = "[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s"
 logging.basicConfig(filename='debug.log',level=logging.INFO, format=FORMAT)
 
-intents = discord.Intents.default()
+intents = discord.Intents.all()
 intents.members = True
 intents.message_content = True
 
@@ -98,7 +98,7 @@ class PalBot(commands.Bot):
 
     async def on_message(self, message):
         ctx = await self.get_context(message, cls=self.utils.MoreContext)
-        ctx.session = self.session
+        # ctx.session = self.session
         await self.invoke(ctx)
     
     async def on_message_delete(self, message):

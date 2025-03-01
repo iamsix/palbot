@@ -7,6 +7,7 @@ import collections
 from collections.abc import Mapping
 from utils.context import MoreContext
 from utils.context import Location
+from utils.context import AuthorInfo
 from utils.paginator import Paginator
 from utils.units import units
 

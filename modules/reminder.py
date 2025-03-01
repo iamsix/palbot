@@ -105,7 +105,7 @@ class Reminder(commands.Cog):
     async def remindme(self, ctx, *, message: commands.clean_content):
         if ctx.invoked_with.lower() == "remind" and message[:2] == "me":
             message = message[3:]
-            print(message)
+            # print(message)
         tz = ctx.author_info.timezone
         date, what = self.reminder_parser(message, tz)
         if not date:

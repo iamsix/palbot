@@ -28,7 +28,8 @@ class Strava(commands.Cog):
         await self.site.start()
 
     async def cog_unload(self):
-        await self.site.stop()
+        pass
+        # await self.site.stop()
 
 
     @commands.group(name="strava", case_insensitive=True, invoke_without_command=True)
@@ -88,7 +89,7 @@ class Strava(commands.Cog):
         user = recent_ride['athlete']['id']
         if recent_ride:
             measurements = await self.strava_get_measurement_pref(user)
-            out = await self.parse_strava_ride(recent_ride, user, measurements)
+            out = await self.parse_strava_ride(recent_ride, measurements)
             await ctx.send(out)
 
 
@@ -113,13 +114,13 @@ class Strava(commands.Cog):
             if recent_ride:
                 self.bot.logger.debug(recent_ride)
                 measurements = await self.strava_get_measurement_pref(user)
-                return await self.parse_strava_ride(recent_ride, user, measurements)
+                return await self.parse_strava_ride(recent_ride, measurements)
             else:
                 return f"Sorry {user}, an error has occured attempting to retrieve the most recent ride's details"
         else:
             return f"Sorry {user}, no rides have been recorded yet. Remember, if it's not on Strava, it didn't happen."
 
-    async def parse_strava_ride(self, recent_ride, athlete_id=None, measurement_pref=None):
+    async def parse_strava_ride(self, recent_ride, measurement_pref=None):
         #if the athlete ID is missing we can default to mph
 
         self.bot.logger.debug("Strava recent ride:", recent_ride)
@@ -151,7 +152,7 @@ class Strava(commands.Cog):
         else:   # Heart not found
             avg_hr = False 
         
-        if measurement_pref == "feet" or athlete_id == None or measurement_pref == None:
+        if measurement_pref == "feet" or measurement_pref == None:
             avg_speed = "{} mph".format(self.meters_per_second_to_miles_per_hour(recent_ride['average_speed']))
             distance = "{} mi".format(self.meters_to_miles(recent_ride['distance']))
             max_speed = "{} mph".format(self.meters_per_second_to_miles_per_hour(recent_ride['max_speed']))
