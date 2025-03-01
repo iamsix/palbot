@@ -5,7 +5,7 @@ import random
 from utils.time import human_timedelta
 import sqlite3
 import subprocess
-from datetime import datetime,timedelta
+from datetime import datetime,timedelta, timezone
 import re
 
 
@@ -41,8 +41,8 @@ class WotdPrompt(discord.ui.Modal):
     async def on_submit(self, interaction: discord.Interaction):
         word = str(self.new_wotd)
         # This might fail from those stupid fancy quotes
-        # self.fullword = (word[0] == '"' and word[-1] == '"')
-        self.fullword = True
+        self.fullword = not (word[0] == '*' and word[-1] == '*')
+        # self.fullword = True
         word = self.s_re.sub("", word)
         word = word.strip()
         self.word = word
@@ -94,11 +94,13 @@ class WotdButton(discord.ui.View):
         word = str(modal.word)
         if modal.good_word:
             self.wotd.hint = ""
+            self.wotd.unrevealed = set(range(len(word)))
+            self.wotd.revealed = set()
             self.wotd.full_word_match = modal.fullword
             self.wotd.fwr = re.compile(f"\\b{word}\\b", flags=re.IGNORECASE)
             self.wotd.bot.logger.info(f"New WOTD is: {word} - Fullword is: {modal.fullword}")
             self.wotd.wotd = word
-            self.wotd.timestamp = datetime.utcnow()
+            self.wotd.timestamp = datetime.now(timezone.utc)
             count = self.wotd.count_wotd()
             chan = self.message.channel.id
             self.wotd.single_setter(chan, "setter", self.wotd_finder.id)
@@ -110,13 +112,13 @@ class WotdButton(discord.ui.View):
             self.stop()
             msg = self.message.content + f"\n\nWord has been set. The new WOTD has been used {count} times."
             if modal.fullword:
-                msg += "\nThe setter has specified full word only matching."
+                msg += "\nThis is full word only matching."
             await self.message.edit(content=msg, view=None)
 
     async def on_timeout(self):
         self.wotd.wotd = random.choice(common_words)
 #        self.wotd.setter = self.wotd.bot.user
-        self.wotd.timestamp = datetime.utcnow()
+        self.wotd.timestamp = datetime.now(timezone.utc)
         self.wotd.full_word_match = False
         await self.message.channel.send("New WOTD button has expired, so it has been set to a random common word\nThe WOTD finder can still use `!newwotd` to set it again")
         await self.message.edit(content=self.message.content, view=None)
@@ -133,6 +135,8 @@ class Wotd(commands.Cog):
     timestamp = None
     expire_timer = None
     hint = ""
+    revealed = set()
+    unrevealed = set()
     wotd_count = None
     full_word_match = False
     fwr = re.compile("#INVALID_WORD#")
@@ -141,7 +145,7 @@ class Wotd(commands.Cog):
         self.bot = bot
         self.wotd = random.choice(common_words)
         self.setter = bot.user
-        self.timestamp = datetime.utcnow()
+        self.timestamp = datetime.now(timezone.utc)
         self.hint = ""
 
         self.conn = sqlite3.connect("wotd.sqlite")
@@ -165,6 +169,12 @@ class Wotd(commands.Cog):
 
             self.wotd = self.single_getter(chan, "wotd")
             self.hint = self.single_getter(chan, "hint")
+            for i, letter in enumerate(self.hint):
+                if letter == "*":
+                    self.unrevealed.add(i)
+                else:
+                    self.revealed.add(i)
+
             self.full_word_match = int(self.single_getter(chan, "fullword")) == 1
             if self.full_word_match:
                 self.fwr = re.compile(f"\\b{self.wotd}\\b", flags=re.IGNORECASE)
@@ -174,9 +184,10 @@ class Wotd(commands.Cog):
             except:
                 self.setter = self.bot.user
             ts = self.single_getter(chan, "timestamp")
-            self.timestamp = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S.%f")
-            tssec = int((datetime.utcnow() - self.timestamp).total_seconds())
-            waittime = 6*60*60 - (tssec % (6*60*60))
+            self.timestamp = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S.%f").astimezone(timezone.utc)
+            tssec = int((datetime.now(timezone.utc) - self.timestamp).total_seconds())
+            hinttime = 24*60*60 // len(self.wotd)
+            waittime = hinttime - (tssec % hinttime)
             
             channel = self.bot.get_channel(chan)
             self.expire_timer = asyncio.ensure_future(self.expire_word(channel, waittime))
@@ -217,6 +228,8 @@ class Wotd(commands.Cog):
         self.wotd_count = None
         self.wotd = ""
         self.hint = ""
+        self.revealed = set()
+        self.unrevealed = set()
         self.fwr = re.compile("#INVALID_WORD#")
         mymsg = await ctx.send("The WOTD owner can set a new WOTD with the button below", view=button)
         button.message = mymsg
@@ -230,7 +243,7 @@ class Wotd(commands.Cog):
         mymsg = await ctx.send("Nevermind this button...", view=button)
         button.message = mymsg
         self.setter = self.bot.user
-        self.timestamp = datetime.utcnow()
+        self.timestamp = datetime.now(timezone.utc)
         self.wotd = ""
         self.hint = ""
         self.wotd_count = None
@@ -243,29 +256,53 @@ class Wotd(commands.Cog):
         hint = ""
         if not self.hint:
             self.hint = "*" * len(self.wotd)
-        for i in range(len(self.wotd)):
-             # reveal 33% of letters at random
-             if self.hint[i] != "*":
-                 hint += self.hint[i]
-             elif random.choice([True, False, False]):
-                 hint += self.wotd[i]
-             else:
-                 hint += "*"
-        self.hint = hint
+        if self.unrevealed:
+            # new hint system reveals exactly 1 unrevealed letter each time
+            # over 24 hours all letters revealed with more hints for longer words
+            chosen_index = random.choice(list(self.unrevealed))
+            self.revealed.add(chosen_index)
+            self.unrevealed = set(range(len(self.wotd))) - self.revealed
+            for i, letter in enumerate(self.wotd):
+                if i in self.revealed:
+                    hint += letter
+                else:
+                    hint += "*"
+            self.hint = hint
         try:
             self.single_setter(channel.id, "hint", self.hint)
         except Exception as e:
             print(e)
             print("Failed to set hint in the wotd database")
         print("Sending wotd expire message")
-        hrs = int((datetime.utcnow() - self.timestamp).total_seconds()) // 60 // 60
+        # hrs = int((datetime.now(timezone.utc) - self.timestamp).total_seconds()) // 60 // 60
+        ago = f"<t:{int(self.timestamp.timestamp())}:R>"
         count = self.count_wotd()
-        fw = ""
+        fw = " You must use the word in a sentence."
         if self.full_word_match:
-            fw = " This is a full word match only, substrings will not match."
-        await channel.send(f"The WOTD was set {hrs} hours ago by {self.setter.display_name} and no one has found it yet. So here's a hint: `{hint}` has been used {count} times.{fw}")
+            fw = " You must use the word in a sentence. This is a full word match only, substrings will not match."
+        await channel.send(f"The WOTD was set {ago} by {self.setter.display_name} and no one has found it yet. So here's a hint: `{hint}` has been used {count} times.{fw}")
         print("Sent expire message... setting new timer")
-        self.expire_timer = asyncio.ensure_future(self.expire_word(channel, 6*60*60))
+        hinttime = 24*60*60 // len(self.wotd)
+        self.expire_timer = asyncio.ensure_future(self.expire_word(channel, hinttime))
+
+    @commands.command(hidden=True)
+    async def hinter(self, ctx, *, word):
+        unrevealed_indices = set(range(len(word)))
+        revealed_indices = set()
+        hint = ""
+        hints = []
+        for i in range(len(word)):
+            chosen_index = random.choice(list(unrevealed_indices))
+            revealed_indices.add(chosen_index)
+            unrevealed_indices = set(range(len(word)))  - revealed_indices
+            for x, letter in enumerate(word):
+                if x in revealed_indices:
+                    hint += letter
+                else:
+                    hint += "*"
+            hints.append(f"Hint {i+1}: `" + hint + "`")
+            hint = ""
+        await ctx.send(f"Hints from that word: {'\n'.join(hints)}")
 
     @commands.command(hidden=True)
     async def wotdhint(self, ctx):
@@ -278,9 +315,13 @@ class Wotd(commands.Cog):
     @commands.is_owner()
     async def checkwotd(self, ctx):
         """Debug function shows you the current wotd, who set it, and when"""
-        ago = human_timedelta(self.timestamp, source=datetime.utcnow(), suffix=True)
+        # ago = human_timedelta(self.timestamp, source=datetime.now(timezone.utc), suffix=True)
+        ago = f"<t:{int(self.timestamp.timestamp())}:R>"
 
-        await ctx.send(f"wotd is: ||{self.wotd}|| set by **{self.setter.display_name}** on {self.timestamp} UTC {ago} - hint: `{self.hint}` - Fullword: {self.full_word_match}")
+        await ctx.send(f"""wotd is: ||{self.wotd}||
+            set by **{self.setter.display_name}** on {self.timestamp} UTC {ago} 
+            hint: `{self.hint}` - revealed: {self.revealed} - unrevealed: {self.unrevealed}
+            Fullword: {self.full_word_match}""")
 
     @commands.command(hidden=True)
     @commands.is_owner()
@@ -316,7 +357,8 @@ class Wotd(commands.Cog):
         """Shows some stats about the current wotd"""
         if not self.wotd:
             return
-        ago = human_timedelta(self.timestamp, source=datetime.utcnow(), suffix=True)
+        # ago = human_timedelta(self.timestamp, source=datetime.now(timezone.utc), suffix=True)
+        ago = f"<t:{int(self.timestamp.timestamp())}:R>"
 
         wordcount = self.count_wotd()
 
@@ -365,9 +407,9 @@ class Wotd(commands.Cog):
             return 0
         filename = f'logfiles/{self.bot.config.wotd_whitelist[0]}.log'
         if fullword:
-            cmd = f'grep -ic "PRIVMSG #.* :.*\\b{word}\\b" {filename}'
+            cmd = f'grep -i "PRIVMSG #.* :.*\\b{word}\\b" {filename} | grep -vc 267300524775178240'
         else:
-            cmd = f'grep -ic "PRIVMSG #.* :.*{word}.*" {filename}'
+            cmd = f'grep -i "PRIVMSG #.* :.*{word}.*" {filename} | grep -vc 267300524775178240'
         process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
         wordcount = int(process.communicate(timeout=5)[0][:-1])
         return wordcount
@@ -388,7 +430,7 @@ class Wotd(commands.Cog):
 
             count = self.hitcount(message.author.id)
             ttime = 1
-            ago = human_timedelta(self.timestamp, source=datetime.utcnow(), suffix=True)
+            ago = human_timedelta(self.timestamp, source=datetime.now(timezone.utc), suffix=True)
             button = WotdButton(self, message.author)
             msg = f"Congratulations? You've found the word of the day for the {self.bot.utils.ordinal(count)} time: **{self.wotd}** that was set by {self.setter.mention} {ago}. Now you can take some time and think about that.\nPlease push the button below to set a new word (after the timeout)."
             if message.author.id == self.setter.id:
@@ -402,11 +444,12 @@ class Wotd(commands.Cog):
             self.wotd_count = None
             self.full_word_match = False
             self.setter = message.author
-            self.timestamp = datetime.utcnow()
+            self.timestamp = datetime.now(timezone.utc)
             
             mymsg = await message.reply(msg, view=button)
             button.message = mymsg
-            self.expire_timer = asyncio.ensure_future(self.expire_word(message.channel))
+            hinttime = 24*60*60 // len(self.wotd)
+            self.expire_timer = asyncio.ensure_future(self.expire_word(message.channel, hinttime))
             try:
                 await message.author.timeout(timedelta(minutes=ttime), reason=f"wotd: {banword}")
             except Exception as e:
@@ -426,8 +469,8 @@ class Wotd(commands.Cog):
 
     def record_hit(self, message):
         q = "INSERT INTO hitlog VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-        timestamp = datetime.utcnow().strftime('%Y-%m-%d-%H-%M-%S')
-        age = int((datetime.utcnow() - self.timestamp).total_seconds())
+        timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%d-%H-%M-%S')
+        age = int((datetime.now(timezone.utc) - self.timestamp).total_seconds())
         self.c.execute(q, (message.channel.id, timestamp, message.author.id, self.wotd, self.count_wotd(), self.setter.id, age, self.full_word_match))
         self.conn.commit()
 
