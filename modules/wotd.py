@@ -101,7 +101,7 @@ class WotdButton(discord.ui.View):
             self.wotd.bot.logger.info(f"New WOTD is: {word} - Fullword is: {modal.fullword}")
             self.wotd.wotd = word
             self.wotd.timestamp = datetime.now(timezone.utc)
-            hinttime = 24*60*60 // len(self.wotd)
+            hinttime = 24*60*60 // len(self.wotd.wotd)
             self.wotd.expire_timer = asyncio.ensure_future(self.wotd.expire_word(interaction.channel, hinttime))
             count = self.wotd.count_wotd()
             chan = self.message.channel.id
