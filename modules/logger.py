@@ -6,6 +6,7 @@ class Logger(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.files = {}
+        os.makedirs('logfiles', exist_ok=True)
 
     @commands.Cog.listener()
     async def on_message(self, message, reaction = None, reactor = None):
