@@ -59,10 +59,8 @@ class Chat(commands.Cog):
         self.custom_command_conn = sqlite3.connect("customcommands.sqlite")
         cursor = self.custom_command_conn.cursor()
         self.custom_command_cursor = cursor
-        result = cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='commands';").fetchone()
-        if not result:
-            cursor.execute("CREATE TABLE 'commands' ('cmd' TEXT UNIQUE ON CONFLICT REPLACE, 'output' TEXT, 'owner' TEXT, 'description' TEXT);")
-            self.custom_command_conn.commit()
+        cursor.execute("CREATE TABLE IF NOT EXISTS 'commands' ('cmd' TEXT UNIQUE ON CONFLICT REPLACE, 'output' TEXT, 'owner' TEXT, 'description' TEXT);")
+        self.custom_command_conn.commit()
     
     REPOST = ['\N{REGIONAL INDICATOR SYMBOL LETTER R}',
               '\N{REGIONAL INDICATOR SYMBOL LETTER E}',

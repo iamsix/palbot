@@ -149,11 +149,9 @@ class AuthorInfo:
 
         self.conn = sqlite3.connect('userinfo.sqlite')
         self.c = self.conn.cursor()
-        result = self.c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='userinfo';").fetchone()
-        if not result:
-            # username field is never queried, just exists for convenient lookup when manually checking db entries
-            self.c.execute('''CREATE TABLE userinfo (user integer, username text, field text, data text);''')
-            self.conn.commit()
+        # username field is never queried, just exists for convenient lookup when manually checking db entries
+        self.c.execute('''CREATE TABLE IF NOT EXISTS userinfo (user integer, username text, field text, data text);''')
+        self.conn.commit()
 
     def single_getter(self, key):
         q = '''SELECT data FROM userinfo WHERE user = (?) AND field = (?); '''
