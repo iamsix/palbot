@@ -60,7 +60,29 @@ class Chat(commands.Cog):
         cursor = self.custom_command_conn.cursor()
         self.custom_command_cursor = cursor
         cursor.execute("CREATE TABLE IF NOT EXISTS 'commands' ('cmd' TEXT UNIQUE ON CONFLICT REPLACE, 'output' TEXT, 'owner' TEXT, 'description' TEXT);")
+        
+
+        cfind_q = """
+        CREATE VIRTUAL TABLE IF NOT EXISTS cfind USING FTS5(cmd, description);
+        INSERT INTO cfind(cmd, description)
+            SELECT cmd, description FROM commands
+            WHERE NOT EXISTS (SELECT 1 FROM cfind WHERE cfind.cmd = commands.cmd);
+
+        CREATE TRIGGER IF NOT EXISTS cfindd AFTER DELETE ON commands BEGIN
+            DELETE FROM cfind WHERE cmd = old.cmd;
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS cfindi AFTER INSERT ON commands BEGIN
+            INSERT INTO cfind(cmd, description) VALUES (new.cmd, new.description);
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS cfindu AFTER UPDATE ON commands BEGIN
+            DELETE FROM cfind WHERE cmd = old.cmd;
+            INSERT INTO cfind(cmd, description) VALUES (new.cmd, new.description);
+        END;"""
+        cursor.executescript(cfind_q)
         self.custom_command_conn.commit()
+
     
     REPOST = ['\N{REGIONAL INDICATOR SYMBOL LETTER R}',
               '\N{REGIONAL INDICATOR SYMBOL LETTER E}',
@@ -265,25 +287,13 @@ class Chat(commands.Cog):
 
     @commands.command()
     async def find(self, ctx, find: str):
-        # CREATE VIRTUAL TABLE IF NOT EXISTS cfind USING FTS5(cmd,description);
-        # INSERT INTO cfind(cmd, description) SELECT cmd, description FROM commands;
-        # CREATE TRIGGER cfindd AFTER DELETE ON commands BEGIN
-        #   DELETE FROM cfind WHERE cmd = old.cmd;
-        # END;
-        # CREATE TRIGGER cfindi AFTER INSERT ON commands BEGIN
-        #   INSERT INTO cfind(cmd, description) VALUES (new.cmd, new.description);
-        # END;
-        # CREATE TRIGGER cfindu AFTER UPDATE ON commands BEGIN
-        #   DELETE FROM cfind WHERE cmd = old.cmd;
-        #   INSERT INTO cfind(cmd, description) VALUES (new.cmd, new.description);
-        # END;
         c = self.custom_command_cursor
         q = "SELECT commands.cmd, output, commands.description FROM commands JOIN cfind ON commands.cmd = cfind.cmd WHERE cfind MATCH (?) ORDER BY rank;"
         res = c.execute(q, [find]).fetchall()
         if res:
             lines = []
             for row in res:
-                lines.append(f"**!{row[0].strip()}** *{row[2].strip() if row[2] else "No description"}*")
+                lines.append(f"**!{row[0].strip()}** *{(row[2].strip() if row[2] else 'No description')}*")
 
             await ctx.send("\n".join(lines))
         else:
