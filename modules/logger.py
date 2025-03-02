@@ -1,6 +1,7 @@
 from discord.ext import commands
 import discord
 import datetime
+import os
 
 class Logger(commands.Cog):
     def __init__(self, bot):
