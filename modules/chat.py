@@ -283,8 +283,7 @@ class Chat(commands.Cog):
         if res:
             lines = []
             for row in res:
-                lines.append(f"**!{row[0].strip()}** *{row[2].strip() if row[2] else "No description"}*")
-
+                lines.append(f"**!{row[0].strip()}** *{(row[2].strip() if row[2] else 'No description')}*")
             await ctx.send("\n".join(lines))
         else:
             await ctx.send("Not found")
