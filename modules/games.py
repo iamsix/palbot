@@ -8,9 +8,9 @@ import pytz
 import json
 from utils.time import HumanTime
 
-from poe import Client
-import poe.utils as poeutils
-from io import BytesIO
+# from poe import Client
+# import poe.utils as poeutils
+# from io import BytesIO
 
 
 class Games(commands.Cog):
@@ -136,40 +136,41 @@ class Games(commands.Cog):
             await ctx.send(f"No games found for {today.date()}")
 
 
-    @commands.command()
-    async def poe(self, ctx, *, item: str):
-        """Search for and post a POE <item> image"""
-        item = Client().find_items({'_pageName': f'%{item}%'}, limit=1)
-        if not item:
-            return
+    # @commands.command()
+    # async def poe(self, ctx, *, item: str):
+    #     # This modules is broken as the upstream library it uses no longer works
+    #     """Search for and post a POE <item> image"""
+    #     item = Client().find_items({'_pageName': f'%{item}%'}, limit=1)
+    #     if not item:
+    #         return
 
-        result = item[0]
-        if result.base == "Prophecy":
-            flavor = 'prophecy'
-        elif 'gem' in result.tags:
-            flavor = 'gem'
-            # do some meta stufff here maybe?
-        elif 'divination_card' in result.tags:
-            flavor = 'unique'
-            # possibly needs more here
-        else:
-            flavor = result.rarity
-        r = poeutils.ItemRender(flavor)
-        image = r.render(result)
-        image_fp = BytesIO()
-        image.save(image_fp, 'png')
-        image_fp.seek(0)
+    #     result = item[0]
+    #     if result.base == "Prophecy":
+    #         flavor = 'prophecy'
+    #     elif 'gem' in result.tags:
+    #         flavor = 'gem'
+    #         # do some meta stufff here maybe?
+    #     elif 'divination_card' in result.tags:
+    #         flavor = 'unique'
+    #         # possibly needs more here
+    #     else:
+    #         flavor = result.rarity
+    #     r = poeutils.ItemRender(flavor)
+    #     image = r.render(result)
+    #     image_fp = BytesIO()
+    #     image.save(image_fp, 'png')
+    #     image_fp.seek(0)
 
-        await ctx.send(file=discord.File(image_fp, result.name + ".png"))
+    #     await ctx.send(file=discord.File(image_fp, result.name + ".png"))
 
-    async def friendly_date(self, ctx, date):
-        if not date:
-            if ctx.author_info.timezone:
-                return datetime.datetime.now(pytz.timezone(ctx.author_info.timezone))
-            else:
-                return datetime.datetime.now(pytz.timezone("US/Eastern"))
-        else:
-            return date.dt
+    # async def friendly_date(self, ctx, date):
+    #     if not date:
+    #         if ctx.author_info.timezone:
+    #             return datetime.datetime.now(pytz.timezone(ctx.author_info.timezone))
+    #         else:
+    #             return datetime.datetime.now(pytz.timezone("US/Eastern"))
+    #     else:
+    #         return date.dt
 
     @commands.command()
     async def owl(self, ctx, *, date: HumanTime = None):
