@@ -1,4 +1,5 @@
 import discord
+from discord import app_commands
 from discord.ext import commands, tasks
 import asyncio
 import random
@@ -22,7 +23,27 @@ class TestView(discord.ui.View):
     async def on_click_hello(self, interaction, button):
         await interaction.response.send_message(f"Hi {interaction.user.mention}", ephemeral=True)
 
-class Chat(commands.Cog):
+
+class CmdPrompt(discord.ui.Modal):
+    def __init__(self, chat):
+        self.chat = chat
+        super().__init__(title="Command to send")
+    command = discord.ui.TextInput(label='Command', placeholder="okaymixy")
+
+    async def on_submit(self, interaction: discord.Interaction):
+        cmd = self.command.value
+        if cmd.startswith("!"):
+            cmd = cmd[1:]
+        response = await self.chat.custom_command(cmd)
+        if response:
+            await interaction.response.send_message(response)
+        else:
+            await interaction.response.send_message(
+                f"No command `{self.command}` found.\nNote this can only do custom commands, not 'real' ones.", 
+                ephemeral=True)
+
+
+class Chat(commands.Cog):    
     reminders = set()
     def __init__(self, bot):
         self.bot = bot
@@ -32,12 +53,15 @@ class Chat(commands.Cog):
         self.tags_c.execute(q)
         self.check_userthings.start()
 
+        self.cmd_menu = app_commands.ContextMenu(name='React Command', callback=self.command_ctx)
+        self.bot.tree.add_command(self.cmd_menu)
+
         self.custom_command_conn = sqlite3.connect("customcommands.sqlite")
         cursor = self.custom_command_conn.cursor()
         self.custom_command_cursor = cursor
         result = cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='commands';").fetchone()
         if not result:
-            cursor.execute("CREATE TABLE 'commands' ('cmd' TEXT UNIQUE ON CONFLICT REPLACE, 'output' TEXT, 'owner' TEXT);")
+            cursor.execute("CREATE TABLE 'commands' ('cmd' TEXT UNIQUE ON CONFLICT REPLACE, 'output' TEXT, 'owner' TEXT, 'description' TEXT);")
             self.custom_command_conn.commit()
     
     REPOST = ['\N{REGIONAL INDICATOR SYMBOL LETTER R}',
@@ -54,6 +78,10 @@ class Chat(commands.Cog):
               '\N{REGIONAL INDICATOR SYMBOL LETTER S}',
               '\N{REGIONAL INDICATOR SYMBOL LETTER T}',
               '\N{REGIONAL INDICATOR SYMBOL LETTER E}',]
+    
+    async def command_ctx(self, interaction: discord.Interaction, message: discord.Message):
+        md = CmdPrompt(self)
+        await interaction.response.send_modal(md)
 
     @commands.Cog.listener()
     async def on_reaction_add(self, reaction, user):
@@ -181,15 +209,46 @@ class Chat(commands.Cog):
         things = re.split(", or |, | or ", msg, flags=re.IGNORECASE)
         if len(things) > 1: 
             return random.choice(things).strip()
+        
+    @app_commands.command()
+    async def command(self, interaction: discord.Interaction, command: str):
+        res = await self.custom_command(command)
+        if res:
+            await interaction.response.send_message(res)
+        else:
+            await interaction.response.send_message(
+                f"No such command `{command}`", 
+                ephemeral=True,
+                )
+
+    @command.autocomplete('command')
+    async def command_autocomplete(
+        self,
+        interaction: discord.Interaction,
+        current: str,
+    ):
+        c = self.custom_command_cursor
+        q = "SELECT cmd, description FROM commands WHERE cmd LIKE (?);"
+        res = c.execute(q, [f"%{current}%"]).fetchall()
+        res = res[:24]
+        return [
+            app_commands.Choice(
+                name=f"{command[0]} - {command[1][:70]}" if command[1] else command[0], 
+                value=command[0]
+                )
+            for command in res
+        ]
  
     async def custom_command(self, command):
         c = self.custom_command_cursor
-        result = c.execute("SELECT output FROM commands WHERE cmd = (?)", [command.lower()]).fetchone()
+        result = c.execute("SELECT output FROM commands WHERE cmd = (?)", 
+                           [command.lower()]).fetchone()
         if not result:
             return
         else:
             return result[0].strip()
-        
+    
+    pdlre = re.compile(r'poorlydrawnlines.com/wp-content/uploads/\d{4}/\d{2}/')
     @commands.command()
     async def pdl(self, ctx, *, td: str = ""):
         url = "https://poorlydrawnlines.com/?random"
@@ -197,7 +256,7 @@ class Chat(commands.Cog):
             url = "https://poorlydrawnlines.com/"
         pg = await self.bot.utils.bs_from_url(self.bot, url)
         div = pg.find('div', attrs={'class' : "entry-content"})
-        comic = div.find('img',src=re.compile(r'poorlydrawnlines.com/wp-content/uploads/\d{4}/\d{2}/'))
+        comic = div.find('img',src=self.pdlre)
         await ctx.send(comic.get('src'))
 
     @commands.command()
@@ -208,22 +267,43 @@ class Chat(commands.Cog):
 
     @commands.command()
     async def find(self, ctx, find: str):
-        #vt = "CREATE VIRTUAL TABLE IF NOT EXISTS cfind USING FTS5(cmd,description);"
-        #vt2 = "INSERT INTO cfind(cmd, description) SELECT cmd, description FROM commands;"
+        # CREATE VIRTUAL TABLE IF NOT EXISTS cfind USING FTS5(cmd,description);
+        # INSERT INTO cfind(cmd, description) SELECT cmd, description FROM commands;
+        # CREATE TRIGGER cfindd AFTER DELETE ON commands BEGIN
+        #   DELETE FROM cfind WHERE cmd = old.cmd;
+        # END;
+        # CREATE TRIGGER cfindi AFTER INSERT ON commands BEGIN
+        #   INSERT INTO cfind(cmd, description) VALUES (new.cmd, new.description);
+        # END;
+        # CREATE TRIGGER cfindu AFTER UPDATE ON commands BEGIN
+        #   DELETE FROM cfind WHERE cmd = old.cmd;
+        #   INSERT INTO cfind(cmd, description) VALUES (new.cmd, new.description);
+        # END;
         c = self.custom_command_cursor
-        #c.execute(vt)
-        #c.execute(vt2)
         q = "SELECT commands.cmd, output, commands.description FROM commands JOIN cfind ON commands.cmd = cfind.cmd WHERE cfind MATCH (?) ORDER BY rank;"
         res = c.execute(q, [find]).fetchall()
         if res:
             lines = []
             for row in res:
-                lines.append(f"**!{row[0].strip()}** *{row[2].strip()}*")
+                lines.append(f"**!{row[0].strip()}** *{row[2].strip() if row[2] else "No description"}*")
 
             await ctx.send("\n".join(lines))
         else:
             await ctx.send("Not found")
-        #c.execute("DROP TABLE cfind;")
+
+    @commands.command(hidden=True)
+    async def describecommand(self, ctx, command: str, *, description: str):
+        c = self.custom_command_cursor
+        if command.startswith("!"):
+            command = command[1:]
+        result = c.execute("SELECT output FROM commands WHERE cmd = (?)", [command.lower()]).fetchone()
+        if not result:
+            await ctx.send(f"No such command `{command}`")
+            return
+        
+        q = "UPDATE commands SET description=(?) WHERE cmd = (?)"
+        result = c.execute(q, (description, command))
+        await ctx.send(f"!{command}: {description}")
 
     @commands.command()
 #    @commands.has_role('Admins')
@@ -304,6 +384,7 @@ class Chat(commands.Cog):
 
 
     async def cog_unload(self):
+        self.bot.tree.remove_command(self.cmd_menu)
         self.check_userthings.stop()
         # cancel all the timers here
         for reminder in self.reminders:
