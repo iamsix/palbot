@@ -55,3 +55,5 @@ reddituser = "abc123"
 redditpw = "abc123"
 redditclient = "abc123"
 redditsecret = "abc123"
+
+gemini_key = "abc123"
