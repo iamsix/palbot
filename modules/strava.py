@@ -206,7 +206,8 @@ class Strava(commands.Cog):
         if 'suffer_score' in recent_ride:
             e.add_field(name="Effort", value=int(recent_ride['suffer_score']))
         
-        if 'photos' in recent_ride and 'primary' in recent_ride['photos']:
+        if 'photos' in recent_ride and \
+            'primary' in recent_ride['photos'] and recent_ride['photos']['primary']:
             e.set_thumbnail(url=recent_ride['photos']['primary']['urls']['600'])
         
         return e
@@ -260,7 +261,7 @@ class Strava(commands.Cog):
         # Figure out if we need to add average watts to the string.
         # Users who don't have a weight won't have average watts.
 
-        out = f"{name} {location}on {time_start} [ <http://www.strava.com/activities/{ride_id}> ]\n"
+        out = f"[{name} {location}on {time_start}](<http://www.strava.com/activities/{ride_id}>)\n"
         if recent_ride['type'].lower() == "run":
             avg_pace_mi = self.meters_per_second_to_minutes_per_mile(recent_ride['average_speed'])
             avg_pace_km = self.meters_per_second_to_minutes_per_km(recent_ride['average_speed'])

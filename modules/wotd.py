@@ -410,9 +410,9 @@ class Wotd(commands.Cog):
             return 0
         filename = f'logfiles/{self.bot.config.wotd_whitelist[0]}.log'
         if fullword:
-            cmd = f'grep -i "PRIVMSG #.* :.*\\b{word}\\b" {filename} | grep -vc 267300524775178240'
+            cmd = f'grep -i "PRIVMSG #.* :.*\\b{word}\\b" {filename} | grep -vc {self.bot.user.id}'
         else:
-            cmd = f'grep -i "PRIVMSG #.* :.*{word}.*" {filename} | grep -vc 267300524775178240'
+            cmd = f'grep -i "PRIVMSG #.* :.*{word}.*" {filename} | grep -vc {self.bot.user.id}'
         process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
         wordcount = int(process.communicate(timeout=5)[0][:-1])
         return wordcount

@@ -22,7 +22,7 @@ class Pics(commands.Cog):
     async def image(self, ctx, *, search: str):
         """Google Image Search and return the results in a switchable embed"""
         if ctx.invoked_with.lower() == "gif":
-            search += " gif"
+            search += " gif -site:tiktok.com"
 
         url = 'https://www.googleapis.com/customsearch/v1'
         params = {'key': self.bot.config.gsearch2, 'cx': self.bot.config.gsearchcx,

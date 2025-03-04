@@ -173,16 +173,21 @@ class Finance(commands.Cog):
 
         url = f'https://query1.finance.yahoo.com/v1/finance/search?q={uriquote(name)}&lang=en-US&region=US&newsCount=0'
 
-        async with self.bot.session.get(url) as resp:
+        async with self.bot.session.get(url, headers=headers) as resp:
             try:
-                data = await resp.json()
+#                print(url)
+                data = await resp.json(content_type=None)
+#                data = await resp.read()
+#                print(data)
+#                data = json.loads(data)
                 symbol = data['quotes'][0]['symbol']
-            except:
+            except Exception as e:
+                print(e)
                 symbol = name
 
 
         url = f"http://query1.finance.yahoo.com/v7/finance/quote?symbols={symbol}&crumb={self.yahoo_crumb}"
-       # print(url)
+#        print(url)
         async with self.bot.session.get(url, headers=headers) as resp:
             data = await resp.json()
             if "quoteResponse" not in data:
@@ -191,6 +196,7 @@ class Finance(commands.Cog):
                 await ctx.send(f"Unable to find a stonk named `{name}`")
                 return
             data = data["quoteResponse"]["result"][0]
+
 
         cap = int(data.get('marketCap', 0))
         cap = millify(cap) if cap else "N/A"
