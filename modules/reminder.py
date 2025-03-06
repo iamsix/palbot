@@ -1,8 +1,9 @@
 from discord.ext import commands, tasks
 import discord
+from discord import app_commands
 import asyncio
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 from dataclasses import dataclass
 import pytz
 import dateparser
@@ -101,9 +102,51 @@ class Reminder(commands.Cog):
         if date:
             await ctx.send(f"<t:{int(date.timestamp())}> {message}")
 
+    @app_commands.command()
+    @app_commands.guild_only()
+    async def remind(self, interaction: discord.Interaction, when: str, what: str):
+        """Set a reminder to yourself
+        
+        Parameters
+        -----------
+        when: str
+            When to remind you
+        what: str
+            What to remind you of
+        """
+        userinfo = interaction.client.utils.AuthorInfo(interaction.user)
+        tz = userinfo.timezone
+        date = dateparser.parse(when, settings={'TIMEZONE': tz, 'PREFER_DATES_FROM': 'future'})
+        usertime = datetime.strftime(date, "%a, %B %-d, %Y at %-I:%M:%S %p %Z")
+        if tz:
+            ntz = ZoneInfo(tz)
+            utc = ZoneInfo("UTC")
+            date = date.replace(tzinfo=ntz).astimezone(tz=utc).replace(tzinfo=None)
+        seconds = int((date - datetime.utcnow()).total_seconds())
+        reminder = ReminderItem(interaction.channel.id, interaction.user.id, date, what)
+        if seconds < 0:
+            await interaction.response.send_message(
+                "I can't remind you of something in the past", 
+                ephemeral=True,
+                )
+            return
+        elif seconds > (24 * 60 * 60):
+            #save this for later
+            pass
+        else:
+            #this is today so set the timer immediately
+            await self.set_timer(reminder)
+        await self.save_timer(reminder)
+        await interaction.response.send_message(
+            f"OK I'll remind you on {usertime}", 
+            ephemeral=True,
+            )
+
+
     @commands.command(aliases=['remind'])
+    @commands.guild_only()
     async def remindme(self, ctx, *, message: commands.clean_content):
-        if ctx.invoked_with.lower() == "remind" and message[:2] == "me":
+        if ctx.invoked_with.lower() == "remind" and message[:3] == "me ":
             message = message[3:]
             # print(message)
         tz = ctx.author_info.timezone
