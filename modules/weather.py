@@ -14,16 +14,70 @@ from utils.time import human_timedelta
 # https://api.met.no/weatherapi/locationforecast/2.0/documentation
 
 WEMOJI ={
-    "cloudy": "\N{CLOUD}",
+    # Pirateweather
+    "cloudy": "\N{CLOUD}", #also doubles for YR
     "partly-cloudy-day": "\N{WHITE SUN WITH SMALL CLOUD}",
     "partly-cloudy-night": "\N{CLOUD}\N{CRESCENT MOON}",
     "clear-day": "\N{BLACK SUN WITH RAYS}\N{VARIATION SELECTOR-16}",
     "clear-night": "\N{CRESCENT MOON}",
-    "rain": "\N{CLOUD WITH RAIN}",
-    "snow": "\N{SNOWFLAKE}",
-    "sleet": "\N{SNOWFLAKE}\N{CLOUD WITH RAIN}",
+    "rain": "\N{CLOUD WITH RAIN}", # doubles for YR
+    "snow": "\N{SNOWFLAKE}", # doubles for YR
+    "sleet": "\N{SNOWFLAKE}\N{CLOUD WITH RAIN}", #doubles for yr
     "wind": "\N{DASH SYMBOL}",
-    "fog": "\N{FOG}",
+    "fog": "\N{FOG}", #doubles for YR
+    # yr.no
+    "clearsky_day": "\N{BLACK SUN WITH RAYS}\N{VARIATION SELECTOR-16}",
+    "clearsky_night": "\N{CRESCENT MOON}",
+    "fair_day": "\N{WHITE SUN WITH SMALL CLOUD}",
+    "fair_night": "\N{CLOUD}\N{CRESCENT MOON}",
+    "lightrainshowers_day": "🌦️",
+    "lightrainshowers_night": "🌧️🌙",
+    "heavyrainandthunder": "\N{CLOUD WITH RAIN}",
+    "lightrainshowersandthunder": "⛈️",
+    "rainshowersandthunder_day": "⛈️",
+    "rainshowersandthunder_night": "⛈️🌙",
+    "heavyrainshowersandthunder": "⛈️⛈️",
+    "heavyrainshowersandthunder": "⛈️⛈️🌙",
+    "lightsleetshowers_day": "🌨️",
+    "lightsleetshowers_night": "🌨️🌙",
+    "sleetshowers_day": "🌨️",
+    "sleetshowers_night": "🌨️🌙",
+    "heavysleetshowers_day": "🌨️",
+    "heavysleetshowers_night": "🌨️🌙",
+    "lightssleetshowersandthunder_day": "🌧️🌨️",
+    "lightssleetshowersandthunder_night": "🌧️🌨️🌙",
+    "sleetshowersandthunder_day": "⛈️🌨️",
+    "sleetshowersandthunder_night": "⛈️🌨️🌙",
+    "heavysleetshowersandthunder_day": "⛈️🌨️",
+    "heavysleetshowersandthunder_night": "⛈️🌨️🌙",
+    "lightsnowshowers_day": "🌨️",
+    "lightsnowshowers_night": "🌨️🌙",
+    "snowshowers_day": "🌨️",
+    "snowshowers_night": "🌨️🌙",
+    "heavysnowshowers_day": "❄️",
+    "heavysnowshowers_night": "❄️🌙",
+    "lightssnowshowersandthunder_day": "⛈️❄️",
+    "lightssnowshowersandthunder_night": "⛈️❄️🌙",
+    "snowshowersandthunder_day": "⛈️❄️",
+    "snowshowersandthunder_night": "⛈️❄️🌙",
+    "heavysnowshowersandthunder_day": "⛈️❄️",
+    "heavysnowshowersandthunder_night": "⛈️❄️🌙",
+    "lightrain": "🌧️",
+    "heavyrain": "🌧️🌧️",
+    "lightrainandthunder": "⛈️",
+    "rainandthunder": "⛈️",
+    "heavyrainandthunder": "⛈️⛈️",
+    "lightsleet": "🌨️",
+    "heavysleet": "🌨️",
+    "lightsleetandthunder": "⛈️🌨️",
+    "sleetandthunder": "⛈️🌨️",
+    "heavysleetandthunder": "⛈️🌨️",
+    "lightsnow": "🌨️",
+    "heavysnow": "❄️❄️",
+    "lightsnowandthunder": "⛈️❄️",
+    "snowandthunder": "⛈️❄️",
+    "heavysnowandthunder": "⛈️❄️",
+    # Accuweather?
         1 : "\N{BLACK SUN WITH RAYS}\N{VARIATION SELECTOR-16}",
         2 : "\N{WHITE SUN WITH SMALL CLOUD}",
         3 : "\N{WHITE SUN BEHIND CLOUD}",
@@ -65,6 +119,7 @@ WEMOJI ={
         42: "\N{CRESCENT MOON}\N{THUNDER CLOUD AND RAIN}\N{VARIATION SELECTOR-16}",
         43: "\N{CRESCENT MOON}\N{DASH SYMBOL}\N{SNOWFLAKE}",
         44: "\N{CRESCENT MOON}\N{SNOWFLAKE}",
+        # Weathercom
         "wc0": "\N{CLOUD WITH TORNADO}",
         "wc1": "\N{CYCLONE}",
         "wc2": "\N{CYCLONE}",
@@ -125,7 +180,7 @@ class Weather(commands.Cog):
 
     @commands.command()
     async def wq(self, ctx, *, location:str = ""):
-        ctx.invoked_with = "w"
+        ctx.invoked_with = "piw"
         await self.forecast_io(ctx, location=location)
         await self.get_aqi(ctx, location=location)
 
@@ -142,13 +197,13 @@ class Weather(commands.Cog):
         async with self.bot.session.get(url) as resp:
             data = await resp.json()
             weather = await self.parse_fio(data)
-            if ctx.invoked_with.lower() == "w":
-                await ctx.send(await self.fio_text(weather, loc))
+            if ctx.invoked_with.lower() == "piw":
+                await ctx.send(await self.w_text(weather, loc))
             else:
-                await ctx.send(embed=await self.fio_embed(weather, loc))
+                await ctx.send(embed=await self.w_embed(weather, loc))
 
 
-    async def fio_text(self, data, loc):
+    async def w_text(self, data, loc):
         if data['feels_like_f'] == data['temp_f']:
             data['feels_like_f'] = ''
             data['feels_like_c'] = ''
@@ -174,7 +229,7 @@ class Weather(commands.Cog):
 
         return out
 
-    async def fio_embed(self, data, loc):
+    async def w_embed(self, data, loc):
         e = discord.Embed(title=f"{loc.formatted_address} - {data['condition']}")
         e.set_footer(text=self.bot.utils.units.imperial_string_to_metric(data['outlook_imperial'], both=True))
         wicon = f"https://raw.githubusercontent.com/iamsix/palbot/master/utils/wicons/{data['icon']}.png".lower()
@@ -204,9 +259,9 @@ class Weather(commands.Cog):
             wind_speed_mi += f" gusting to {int(round(current['windGust'], 0))} mph"
 
         try:
-            outlook_imp = f"{data['minutely']['summary']} {data['daily']['summary']}"
+            outlook_imp = f"{data['minutely']['summary']}. Day: {data['daily']['summary']}"
         except:
-            outlook_imp = f"{data['hourly'].get('summary', '')} {data['daily'].get('summary', '')}"
+            outlook_imp = f"{data['hourly'].get('summary', '')}. Day: {data['daily'].get('summary', '')}"
         outlook_metric = units.imperial_string_to_metric(outlook_imp)
 
         temp_c = f"{units.f_to_c(current['temperature'])}°C"
@@ -266,9 +321,9 @@ class Weather(commands.Cog):
             data = await resp.json(content_type=None)
             weather = self.parse_accu(data)
             if ctx.invoked_with.lower() == "w":
-                await ctx.send(await self.fio_text(weather, loc))
+                await ctx.send(await self.w_text(weather, loc))
             else:
-                await ctx.send(embed=await self.fio_embed(weather, loc))
+                await ctx.send(embed=await self.w_embed(weather, loc))
     
     def parse_accu(self, data):
         units = self.bot.utils.units
@@ -340,6 +395,50 @@ class Weather(commands.Cog):
                 }
 
         return weather
+    
+    YR_DESC = {
+        "clearsky": "Clear sky",
+        "fair": "Fair",
+        "partlycloudy": "Partly cloudy",
+        "cloudy": "Cloudy",
+        "lightrainshowers": "Light rain showers",
+        "heavyrainshowers": "Heavy rain showers",
+        "lightrainshowersandthunder": "Light rain showers and thunder",
+        "rainshowersandthunder": "Rain showers and thunder",
+        "heavyrainshowersandthunder": "Heavy rain showers and thunder",
+        "lightsleetshowers": "Light sleet showers",
+        "sleetshowers": "Sleet showers",
+        "heavysleetshowers": "Heavy sleet showers",
+        "lightssleetshowersandthunder": "Light sleet showers and thunder",
+        "sleetshowersandthunder": "Sleet showers and thunder",
+        "heavysleetshowersandthunder": "Heavy sleet showers and thunder",
+        "lightsnowshowers": "Light snow showers",
+        "snowshowers": "Snow showers",
+        "heavysnowshowers": "Heavy snow showers",
+        "lightssnowshowersandthunder": "Light snow showers and thunder",
+        "snowshowersandthunder": "Snow showers and thunder",
+        "heavysnowshowersandthunder": "Heavy snow showers and thunder",
+        "lightrain": "Light rain",
+        "rain": "Rain",
+        "heavyrain": "Heavy rain",
+        "lightrainandthunder": "Light rain and thunder",
+        "rainandthunder": "Rain and thunder",
+        "heavyrainandthunder": "Heavy rain and thunder",
+        "lightsleet": "Light sleet",
+        "sleet": "Sleet",
+        "heavysleet": "Heavy sleet",
+        "lightsleetandthunder": "Light sleet and thunder",
+        "sleetandthunder": "Sleet and thunder",
+        "heavysleetandthunder": "Heavy sleet and thunder",
+        "lightsnow": "Light snow",
+        "snow": "Snow",
+        "heavysnow": "Heavy snow",
+        "lightsnowandthunder": "Light snow and thunder",
+        "snowandthunder": "Snow and thunder",
+        "heavysnowandthunder": "Heavy snow and thunder",
+        "fog": "Fog",
+    }
+
 
 
     @commands.command(name="yr", aliases=['pyr'])
@@ -359,9 +458,9 @@ class Weather(commands.Cog):
         weather = self.parse_yr(now)
 
         if ctx.invoked_with.lower() == "yr":
-            await ctx.send(await self.fio_text(weather, loc))
+            await ctx.send(await self.w_text(weather, loc))
         else:
-            await ctx.send(embed=await self.fio_embed(weather, loc))
+            await ctx.send(embed=await self.w_embed(weather, loc))
 
 
     def parse_yr(self, data):
@@ -390,14 +489,20 @@ class Weather(commands.Cog):
         high_f = f"{units.c_to_f(high)}°F"
 
         fc = data['next_12_hours']['summary']['symbol_code']
+        fc = fc.split("_")[0]
 
-        condition = data['next_6_hours']['summary']['symbol_code']
+        icon = data['next_6_hours']['summary']['symbol_code'].replace("polartwilight", "day")
+        short_condition = icon.split("_")[0]
         precip = data['next_6_hours']['details']['precipitation_amount']
-        outlook = f"{condition} with precipitation {precip}mm in next 6 hours. Next 12hr is {fc}"
+        outlook = f"{self.YR_DESC[short_condition]}"
+        if precip > 0.0:
+            outlook += f" with precipitation {precip}mm in next 6 hours"
+        outlook += f". Next 12hr is {self.YR_DESC[fc]}"
+        condition = self.YR_DESC[short_condition]
 
         weather = {
-                'condition' : data['next_1_hours']['summary']['symbol_code'],
-                'icon': "", #TODO : wicons with day/night based on condition
+                'condition' : condition,
+                'icon': icon, #TODO : wicons with day/night based on condition
                 'humidity': f"{int(now['relative_humidity'])}%",
                 'wind_direction': wind_direction,
                 'wind_speed_km': wind_speed_km,
@@ -445,9 +550,9 @@ class Weather(commands.Cog):
             data = await resp.json()
             weather = self.parse_wc(data, forecast)
             if ctx.invoked_with.lower() == "wc":
-                await ctx.send(await self.fio_text(weather, loc))
+                await ctx.send(await self.w_text(weather, loc))
             else:
-                await ctx.send(embed=await self.fio_embed(weather, loc))
+                await ctx.send(embed=await self.w_embed(weather, loc))
     
     def parse_wc(self, current, forecast):
         units = self.bot.utils.units
@@ -526,9 +631,9 @@ class Weather(commands.Cog):
             data = await resp.json()
             weather = await self.parse_vc(data)
             if ctx.invoked_with.lower() == "vc":
-                await ctx.send(await self.fio_text(weather, loc))
+                await ctx.send(await self.w_text(weather, loc))
             else:
-                await ctx.send(embed=await self.fio_embed(weather, loc))
+                await ctx.send(embed=await self.w_embed(weather, loc))
 
     async def parse_vc(self, data):
         units = self.bot.utils.units

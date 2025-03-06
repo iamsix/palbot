@@ -11,7 +11,7 @@ gsearch2 = "abc123"
 # https://timezonedb.com/
 timezonedb = "abc123"
 
-# No longer  available - shutting down soon
+# https://pirateweather.net/en/latest/
 forecast_io_key = "abc123"
 # not a public api
 accuweather_key = "abc123"
