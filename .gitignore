@@ -53,6 +53,7 @@ Temporary Items
 # bot stuff
 *.sqlite
 *.sqlite3
+*.sqlite-journal
 clues.db
 palbot.cfg
 config.py

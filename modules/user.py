@@ -1,4 +1,5 @@
 import discord
+from discord import app_commands
 from discord.ext import commands
 import datetime
 import dateutil.parser
@@ -12,7 +13,11 @@ import asyncio
 class User(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.age_ctx_menu = app_commands.ContextMenu(name='Age', callback=self.age_ctx)
+        self.bot.tree.add_command(self.age_ctx_menu)
 
+    def cog_unload(self):
+        self.bot.tree.remove_command(self.age_ctx_menu)
 
 #    @commands.command()
 #    async def roles (self, ctx):
@@ -28,6 +33,14 @@ class User(commands.Cog):
 #    @tagme.error
 #    async def tagme_error(self, ctx, error):
 #        await ctx.send(str(error))
+
+    async def age_ctx(self, interaction: discord.Interaction, user: discord.User):
+        userinfo = interaction.client.utils.AuthorInfo(user)
+        if userinfo and userinfo.birthday:
+            age = await self.show_age(userinfo)
+            await interaction.response.send_message(age)
+        else:
+            await interaction.response.send_message(f"{user.mention} has no birthday info entered.")
 
 
     @commands.command()
@@ -80,34 +93,35 @@ class User(commands.Cog):
         """Set your birthday for things like age"""
         
         ctx.author_info.birthday = str(bday.dt)
-        await self.show_age(ctx)
+        age = await self.show_age(ctx.author_info)
+        await ctx.send(age)
         
 
     @commands.command()
     async def age(self, ctx, *, day: HumanTime = None):
         """Show your age if stored, or optionally return the time from [day] to now"""
-        await self.show_age(ctx, day=day)
+        age = await self.show_age(ctx.author_info, day=day)
+        await ctx.send(age)
 
-    async def show_age(self, ctx, *, day: HumanTime = None):
-        if not ctx.author_info.birthday and not day:
-            await ctx.send("Need to enter a birthday such as `!age 1985-10-26` or set it with `!set age 1955-11-05`")
-            return
-        if not ctx.author_info.timezone:
+    async def show_age(self, author_info, *, day: HumanTime = None):
+        if not author_info.birthday and not day:
+            return "Need to enter a birthday such as `!age 1985-10-26` or set it with `!set age 1955-11-05`"
+        if not author_info.timezone:
             utz = pytz.utc
         else:
-            utz = pytz.timezone(ctx.author_info.timezone)
+            utz = pytz.timezone(author_info.timezone)
         now = datetime.datetime.now(utz)
-        fromday = day if day else HumanTime(ctx.author_info.birthday, now=now, now_tz=utz)
- 
+        fromday = day if day else HumanTime(author_info.birthday, now=now, now_tz=utz)
+
         d = relativedelta.relativedelta(now, fromday.dt)
         if d.months == 0 and d.days == 0:
-            out = f"{ctx.author.mention} is {d.years} years old! Happy Birthday! http://youtu.be/5qm8PH4xAss"
+            out = f"<@{author_info.id}> is {d.years} years old! Happy Birthday! http://youtu.be/5qm8PH4xAss"
         elif not day:
-            out = f"{ctx.author.mention} is {d.years} years, {d.months} months, and {d.days} days old"
+            out = f"<@{author_info.id}> is {d.years} years, {d.months} months, and {d.days} days old"
         else:
             out = f"{str(day.dt)[:10]} is {d.years} years, {d.months} months, and {d.days} days ago"
-
-        await ctx.send(out)
+        
+        return out
 
     @age.error
     @_set_birthday.error
@@ -116,6 +130,8 @@ class User(commands.Cog):
             await ctx.send("Failed to parse date - try a different day format such as YYYY-MM-DD")
         if isinstance(error, commands.MissingRequiredArgument):
             await ctx.send(error)
+        else:
+            print(error)
 
 
     @commands.command()

@@ -1,4 +1,5 @@
 from discord.ext import commands
+from discord import app_commands
 from pathlib import Path
 from importlib import reload
 import sys, traceback
@@ -15,17 +16,53 @@ class UsefulEvents(commands.Cog):
     async def on_reaction(self, reaction, user):
         self.bot.dispatch("reaction", reaction, user)
 
+@app_commands.context_menu()
+@commands.is_owner()
+async def info(interaction: discord.Interaction, user: discord.Member):
+    # unused for now as a context command for owner seems silly
+    userinfo = interaction.client.utils.AuthorInfo(user)
+    out = f"""location: {userinfo.location.__dict__ if userinfo.location else None}
+    timezone: {userinfo.timezone}
+    strava: {userinfo.strava}
+    lastfm: {userinfo.lastfm}
+    birthday: {userinfo.birthday}
+    UID: {user.id}
+    username: {user.name}
+    display_name: {user.display_name}"""
+
+    await interaction.response.send_message(out, ephemeral=True)
+
 
 class OwnerCog(commands.Cog, name="Owner Commands"):
 
     def __init__(self, bot):
         self.bot = bot
+        # self.bot.tree.add_command(info)
+
+    def cog_unload(self):
+        pass
+        # self.bot.tree.remove_command(info)
+    
+    @commands.command()
+    @commands.is_owner()
+    @commands.guild_only()
+    async def synctree(self, ctx):
+        # commands = await self.bot.tree.sync(guild=ctx.guild)
+        commands = await self.bot.tree.sync(guild=None)
+        print(commands)
+        # print(self.bot.tree)
+        await ctx.send(f'Successfully synced {len(commands)} commands')
+
+    # @commands.hybrid_command()
+    async def testmessage(self, ctx, *, content):
+        # ctx.message.content = ctx.message.content[6:]
+        await ctx.send(f"content: {ctx.message}  {content}")
+
 
     @commands.command(hidden=True)
     @commands.is_owner()
     async def uptime(self, ctx):
-        ago = human_timedelta(self.bot.uptime)
-        await ctx.send(f"Startup at {self.bot.uptime} : {ago}")
+        await ctx.send(f"Startup at {self.bot.uptime} : <t:{int(self.bot.uptime.timestamp())}:R>")
 
     @commands.command(hidden=True)
     @commands.is_owner()
@@ -82,14 +119,22 @@ class OwnerCog(commands.Cog, name="Owner Commands"):
         await ctx.send(f"Logging has been set to {level} {self.bot.logger.getEffectiveLevel()}")
 
     @commands.command(name='infotest', hidden=True)
-    async def infotest(self, ctx):
-        out = f"""location: {ctx.author_info.location.__dict__}
-        timezone: {ctx.author_info.timezone}
-        strava: {ctx.author_info.strava}
-        lastfm: {ctx.author_info.lastfm}
-        birthday: {ctx.author_info.birthday}
-        username: {ctx.author.name}
-        display_name: {ctx.author.display_name}"""
+    async def infotest(self, ctx, uid: int = None):
+        if not uid:
+            user = ctx.author
+            userinfo = ctx.author_info
+        else:
+            user = self.bot.get_user(uid)
+            userinfo = self.bot.utils.AuthorInfo(user)
+
+        out = f"""location: {userinfo.location.__dict__}
+        timezone: {userinfo.timezone}
+        strava: {userinfo.strava}
+        lastfm: {userinfo.lastfm}
+        birthday: {userinfo.birthday}
+        UID: {user.id}
+        username: {user.name}
+        display_name: {user.display_name}"""
 
         await ctx.send(out)
 

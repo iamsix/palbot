@@ -93,12 +93,12 @@ class Internets(commands.Cog):
                     page = pg.extract()
                     break
         
-        text = re.sub(r'\[\d*?\]', '', str(pg))
         t = html2text.HTML2Text(bodywidth=5000)
         # t.emphasis_mark = "*"
-        text = t.handle(text).strip()
-#       text = html2text.html2text(text, bodywidth=5000).strip()
+        text = t.handle(str(pg)).strip()
+
         text = text.replace('](/wiki', f'](https://{url.host}/wiki')
+        text = re.sub(r'\[\d*?\]', '', text)
         e = discord.Embed()
         
         embed_url = str(url).replace("(", "\\(").replace(")","\\)").replace("_","\\_")

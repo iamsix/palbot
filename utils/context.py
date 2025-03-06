@@ -192,7 +192,10 @@ class AuthorInfo:
     def location(self, loc: Location):
         for k,v in loc.__dict__.items():
             self.single_setter(k, v)
-       
+    
+    @property
+    def id(self):
+        return self.user_id
 
     @property
     def birthday(self):

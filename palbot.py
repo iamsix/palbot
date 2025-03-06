@@ -93,7 +93,7 @@ class PalBot(commands.Bot):
     async def on_ready(self):
 #        await self.async_init()
         if not hasattr(self, 'uptime'):
-            self.uptime = datetime.datetime.utcnow()
+            self.uptime = datetime.datetime.now(datetime.timezone.utc)
         print(f'Ready: {self.user} (ID: {self.user.id})')
 
     async def on_message(self, message):
