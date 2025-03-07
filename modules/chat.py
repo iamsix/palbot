@@ -36,7 +36,10 @@ class CmdPrompt(discord.ui.Modal):
             cmd = cmd[1:]
         response = await self.chat.custom_command(cmd)
         if response:
-            await interaction.response.send_message(response)
+            allowed_mentions = discord.AllowedMentions(users=[interaction.user], 
+                                                       everyone=False, 
+                                                       roles=False)
+            await interaction.response.send_message(response, allowed_mentions=allowed_mentions)
         else:
             await interaction.response.send_message(
                 f"No command `{self.command}` found.\nNote this can only do custom commands, not 'real' ones.", 
@@ -204,17 +207,21 @@ class Chat(commands.Cog):
         prefix = self.bot.command_prefix
         lower = message.content.lower()
         if lower.startswith('bot '):
-            decide = self.decider(message.clean_content[4:])
+            decide = self.decider(message.content[4:])
             if decide:
                 out = f"{message.author.mention}: {decide}"
         elif "shrug" in lower:
             out = self.shrug()
         elif message.content[:1] in prefix and message.author.id != self.bot.user.id:
             cmd = lower[1:].split(" ")[0]
-            out = await self.custom_command(cmd)
+            if cmd not in self.bot.all_commands:
+                out = await self.custom_command(cmd)
         if out:
             ctx = await self.bot.get_context(message, cls=self.bot.utils.MoreContext)
-            await ctx.send(out)
+            allowed_mentions = discord.AllowedMentions(users=[message.author], 
+                                                       everyone=False, 
+                                                       roles=False)
+            await ctx.send(out, allowed_mentions=allowed_mentions)
 
     def shrug(self):
         return SHRUG.format(random.choice(FACES))
@@ -235,7 +242,10 @@ class Chat(commands.Cog):
         """Do a custom command"""
         res = await self.custom_command(command)
         if res:
-            await interaction.response.send_message(res)
+            allowed_mentions = discord.AllowedMentions(users=[interaction.user], 
+                                                       everyone=False, 
+                                                       roles=False)
+            await interaction.response.send_message(res, allowed_mentions=allowed_mentions)
         else:
             await interaction.response.send_message(
                 f"No such command `{command}`", 
@@ -396,7 +406,7 @@ class Chat(commands.Cog):
         self.custom_command_conn.close()
         self.tags_conn.close()
         self.bot.tree.remove_command(self.cmd_menu)
-        self.check_userthings.stop()
+        self.check_userthings.cancel()
         # cancel all the timers here
         for reminder in self.reminders:
             reminder.cancel()

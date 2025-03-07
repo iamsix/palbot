@@ -60,10 +60,10 @@ class EditReminderView(discord.ui.View):
                 if self.task:
                     self.reminder.reminders.remove(self.task)
                     self.task.cancel()
-                out, task = await self.reminder.make_reminder(self.reminder_item)
+                out, editbutton = await self.reminder.make_reminder(self.reminder_item)
                 self.message.content = out
-                if task:
-                    self.task = task
+                if editbutton:
+                    self.task = editbutton.task
                 await interaction.followup.edit_message(self.message.id, content=out, view=self)
         else:
             await interaction.response.send_message("You didn't create this reminder", ephemeral=True)
@@ -208,11 +208,7 @@ class Reminder(commands.Cog):
             return
         
         reminder = ReminderItem(interaction.channel.id, interaction.user.id, date, what)
-        out, task = await self.make_reminder(reminder)
-        editbutton = EditReminderView(timeout=60)
-        editbutton.reminder = self
-        editbutton.reminder_item = reminder
-        editbutton.task = task
+        out, editbutton = await self.make_reminder(reminder)
         
         msg = await interaction.response.send_message(
             out, 
@@ -245,13 +241,8 @@ class Reminder(commands.Cog):
             return
 
         reminder = ReminderItem(ctx.channel.id, ctx.author.id, date, what)
-        out, task = await self.make_reminder(reminder)
+        out, editbutton = await self.make_reminder(reminder)
         
-        editbutton = EditReminderView(timeout=60)
-        editbutton.reminder = self
-        editbutton.reminder_item = reminder
-        editbutton.task = task
-
         msg = await ctx.send (out, view=editbutton)
         editbutton.message = msg
     
@@ -269,13 +260,20 @@ class Reminder(commands.Cog):
                 task = await self.set_timer(reminder)
         await self.save_timer(reminder)
 
-        return (out, task)
+        editbutton = EditReminderView(timeout=60)
+        editbutton.reminder = self
+        editbutton.reminder_item = reminder
+        editbutton.task = task
+
+        return (out, editbutton)
 
     async def call_reminder(self, reminder):
         channel = self.bot.get_channel(reminder.channel)
         msg = f'<@{reminder.user}>: {reminder.message}'
         user = self.bot.get_user(reminder.user)
-        allowed_mentions = discord.AllowedMentions(users=[user])
+        allowed_mentions = discord.AllowedMentions(users=[user], 
+                                                   everyone=False, 
+                                                   roles=False)
         await channel.send(msg, allowed_mentions=allowed_mentions)
 
         q = 'DELETE FROM reminders WHERE timestamp <= ?'
@@ -285,7 +283,7 @@ class Reminder(commands.Cog):
 
     async def cog_unload(self):
         self.conn.close()
-        self.check_timers.stop()
+        self.check_timers.cancel()
         # cancel all the timers here
         for reminder in self.reminders:
             reminder.cancel()
