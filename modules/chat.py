@@ -232,6 +232,7 @@ class Chat(commands.Cog):
         
     @app_commands.command()
     async def command(self, interaction: discord.Interaction, command: str):
+        """Do a custom command"""
         res = await self.custom_command(command)
         if res:
             await interaction.response.send_message(res)
@@ -392,6 +393,8 @@ class Chat(commands.Cog):
 
 
     async def cog_unload(self):
+        self.custom_command_conn.close()
+        self.tags_conn.close()
         self.bot.tree.remove_command(self.cmd_menu)
         self.check_userthings.stop()
         # cancel all the timers here

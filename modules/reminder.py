@@ -83,9 +83,9 @@ class EditReminderView(discord.ui.View):
     async def on_timeout(self):
         try:
             self.clear_items()
-            await self.message.edit(content=self.message.content, view=None)
-        except Exception as e:
-            print(e)
+            await self.message.edit(view=None)
+        except:
+            pass
 
 
 class Reminder(commands.Cog):
@@ -214,7 +214,11 @@ class Reminder(commands.Cog):
         editbutton.reminder_item = reminder
         editbutton.task = task
         
-        msg = await interaction.response.send_message(out, view=editbutton, ephemeral=True)
+        msg = await interaction.response.send_message(
+            out, 
+            view=editbutton, 
+            ephemeral=True, 
+            delete_after=60)
         editbutton.message = msg.resource
 
     # @remind.command(name="delete")
@@ -280,6 +284,7 @@ class Reminder(commands.Cog):
 
 
     async def cog_unload(self):
+        self.conn.close()
         self.check_timers.stop()
         # cancel all the timers here
         for reminder in self.reminders:

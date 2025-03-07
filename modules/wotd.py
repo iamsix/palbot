@@ -478,6 +478,7 @@ class Wotd(commands.Cog):
 
 
     async def cog_unload(self):
+        self.conn.close()
         self.bot.logger.info("Cancelling wotd expire timer")
         self.expire_timer.cancel()
 
