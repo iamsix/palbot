@@ -97,8 +97,7 @@ class Sports(commands.Cog):
         for game in data:
             home = game['teams']['home']
             away = game['teams']['away']
-        #    if away['team']['id'] not in self.MLB_TEAMS and home['team']['id'] not in self.MLB_TEAMS:
-         #       continue
+
             code = game['status']['codedGameState']
             if code == "I" or code == "F" or code == "O":
                 # In progress, Final/Over (whatever the difference is...)
@@ -113,14 +112,6 @@ class Sports(commands.Cog):
                             "hscore": home['score'],
                             "status": status, 
                             "scheduled": False})
-#                 o = "{} {} - {} {} | {}".format(
-#                                         away['team']['teamName'].ljust(9),
-# #                                        away['team']['abbreviation'].ljust(3),
-#                                         str(away['score']).rjust(2),
-#                                         str(home['score']).ljust(2),
-#                                         home['team']['teamName'].ljust(9),
-# #                                        home['team']['abbreviation'].ljust(3),
-#                                         status)
             
             elif code == "S" or code == "P":
                 #Scheduled
@@ -131,16 +122,6 @@ class Sports(commands.Cog):
                             "hteam": home['team']['teamName'], 
                             "status": starttime, 
                             "scheduled": True})
-                # starttime = starttime.replace(tzinfo=pytz.utc).astimezone(tz=date.tzinfo)
-                # tzname = starttime.tzname()
-                # starttime = starttime.strftime('%I:%M%p').lstrip('0').replace(':00', '')
-
-#                 o = "{} @    {} | {} {}".format(
-# #                                            away['team']['abbreviation'].ljust(3),
-#                                             away['team']['teamName'].ljust(12),
-#                                             home['team']['teamName'].ljust(9),
-# #                                            home['team']['abbreviation'].ljust(3),
-#                                             starttime, tzname)
             else:
                 continue
 
@@ -164,7 +145,10 @@ class Sports(commands.Cog):
                 url = "https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json"
             today = True
         else:
-            url = "https://cdn.nba.com/static/json/staticData/scheduleLeagueV2.json"
+            if ctx.invoked_with.lower() == "wnba":
+                url = "https://cdn.wnba.com/static/json/staticData/scheduleLeagueV2.json"
+            else:
+                url = "https://cdn.nba.com/static/json/staticData/scheduleLeagueV2.json"
             today = False
         
         async with self.bot.session.get(url) as resp:
@@ -204,8 +188,6 @@ class Sports(commands.Cog):
                             "hteam": homet, 
                             "status": starttime, 
                             "scheduled": True})
-                #e.add_field(name=f"`{awayt}     @     {homet}`", 
-                #            value=f"{starttime}`{series.rjust(29)}`", inline=False)
                 
             else:
                 gdata.append({"ateam": awayt, 
@@ -214,9 +196,6 @@ class Sports(commands.Cog):
                             "hscore": home['score'],
                             "status": status, 
                             "scheduled": False})
-
-                #e.add_field(name=f"`{awayt} {ascore} - {hscore} {homet}`", 
-                #            value=f"`{status.ljust(12)}{series.rjust(25)}`", inline=False)
                
         out = await self.sports_formatter(gdata)
         await ctx.send("\n".join(out))
@@ -272,17 +251,7 @@ class Sports(commands.Cog):
                             "status": starttime, 
                             "scheduled": True})
 
-            else:
-                # "LIVE" for on. "OFF" for finished?
-                # game finished or currently on
-                # away = '{} {}'.format(
-                #     away.ljust(10),
-                #     str(game['awayTeam']['score']).rjust(2))
-                
-                # home = '{} {}'.format(
-                #     str(game['homeTeam']['score']).ljust(2),
-                #     home.ljust(10))
-                                    
+            else:                                    
                 # Check ['clock']['running']?
 
                 status = '{} {}'.format(
@@ -373,22 +342,13 @@ class Sports(commands.Cog):
                             "hteam": home['team']['shortDisplayName'], 
                             "status": starttime, 
                             "scheduled": True})
-                # homet = home['team']['shortDisplayName'].ljust(11)
-                # awayt = away['team']['shortDisplayName'].ljust(14)
-                # gstart = starttime.strftime('%-I:%M%p').replace(':00', '')
-                
-                # out = f"{awayt} @    {homet} | {gstart} {date.tzname()}"
             else:
-                # homet = home['team']['shortDisplayName'].ljust(11)
-                # awayt = away['team']['shortDisplayName'].ljust(11)
-                # ascore = away['score'].rjust(2)
-                # hscore = home['score'].rjust(2)
                 period = self.bot.utils.ordinal(game['status']['period'])
                 if status == "In Progress":
                     status = f"{game['status']['displayClock']} {period}"
                 else:
                     status = game['status']['type']['detail']
-                #out = f"{awayt} {ascore} - {hscore} {homet} | {status}"
+                    
                 gdata.append({"ateam": away['team']['shortDisplayName'],
                             "ascore": away['score'],
                             "hteam": home['team']['shortDisplayName'],
