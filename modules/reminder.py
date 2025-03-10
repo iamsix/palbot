@@ -145,7 +145,7 @@ class Reminder(commands.Cog):
         task = asyncio.create_task(self.start_timer(reminder))
         self.reminders.add(task)
         task.add_done_callback(self.reminders.discard)
-        return None
+        return task
 
 
     def reminder_parser(self, line, tz):
