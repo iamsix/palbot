@@ -228,6 +228,8 @@ class Wotd(commands.Cog):
             return
 
         button = WotdButton(self, ctx.message.author)
+        if self.expire_timer:
+            self.expire_timer.cancel()
         self.wotd_count = None
         self.wotd = ""
         self.hint = ""
@@ -276,7 +278,6 @@ class Wotd(commands.Cog):
         except Exception as e:
             print(e)
             print("Failed to set hint in the wotd database")
-        print("Sending wotd expire message")
         # hrs = int((datetime.now(timezone.utc) - self.timestamp).total_seconds()) // 60 // 60
         ago = f"<t:{int(self.timestamp.timestamp())}:R>"
         count = self.count_wotd()
@@ -284,7 +285,6 @@ class Wotd(commands.Cog):
         if self.full_word_match:
             fw = " You must use the word in a sentence. This is a full word match only, substrings will not match."
         await channel.send(f"The WOTD was set {ago} by {self.setter.display_name} and no one has found it yet. So here's a hint: `{self.hint}` has been used {count} times.{fw}")
-        print("Sent expire message... setting new timer")
         hinttime = 24*60*60 // len(self.wotd)
         self.expire_timer = asyncio.ensure_future(self.expire_word(channel, hinttime))
 
