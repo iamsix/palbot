@@ -11,6 +11,9 @@ from zoneinfo import ZoneInfo
 # 'when' is not stricyly necessary here, just a convenience thing
 # timestamp | Channel | userid | when | remindertext
 
+# TODO: change Reminder.reminders to a dict keyed by timestamp
+# then I don't need the task thing at all in the EditReminderView
+
 @dataclass
 class ReminderItem:
     channel: int
@@ -62,8 +65,7 @@ class EditReminderView(discord.ui.View):
                     self.task.cancel()
                 out, editbutton = await self.reminder.make_reminder(self.reminder_item)
                 self.message.content = out
-                if editbutton:
-                    self.task = editbutton.task
+                self.task = editbutton.task
                 await interaction.followup.edit_message(self.message.id, content=out, view=self)
         else:
             await interaction.response.send_message("You didn't create this reminder", ephemeral=True)
@@ -123,7 +125,7 @@ class Reminder(commands.Cog):
 
     @tasks.loop(minutes=(60 * 24))
     async def check_timers(self):
-        print("remindme loop")
+        self.bot.logger.info("remindme loop")
         # first we have to cancel all the reminders so that we don't re-create one already on a timer 
         for reminder in self.reminders:
             reminder.cancel()
@@ -134,8 +136,7 @@ class Reminder(commands.Cog):
         res = self.c.execute(q, [(ts)])
         #then create any reminder with less than 24hr time
         for row in res:
-            print(row)
-            when = datetime.fromtimestamp(row[0])
+            when = datetime.fromtimestamp(row[0]).astimezone(UTC)
             reminder = ReminderItem(row[1], row[2], when, row[3])
             await self.set_timer(reminder)
 
@@ -144,7 +145,7 @@ class Reminder(commands.Cog):
         task = asyncio.create_task(self.start_timer(reminder))
         self.reminders.add(task)
         task.add_done_callback(self.reminders.discard)
-        return task
+        return None
 
 
     def reminder_parser(self, line, tz):
@@ -233,7 +234,6 @@ class Reminder(commands.Cog):
     async def remindme(self, ctx, *, message: str):
         if ctx.invoked_with.lower() == "remind" and message[:3] == "me ":
             message = message[3:]
-            # print(message)
         tz = ctx.author_info.timezone
         date, what = self.reminder_parser(message, tz)
         if not date:
@@ -268,6 +268,7 @@ class Reminder(commands.Cog):
         return (out, editbutton)
 
     async def call_reminder(self, reminder):
+        self.bot.logger.info(f"Calling {reminder}")
         channel = self.bot.get_channel(reminder.channel)
         msg = f'<@{reminder.user}>: {reminder.message}'
         user = self.bot.get_user(reminder.user)
