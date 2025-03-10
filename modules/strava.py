@@ -5,8 +5,15 @@ from aiohttp import web
 
 import datetime
 import time
-from urllib.parse import quote as uriquote
+# from urllib.parse import quote as uriquote
 #from bs4 import BeautifulSoup
+
+# TODO cache the user measurement pref (can also make it overridable)
+# add it to userinfo probably. Saves about 300ms
+# Might just cache the entire user parsed json obj
+#   if I do that I need to timestamp it so I can refresh when old
+#     if I ever start using anything other than measurement_pref
+# probably going to throw out the embed version - it doesn't look good
 
 class Strava(commands.Cog):
     def __init__(self, bot):
@@ -15,21 +22,21 @@ class Strava(commands.Cog):
         self.ctx_menu = app_commands.ContextMenu(name='Strava', callback=self.strava_ctx)
         self.bot.tree.add_command(self.ctx_menu)
 
-    async def webserver(self):
-        async def handler(request):
-            print(request)
-            user = request.match_info['user']
-            code = request.rel_url.query['code']
-            state = request.rel_url.query['state']
-            return web.Response(text=f"Set user {user} to code {code} - state {state}")
-        app = web.Application()
-        app.router.add_get(r'/strava/{user:\d+}', handler)
-        runner = web.AppRunner(app)
-        await runner.setup()
-        self.site = web.TCPSite(runner, "127.0.0.1", 5000)
-        print(self.site)
-        await self.bot.wait_until_ready()
-        await self.site.start()
+    # async def webserver(self):
+    #     async def handler(request):
+    #         print(request)
+    #         user = request.match_info['user']
+    #         code = request.rel_url.query['code']
+    #         state = request.rel_url.query['state']
+    #         return web.Response(text=f"Set user {user} to code {code} - state {state}")
+    #     app = web.Application()
+    #     app.router.add_get(r'/strava/{user:\d+}', handler)
+    #     runner = web.AppRunner(app)
+    #     await runner.setup()
+    #     self.site = web.TCPSite(runner, "127.0.0.1", 5000)
+    #     print(self.site)
+    #     await self.bot.wait_until_ready()
+    #     await self.site.start()
 
     async def cog_unload(self):
         self.bot.tree.remove_command(self.ctx_menu)
