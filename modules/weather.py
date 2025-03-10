@@ -28,6 +28,8 @@ WEMOJI ={
     # yr.no
     "clearsky_day": "\N{BLACK SUN WITH RAYS}\N{VARIATION SELECTOR-16}",
     "clearsky_night": "\N{CRESCENT MOON}",
+    "partlycloudy_day": "\N{WHITE SUN WITH SMALL CLOUD}",
+    "partlycloudy_night": "\N{CLOUD}\N{CRESCENT MOON}",
     "fair_day": "\N{WHITE SUN WITH SMALL CLOUD}",
     "fair_night": "\N{CLOUD}\N{CRESCENT MOON}",
     "lightrainshowers_day": "🌦️",
@@ -357,6 +359,7 @@ class Weather(commands.Cog):
         if uv or pollen:
              outlook_imp += f"\n{uv}{pollen}"
         # end of jank
+        outlook_imp = outlook_imp.replace("AccuWeather", "`!w`")
         outlook_metric = units.imperial_string_to_metric(outlook_imp)
 
         temp_c = f"{units.f_to_c(current['Temperature']['Value'])}°C"
@@ -772,7 +775,6 @@ class Weather(commands.Cog):
         url = f"https://api.pirateweather.net/forecast/{key}/{loc.latitude},{loc.longitude}?exclude=alerts,hourly,minutely"
 #        url = "https://api.forecast.io/forecast/{}/{},{}"
 #        url = url.format(key, loc.latitude, loc.longitude)
-        print(url)
         async with self.bot.session.get(url) as resp:
             data = await resp.json(content_type=None)
 
