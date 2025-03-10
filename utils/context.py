@@ -1,8 +1,7 @@
 import sqlite3
 from discord.ext import commands
-import asyncio
 from urllib.parse import quote as uriquote
-import traceback
+import json
 
 
 class MoreContext(commands.Context):
@@ -164,6 +163,7 @@ class AuthorInfo:
     def single_setter(self, key, value):
         q = '''SELECT data FROM userinfo WHERE user = (?) AND field = (?); '''
         result = self.c.execute(q, (self.user_id, key)).fetchone()
+        # Unfortunately key-value db means I can't INSERT OR REPLACE
         if result:
             q = '''UPDATE userinfo SET data = (?) WHERE user = (?) AND field = (?); '''
             self.c.execute(q, (value, self.user_id, key))
@@ -212,11 +212,26 @@ class AuthorInfo:
         self.single_setter('timezone', tz_name)
         
     @property
-    def strava(self):
-        return self.single_getter('strava')
+    def strava(self) -> int:
+        return int(self.single_getter('strava'))
     @strava.setter
     def strava(self, uid: str):
+        # When setting this we must clear the athlete info
+        self.strava_athlete = None
         self.single_setter('strava', uid)
+
+
+    # technically this makes the strava uid partially redundant.
+    @property
+    def strava_athlete(self):
+        athlete = self.single_getter('strava_athlete')
+        if athlete:
+            athlete = json.loads(athlete)
+        return athlete
+    @strava_athlete.setter
+    def strava_athlete(self, athlete):
+        self.single_setter('strava_athlete',
+                           json.dumps(athlete))
 
     @property
     def lastfm(self):
