@@ -188,7 +188,7 @@ class Wotd(commands.Cog):
                 self.revealed = set()
             unrevealed = self.single_getter(chan, "unrevealed")
             if unrevealed:
-                self.unrevealed = set(map(int, revealed.split(",")))
+                self.unrevealed = set(map(int, unrevealed.split(",")))
             else:
                 self.unrevealed = set(range(len(self.wotd)))
             
