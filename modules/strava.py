@@ -1,7 +1,6 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-# from aiohttp import web
 
 import datetime
 import time
@@ -14,26 +13,9 @@ class Strava(commands.Cog):
         self.ctx_menu = app_commands.ContextMenu(name='Strava', callback=self.strava_ctx)
         self.bot.tree.add_command(self.ctx_menu)
 
-    # async def webserver(self):
-    #     async def handler(request):
-    #         print(request)
-    #         user = request.match_info['user']
-    #         code = request.rel_url.query['code']
-    #         state = request.rel_url.query['state']
-    #         return web.Response(text=f"Set user {user} to code {code} - state {state}")
-    #     app = web.Application()
-    #     app.router.add_get(r'/strava/{user:\d+}', handler)
-    #     runner = web.AppRunner(app)
-    #     await runner.setup()
-    #     self.site = web.TCPSite(runner, "127.0.0.1", 5000)
-    #     print(self.site)
-    #     await self.bot.wait_until_ready()
-    #     await self.site.start()
-
     async def cog_unload(self):
         self.bot.tree.remove_command(self.ctx_menu)
         pass
-        # await self.site.stop()
 
     async def strava_ctx(self, interaction: discord.Interaction, user: discord.User):
         userinfo = interaction.client.utils.AuthorInfo(user)
@@ -268,5 +250,4 @@ class Strava(commands.Cog):
 async def setup(bot):
     strava = Strava(bot)
     await bot.add_cog(strava)
-#    bot.loop.create_task(strava.webserver())
 
