@@ -119,6 +119,8 @@ class WotdButton(discord.ui.View):
 
     async def on_timeout(self):
         self.wotd.wotd = random.choice(common_words)
+        self.wotd.unrevealed = set(range(len(self.wotd.wotd)))
+        self.wotd.revealed = set()    
 #        self.wotd.setter = self.wotd.bot.user
         self.wotd.timestamp = datetime.now(timezone.utc)
         self.wotd.full_word_match = False
