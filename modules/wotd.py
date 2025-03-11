@@ -110,6 +110,12 @@ class WotdButton(discord.ui.View):
             self.wotd.single_setter(chan, "wotd", self.wotd.wotd)
             self.wotd.single_setter(chan, "message", self.message.id)
             self.wotd.single_setter(chan, "hint", self.wotd.hint)
+            self.wotd.single_setter(chan, 
+                                    "unrevealed", 
+                                    ",".join(map(str, list(self.wotd.unrevealed))))
+            self.wotd.single_setter(chan, 
+                                    "revealed", 
+                                    ",".join(map(str, list(self.wotd.revealed))))
             self.wotd.single_setter(chan, "fullword", modal.fullword)
             self.stop()
             msg = self.message.content + f"\n\nWord has been set. The new WOTD has been used {count} times."
@@ -173,13 +179,19 @@ class Wotd(commands.Cog):
 
             self.wotd = self.single_getter(chan, "wotd")
             hint = self.single_getter(chan, "hint")
-            self.hint = hint or "*" * len(self.wotd)
-            for i, letter in enumerate(self.hint):
-                if letter == "*":
-                    self.unrevealed.add(i)
-                else:
-                    self.revealed.add(i)
+            self.hint = hint
 
+            revealed = self.single_getter(chan, "revealed")
+            if revealed and "," in revealed:
+                self.revealed = set(map(int, revealed.split(",")))
+            else:
+                self.revealed = set()
+            unrevealed = self.single_getter(chan, "unrevealed")
+            if unrevealed and "," in revealed:
+                self.unrevealed = set(map(int, revealed.split(",")))
+            else:
+                self.unrevealed = set(range(len(self.wotd)))
+            
             self.full_word_match = int(self.single_getter(chan, "fullword")) == 1
             if self.full_word_match:
                 self.fwr = re.compile(f"\\b{self.wotd}\\b", flags=re.IGNORECASE)
@@ -277,6 +289,12 @@ class Wotd(commands.Cog):
             self.hint = hint
         try:
             self.single_setter(channel.id, "hint", self.hint)
+            self.single_setter(channel.id, 
+                                "unrevealed", 
+                                ",".join(map(str, list(self.wotd.unrevealed))))
+            self.single_setter(channel.id, 
+                                "revealed", 
+                                ",".join(map(str, list(self.wotd.revealed))))
         except Exception as e:
             print(e)
             print("Failed to set hint in the wotd database")
@@ -357,8 +375,8 @@ class Wotd(commands.Cog):
 
 
 
-    @commands.command(aliases=['gotd'])
-    async def wotd(self, ctx):
+    @commands.command(name="wotd", aliases=['gotd'])
+    async def _wotd(self, ctx):
         """Shows some stats about the current wotd"""
         if not self.wotd:
             return
