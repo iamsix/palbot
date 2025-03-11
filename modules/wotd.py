@@ -182,12 +182,12 @@ class Wotd(commands.Cog):
             self.hint = hint
 
             revealed = self.single_getter(chan, "revealed")
-            if revealed and "," in revealed:
+            if revealed:
                 self.revealed = set(map(int, revealed.split(",")))
             else:
                 self.revealed = set()
             unrevealed = self.single_getter(chan, "unrevealed")
-            if unrevealed and "," in revealed:
+            if unrevealed:
                 self.unrevealed = set(map(int, revealed.split(",")))
             else:
                 self.unrevealed = set(range(len(self.wotd)))
