@@ -25,8 +25,10 @@ common_words = ["the", "people", "would", "really", "think", "right", "there", "
 # select * from hitlog order by wordage ASC;
 # most commonly used wotd:
 # select count(*), word from hitlog group by word order by count(*) asc;
-#TODO - change hint system to be based on length of word
-# probably with some 6hr grace period of no hints, then interval based on length
+
+
+# TODO This is currently written to assume only 1 channel does WOTD and the word is the same across all servers
+# The DB is designed to support multiple channels/servers but code assumes 1 specific channel
 
 
 class WotdPrompt(discord.ui.Modal):
@@ -133,10 +135,6 @@ class WotdButton(discord.ui.View):
         await self.message.channel.send("New WOTD button has expired, so it has been set to a random common word\nThe WOTD finder can still use `!newwotd` to set it again")
         await self.message.edit(content=self.message.content, view=None)
 
-
-
-# TODO This is currently written to assume only 1 channel does WOTD and the word is the same across all servers
-# The DB is designed to support multiple channels/servers but code assumes 1 specific channel
 
 
 class Wotd(commands.Cog):
@@ -265,6 +263,8 @@ class Wotd(commands.Cog):
         self.timestamp = datetime.now(timezone.utc)
         self.wotd = ""
         self.hint = ""
+        self.unrevealed = set()
+        self.revealed = set()
         self.wotd_count = None
 
     
@@ -291,10 +291,10 @@ class Wotd(commands.Cog):
             self.single_setter(channel.id, "hint", self.hint)
             self.single_setter(channel.id, 
                                 "unrevealed", 
-                                ",".join(map(str, list(self.wotd.unrevealed))))
+                                ",".join(map(str, list(self.unrevealed))))
             self.single_setter(channel.id, 
                                 "revealed", 
-                                ",".join(map(str, list(self.wotd.revealed))))
+                                ",".join(map(str, list(self.revealed))))
         except Exception as e:
             print(e)
             print("Failed to set hint in the wotd database")
@@ -340,10 +340,15 @@ class Wotd(commands.Cog):
         """Debug function shows you the current wotd, who set it, and when"""
         # ago = human_timedelta(self.timestamp, source=datetime.now(timezone.utc), suffix=True)
         ago = f"<t:{int(self.timestamp.timestamp())}:R>"
+        tssec = int((datetime.now(timezone.utc) - self.timestamp).total_seconds())
+        hinttime = 24*60*60 // len(self.wotd)
+        waittime = hinttime - (tssec % hinttime)
+        nexthint = f"<t:{int(self.timestamp.timestamp() + waittime)}:R>"
 
         await ctx.send(f"""wotd is: ||{self.wotd}||
             set by **{self.setter.display_name}** on {self.timestamp} UTC {ago} 
             hint: `{self.hint}` - revealed: {self.revealed} - unrevealed: {self.unrevealed}
+            Next hint: {nexthint}
             Fullword: {self.full_word_match}""")
 
     @commands.command(hidden=True)
