@@ -162,7 +162,7 @@ class Vids(commands.Cog):
         out = ""
         if 'contentRating' in ytjson['contentDetails'] and \
           ytjson['contentDetails']['contentRating']:
-            print(ytjson['contentDetails'])
+            self.bot.logger.info(f"NSFW yt {yt_id} : {ytjson['contentDetails']}")
             out = "**NSFW** : "
             link = f"|| {link} ||"
 
@@ -202,7 +202,7 @@ class Vids(commands.Cog):
         ctx = await self.bot.get_context(message, cls=self.bot.utils.MoreContext)
 
         url = URL(url)
-        url = url.with_host("instagramez.com").with_query(None)
+        url = url.with_host("kkinstagram.com").with_query(None)
         await ctx.send(url)
         try:
             await asyncio.sleep(1)

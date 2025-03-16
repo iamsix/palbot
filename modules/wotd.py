@@ -200,9 +200,7 @@ class Wotd(commands.Cog):
                 self.setter = self.bot.user
             ts = self.single_getter(chan, "timestamp")
             self.timestamp = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S.%f%z")
-            tssec = int((datetime.now(timezone.utc) - self.timestamp).total_seconds())
-            hinttime = 24*60*60 // len(self.wotd)
-            waittime = hinttime - (tssec % hinttime)
+            waittime = self.wait_time()
             
             channel = self.bot.get_channel(chan)
             self.expire_timer = asyncio.ensure_future(self.expire_word(channel, waittime))
@@ -305,27 +303,11 @@ class Wotd(commands.Cog):
         if self.full_word_match:
             fw = " You must use the word in a sentence. This is a full word match only, substrings will not match."
         await channel.send(f"The WOTD was set {ago} by {self.setter.display_name} and no one has found it yet. So here's a hint: `{self.hint}` has been used {count} times.{fw}")
+        
+        # Might change this to self.hint_time() so that !wotdhint doesn't change the timer interval
         hinttime = 24*60*60 // len(self.wotd)
         self.expire_timer = asyncio.ensure_future(self.expire_word(channel, hinttime))
 
-    # @commands.command(hidden=True)
-    async def hinter(self, ctx, *, word):
-        unrevealed_indices = set(range(len(word)))
-        revealed_indices = set()
-        hint = ""
-        hints = []
-        for i in range(len(word)):
-            chosen_index = random.choice(list(unrevealed_indices))
-            revealed_indices.add(chosen_index)
-            unrevealed_indices = set(range(len(word)))  - revealed_indices
-            for x, letter in enumerate(word):
-                if x in revealed_indices:
-                    hint += letter
-                else:
-                    hint += "*"
-            hints.append(f"Hint {i+1}: `" + hint + "`")
-            hint = ""
-        await ctx.send(f"Hints from that word: {'\n'.join(hints)}")
 
     @commands.command(hidden=True)
     async def wotdhint(self, ctx):
@@ -333,6 +315,10 @@ class Wotd(commands.Cog):
         if ctx.author.id == self.setter.id or await self.bot.is_owner(ctx.author):
             self.expire_timer.cancel()
             await self.expire_word(ctx.channel, 1)
+        else:
+            waittime = self.wait_time()
+            nexthint = f"<t:{int(datetime.now(timezone.utc).timestamp() + waittime)}:R>"
+            await ctx.send(f"You didn't set the wotd. Current hint is `{self.hint}` - The next hint will be {nexthint}")
 
     @commands.command(hidden=True)
     @commands.is_owner()
@@ -340,15 +326,15 @@ class Wotd(commands.Cog):
         """Debug function shows you the current wotd, who set it, and when"""
         # ago = human_timedelta(self.timestamp, source=datetime.now(timezone.utc), suffix=True)
         ago = f"<t:{int(self.timestamp.timestamp())}:R>"
-        tssec = int((datetime.now(timezone.utc) - self.timestamp).total_seconds())
         hinttime = 24*60*60 // len(self.wotd)
-        waittime = hinttime - (tssec % hinttime)
-        nexthint = f"<t:{int(self.timestamp.timestamp() + waittime)}:R>"
+        waittime = self.wait_time()
+        nexthint = f"<t:{int(datetime.now(timezone.utc).timestamp() + waittime)}:R>"
 
         await ctx.send(f"""wotd is: ||{self.wotd}||
             set by **{self.setter.display_name}** on {self.timestamp} UTC {ago} 
             hint: `{self.hint}` - revealed: {self.revealed} - unrevealed: {self.unrevealed}
-            Next hint: {nexthint}
+            Next hint: {nexthint} - every {hinttime//60} minutes
+            wotd_count: {self.wotd_count}
             Fullword: {self.full_word_match}""")
 
     @commands.command(hidden=True)
@@ -482,6 +468,11 @@ class Wotd(commands.Cog):
             except Exception as e:
                 # an exception here means we tried to timeout an admin/owner/etc
                 self.bot.logger.info(f"WOTD failed to timeout user: {message.author} {e}")
+
+    def wait_time(self):
+        tssec = int((datetime.now(timezone.utc) - self.timestamp).total_seconds())
+        hinttime = 24*60*60 // len(self.wotd)
+        return hinttime - (tssec % hinttime)
 
     def hitcount(self, userid):
         q = 'SELECT COUNT(*) FROM hitlog WHERE finder = (?)'

@@ -95,6 +95,8 @@ class Location:
             city, state, country, poi = "","","", ""
 
             for component in results_json['results'][0]['address_components']:
+                if not city and 'sublocality' in component['types']:
+                    city = component['long_name']
                 if 'locality' in component['types']:
                     city = component['long_name']
                 elif 'point_of_interest' in component['types'] or 'natural_feature' in component['types']:
@@ -118,6 +120,7 @@ class Location:
     async def get_location_by_latlon(cls, bot, lat, lon):
         location_string = None
         url = f"https://maps.googleapis.com/maps/api/geocode/json?latlng={lat},{lon}&key={bot.config.gsearch2}"
+        city, state = "", ""
         async with bot.session.get(url) as resp:
             if resp.status == 200:
                 resp_json = await resp.json()
@@ -128,11 +131,11 @@ class Location:
                     return None
                 try:
                     for pt in location['address_components']:
-                        if pt['types'][0] == "locality":
+                        if "locality" in pt['types'] or 'sublocality' in pt['types']:
                             city = pt['long_name']
-                        if pt['types'][0] == "administrative_area_level_1":
+                        if "administrative_area_level_1" in pt['types']:
                             state = pt['short_name']
-                    if city not in [None, ""] and state not in [None, ""]:
+                    if city or state:
                         location_string = f"{city}, {state}"
                 except KeyError as e:
                     print(f"Google maps API did not return proper response: {e} is missing")

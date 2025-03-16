@@ -2,26 +2,47 @@ import re
 
 class units:
     f_to_c = lambda n: int(round((n - 32)*5/9,0))
-    # (10°C × 9/5) + 32 = 50°F
     c_to_f = lambda n: int(round((n * (9/5))+32))
     mi_to_km = lambda n: int(round(n * 1.609, 0))
     km_to_mi = lambda n: int(round(n / 1.609, 0))
-    
-    def imperial_string_to_metric(line, *, both=False):
-        f_to_c = lambda n: int(round((n - 32)*5/9,0))
-        mi_to_km = lambda n: int(round(n * 1.609, 0))
-        F_C = re.compile("(-?\d+)°F")
-        MI_KM = re.compile("(\d+\.?\d+) mph", flags=re.IGNORECASE)
+    in_to_cm = lambda n: int(round(n * 2.54, 1))
+
+    IN_CM_RE = re.compile(r"(?:(\d+)(?:-(\d+))?|(an?))\s+inch(?:es)?\s?(or\stwo)?", flags=re.IGNORECASE)
+    F_C_RE = re.compile(r"(-?\d+)°F")
+    MI_KM_RE = re.compile(r"(\d+\.?\d+) mph", flags=re.IGNORECASE)
+
+    @classmethod
+    def imperial_string_to_metric(cls, line, *, both=False):        
         def f_c(m):
-            c = f_to_c(int(m.group(1)))
+            c = cls.f_to_c(int(m.group(1)))
             return f"{c}°C" if not both else f"{c}°C / {m.group(0)}"
 
         def mi_km(m):
-            km = mi_to_km(int(float(m.group(1))))
+            km = cls.mi_to_km(int(float(m.group(1))))
+            print(km)
             return f"{km} km/h" if not both else f"{km} km/h / {m.group(0)}"
+        
+        def in_cm(m: re.Match):
+            in1 = 0
+            in2 = 0
+            if m.group(1):
+                in1 = int(m.group(1))
+            if m.group(2):
+                in2 = int(m.group(2))
+            if m.group(3):
+                in1 = 1
+            if m.group(4):
+                in2 = 2
 
-        line = F_C.sub(f_c, line)
-        line = MI_KM.sub(mi_km, line)
+            cm = cls.in_to_cm(in1)
+            if in2:
+                cm2 = cls.in_to_cm(in2)
+                cm = f"{cm}-{cm2}"
+            return f"{cm} cm" if not both else f"{cm} cm / {m.group(0)}"
+
+        line = cls.F_C_RE.sub(f_c, line)
+        line = cls.MI_KM_RE.sub(mi_km, line)
+        line = cls.IN_CM_RE.sub(in_cm, line)
 
         return line
 
