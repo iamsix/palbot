@@ -302,7 +302,7 @@ class Weather(commands.Cog):
         return weather
 
 
-    @commands.command(name='w', aliases=['pw'])
+    @commands.command(name='w', aliases=['pw', "forecast"])
     async def accuweather(self, ctx, *, location:str = ""):
         """Show a weather report from accuweather for <location>
            Can be invoked without location if you have done a `set location`"""
@@ -324,8 +324,42 @@ class Weather(commands.Cog):
             weather = self.parse_accu(data)
             if ctx.invoked_with.lower() == "w":
                 await ctx.send(await self.w_text(weather, loc))
+            elif ctx.invoked_with.lower() == "forecast":
+                await ctx.send(await self.accu_forecast(data, loc))
             else:
                 await ctx.send(embed=await self.w_embed(weather, loc))
+
+    async def accu_forecast(self, data, loc):
+        units = self.bot.utils.units
+
+        forecast = data['ForecastSummary']
+        headline = forecast['Headline']['Text']
+        days = []
+        for i, day in enumerate(forecast['DailyForecasts']):
+            if i > 7:
+                continue
+            if i == 0:
+                dayname = "Today"
+            else:
+                date = datetime.strptime(day['Date'], "%Y-%m-%dT%H:%M:%S%z")
+                dayname = date.strftime("%a")
+            if loc.country == "United States":
+                low = f"{int(day['Temperature']['Minimum']['Value'])}°F"
+                high = f"{int(day['Temperature']['Maximum']['Value'])}°F"
+            else:
+                low = f"{units.f_to_c(day['Temperature']['Minimum']['Value'])}°C"
+                high = f"{units.f_to_c(day['Temperature']['Maximum']['Value'])}°C"
+            # condition = day['Day']['IconPhrase']
+            condition = f"{WEMOJI[day['Day']['Icon']]}"
+            pop = ""
+            if day['Day']['HasPrecipitation']:
+                pop = f" {day['Day']['PrecipitationProbability']}%"
+
+            days.append(f"`{dayname}:` {condition}{pop} :: High {high} Low {low}")
+ 
+        out = f"{loc.formatted_address} :: {headline}\n"
+        out += "\n".join(days)
+        return out
     
     def parse_accu(self, data):
         units = self.bot.utils.units
