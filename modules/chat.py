@@ -214,8 +214,8 @@ class Chat(commands.Cog):
             out = self.shrug()
         elif message.content[:1] in prefix and message.author.id != self.bot.user.id:
             cmd = lower[1:].split(" ")[0]
-            if cmd not in self.bot.all_commands:
-                out = await self.custom_command(cmd)
+            #if cmd not in self.bot.all_commands:
+            out = await self.custom_command(cmd)
         if out:
             ctx = await self.bot.get_context(message, cls=self.bot.utils.MoreContext)
             allowed_mentions = discord.AllowedMentions(users=[message.author], 

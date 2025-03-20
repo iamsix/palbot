@@ -38,6 +38,9 @@ class PalBot(commands.Bot):
         self.moddir = "modules"
         self.config = __import__('config')
         self.utils = __import__('utils')
+        # for the custom commands so I don't need to reopen the db each time
+        self.cc_conn = None
+        self.cc_c = None
         print(self.intents)
         print(self.intents.members)
         # This contains a list of tuples where:
@@ -67,14 +70,19 @@ class PalBot(commands.Bot):
             except Exception as e:
                 print(f'Failed to load cog {module}', file=sys.stderr)
                 traceback.print_exception(type(e), e, e.__traceback__, file=sys.stderr)
+        if 'Chat' in self.cogs:
+            self.cc_conn = sqlite3.connect("customcommands.sqlite")
+            self.cc_c = self.cc_conn.cursor()
+            print("Chat loaded")
 
     async def on_command_error(self, ctx, error):
-        if isinstance(error, commands.CommandNotFound):
+        if isinstance(error, commands.CommandNotFound) and self.cc_conn:
             # shouldn't happen too often.. I think checking the sqlite is better than
             # storing the entire command list in memory, even though it's likely small
-            conn = sqlite3.connect("customcommands.sqlite")
-            c = conn.cursor()
-            result = c.execute("SELECT cmd FROM commands WHERE cmd = (?)", [ctx.invoked_with.lower()]).fetchone()
+            result = self.cc_c.execute(
+                "SELECT cmd FROM commands WHERE cmd = (?)", 
+                [ctx.invoked_with.lower()]).fetchone()
+            
             if result:
                 return
             self.logger.info(error)
