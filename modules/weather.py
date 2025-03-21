@@ -347,6 +347,7 @@ class Weather(commands.Cog):
                 low = f"{int(day['Temperature']['Minimum']['Value'])}°F"
                 high = f"{int(day['Temperature']['Maximum']['Value'])}°F"
             else:
+                headline = units.imperial_string_to_metric(headline)
                 low = f"{units.f_to_c(day['Temperature']['Minimum']['Value'])}°C"
                 high = f"{units.f_to_c(day['Temperature']['Maximum']['Value'])}°C"
             # condition = day['Day']['IconPhrase']
@@ -355,7 +356,7 @@ class Weather(commands.Cog):
             if day['Day']['HasPrecipitation']:
                 pop = f" {day['Day']['PrecipitationProbability']}%"
 
-            days.append(f"`{dayname}:` {condition}{pop} :: High {high} Low {low}")
+            days.append(f"`{dayname}:` {condition}{pop} :: {low} / {high}")
  
         out = f"{loc.formatted_address} :: {headline}\n"
         out += "\n".join(days)
