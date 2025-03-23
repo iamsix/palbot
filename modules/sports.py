@@ -211,7 +211,51 @@ class Sports(commands.Cog):
             return self.NHL_TEAM_NAMES[name]
         else:
             return name
-		
+        
+    @commands.check(sports_channel)
+    @commands.command()
+    async def ncaa(self, ctx, *, date: HumanTime = None):
+        """Show today's or [date]s NCAA games with score, status"""
+        date = await self.sports_date(ctx, date)
+        url = "https://data.ncaa.com/casablanca/scoreboard/basketball-men/d1/{}/{:02d}/{:02d}/scoreboard.json"
+        url = url.format(date.year, date.month, date.day)
+        async with self.bot.session.get(url) as resp:
+            data = await resp.json()
+
+        if not data['games']:
+            await ctx.send(f"No games found for {date.date()}")
+            return
+        
+        gdata = []
+    
+        for game in data['games']:
+            game = game['game']
+            gamestatus = game['gameState']
+            home = game['home']['names']['short']
+            away = game['away']['names']['short']
+
+            if gamestatus == "pre":
+                starttime = f"<t:{game['startTimeEpoch']}:t>"
+                gdata.append({"ateam": away, 
+                            "hteam": home, 
+                            "status": starttime, 
+                            "scheduled": True})
+                
+            else:
+                status = '{} {}'.format(
+                    game['contestClock'],
+                    game['currentPeriod'])
+                
+                gdata.append({"ateam": away, 
+                            "ascore": game['away']['score'],
+                            "hteam": home,
+                            "hscore": game['home']['score'],
+                            "status": status, 
+                            "scheduled": False})
+
+        out = await self.sports_formatter(gdata)
+        await ctx.send("\n".join(out))
+	
     @commands.check(sports_channel)
     @commands.command()
     async def nhl(self, ctx, *, date: HumanTime = None, test=False):
