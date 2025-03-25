@@ -386,7 +386,7 @@ class Chat(commands.Cog):
 
         q = 'SELECT untag_timestamp, guild, user, tag, plaintext FROM tags WHERE untag_timestamp <= ?'
         async with self.tags_conn.execute(q, [(ts)]) as res:
-            for row in res:
+            async for row in res:
                 self.bot.logger.debug("tagloop:", row[4])
                 when = datetime.fromtimestamp(row[0])
                 guild = await self.bot.fetch_guild(row[1])
