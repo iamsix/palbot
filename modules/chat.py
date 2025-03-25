@@ -49,7 +49,6 @@ class Chat(commands.Cog):
     reminders = set()
     def __init__(self, bot):
         self.bot = bot
-        self.check_userthings.start()
 
         self.cmd_menu = app_commands.ContextMenu(name='React Command', callback=self.command_ctx)
         self.bot.tree.add_command(self.cmd_menu)
@@ -91,6 +90,8 @@ class Chat(commands.Cog):
         END;"""
         await self.custom_command_conn.executescript(cfind_q)
         await self.custom_command_conn.commit()
+
+        self.check_userthings.start()
 
     
     REPOST = ['\N{REGIONAL INDICATOR SYMBOL LETTER R}',
@@ -279,10 +280,14 @@ class Chat(commands.Cog):
  
     async def custom_command(self, command):
         c = self.custom_command_conn
-        async with c.execute("SELECT output FROM commands WHERE cmd = (?)", 
-                           [command.lower()]) as c:
-            result = await c.fetchone()
-            return result[0].strip() if result else None
+        try:
+            async with c.execute("SELECT output FROM commands WHERE cmd = (?)", 
+                            [command.lower()]) as c:
+                result = await c.fetchone()
+                return result[0].strip() if result else None
+        except aiosqlite.ProgrammingError:
+            #Means the DB is closed
+            return None
     
     pdlre = re.compile(r'poorlydrawnlines.com/wp-content/uploads/\d{4}/\d{2}/')
     @commands.command()
