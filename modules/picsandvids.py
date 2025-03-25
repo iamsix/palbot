@@ -2,16 +2,13 @@ import discord
 from discord.ext import commands
 import asyncio
 import aiohttp
-import random
 import re
 from yarl import URL
 from io import BytesIO
 import subprocess
 import xml.etree.ElementTree as ET
 import tempfile
-from datetime import datetime
-import json
-from urllib.parse import quote as uriquote
+from datetime import datetime, timezone
 import html
 
 class Pics(commands.Cog):
@@ -383,7 +380,7 @@ class Vids(commands.Cog):
 # This should probably be inside the confi.py file or something...
 rtoken = {'timestamp': 0, 'token': ""}
 async def reddittoken(self):
-        if int(datetime.now().timestamp()) - rtoken['timestamp'] < 3600:
+        if int(datetime.now(timezone.utc).timestamp()) - rtoken['timestamp'] < 3600:
             return rtoken['token']
 
         un = self.bot.config.reddituser
@@ -397,7 +394,7 @@ async def reddittoken(self):
         url = 'https://www.reddit.com/api/v1/access_token'
         async with self.bot.session.post(url, auth=auth, headers=headers, data=data) as resp:
             data = await resp.json()
-            rtoken['timestamp'] = int(datetime.now().timestamp())
+            rtoken['timestamp'] = int(datetime.now(timezone.utc).timestamp())
             rtoken['token'] = data['access_token']
 
         return rtoken['token']

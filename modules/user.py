@@ -136,7 +136,7 @@ class User(commands.Cog):
 
     @commands.command()
     async def beats(self, ctx):
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.timezone.utc)
         beats = (((now.minute+1) * 60) + ((now.hour+1) * 3600)) / 86.4
         await ctx.send(f'@{beats:.2f}')
 
@@ -147,16 +147,15 @@ class User(commands.Cog):
     async def time(self, ctx):
         """What time is it? Game time."""
         if ctx.author_info.timezone:
-            now = datetime.datetime.utcnow()\
-                                   .replace(tzinfo=pytz.utc)\
+            now = datetime.datetime.now(tz=pytz.utc)\
                                    .astimezone(tz=pytz.timezone(ctx.author_info.timezone))
         else:
-            now = datetime.datetime.now()
+            now = datetime.datetime.now(pytz.utc)
 
         fmt = "Current time: %-I:%M:%S %p %Z | %A, %B %-d, %Y"
         
-        time = now.strftime(fmt) + "\nhttps://cdn.betterttv.net/emote/627528343c6f14b688472081/3x.gif"
-        #time = now.strftime(fmt) + "\nhttps://tenor.com/view/judge-judy-gif-5714654"
+        #time = now.strftime(fmt) + "\nhttps://cdn.betterttv.net/emote/627528343c6f14b688472081/3x.gif"
+        time = now.strftime(fmt) + "\nhttps://tenor.com/view/judge-judy-gif-5714654"
         await ctx.send(time)
         
 
