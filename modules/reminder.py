@@ -2,10 +2,9 @@ from discord.ext import commands, tasks
 import discord
 from discord import app_commands
 import asyncio
-import sqlite3
+import aiosqlite
 from datetime import datetime, timezone
 from dataclasses import dataclass
-import pytz
 import dateparser
 from zoneinfo import ZoneInfo
 # 'when' is not stricyly necessary here, just a convenience thing
@@ -95,14 +94,16 @@ class Reminder(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-        self.conn = sqlite3.connect("reminders.sqlite")
-        self.c = self.conn.cursor()
+    async def cog_load(self):
+        self.conn = await aiosqlite.connect("reminders.sqlite")
 
-        q = '''CREATE TABLE IF NOT EXISTS 'reminders' ("timestamp" integer, "channel" integer, "user" integer, "when" text, "reminder" text);'''
-        self.c.execute(q)
-        self.conn.commit()
+        q = '''CREATE TABLE IF NOT EXISTS 'reminders' (
+                "timestamp" integer, "channel" integer, 
+                "user" integer, "when" text, "reminder" text
+            );'''
+        await self.conn.execute(q)
+        await self.conn.commit()
         self.check_timers.start()
-
 
     async def start_timer(self, reminder):
         seconds = max(0,int((reminder.when - datetime.now(UTC)).total_seconds()))
@@ -112,15 +113,15 @@ class Reminder(commands.Cog):
 
     async def save_timer(self, reminder: ReminderItem):
         q = "INSERT INTO reminders VALUES (?, ?, ?, ?, ?)"
-        self.c.execute(q, (int(reminder.when.timestamp()), 
+        await self.conn.execute(q, (int(reminder.when.timestamp()), 
                            reminder.channel, reminder.user, 
                            str(reminder.when), reminder.message))
-        self.conn.commit()
+        await self.conn.commit()
 
     async def delete_timer(self, reminder: ReminderItem):
         q = "DELETE FROM reminders WHERE timestamp = (?)"
-        self.c.execute(q, [int(reminder.when.timestamp())])
-        self.conn.commit()
+        await self.conn.execute(q, [int(reminder.when.timestamp())])
+        await self.conn.commit()
 
 
     @tasks.loop(minutes=(60 * 24))
@@ -133,10 +134,10 @@ class Reminder(commands.Cog):
         ts = int(datetime.now(UTC).timestamp())
         ts += 24*60*60
         q = 'SELECT timestamp, channel, user, reminder FROM reminders WHERE timestamp <= ?'
-        res = self.c.execute(q, [(ts)])
+        res = await self.conn.execute(q, [(ts)])
         #then create any reminder with less than 24hr time
-        for row in res:
-            when = datetime.fromtimestamp(row[0]).astimezone(UTC)
+        async for row in res:
+            when = datetime.fromtimestamp(row[0], tz=UTC)
             reminder = ReminderItem(row[1], row[2], when, row[3])
             await self.set_timer(reminder)
 
@@ -278,12 +279,12 @@ class Reminder(commands.Cog):
         await channel.send(msg, allowed_mentions=allowed_mentions)
 
         q = 'DELETE FROM reminders WHERE timestamp <= ?'
-        self.c.execute(q, [(int(reminder.when.timestamp()))])
-        self.conn.commit()
+        await self.conn.execute(q, [(int(reminder.when.timestamp()))])
+        await self.conn.commit()
 
 
     async def cog_unload(self):
-        self.conn.close()
+        await self.conn.close()
         self.check_timers.cancel()
         # cancel all the timers here
         for reminder in self.reminders:

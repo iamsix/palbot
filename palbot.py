@@ -1,5 +1,3 @@
-import asyncio
-import aiohttp
 from socket import AF_INET
 from aiohttp import ClientSession, ClientTimeout, TCPConnector
 
@@ -12,7 +10,7 @@ from pathlib import Path
 import datetime
 import sys, traceback
 import logging
-import sqlite3
+import aiosqlite
 from collections import deque
 
 
@@ -40,7 +38,6 @@ class PalBot(commands.Bot):
         self.utils = __import__('utils')
         # for the custom commands so I don't need to reopen the db each time
         self.cc_conn = None
-        self.cc_c = None
         print(self.intents)
         print(self.intents.members)
         # This contains a list of tuples where:
@@ -71,20 +68,19 @@ class PalBot(commands.Bot):
                 print(f'Failed to load cog {module}', file=sys.stderr)
                 traceback.print_exception(type(e), e, e.__traceback__, file=sys.stderr)
         if 'Chat' in self.cogs:
-            self.cc_conn = sqlite3.connect("customcommands.sqlite")
-            self.cc_c = self.cc_conn.cursor()
-            print("Chat loaded")
+            self.cc_conn = await aiosqlite.connect("customcommands.sqlite")
 
     async def on_command_error(self, ctx, error):
         if isinstance(error, commands.CommandNotFound) and self.cc_conn:
             # shouldn't happen too often.. I think checking the sqlite is better than
             # storing the entire command list in memory, even though it's likely small
-            result = self.cc_c.execute(
+            async with self.cc_conn.execute(
                 "SELECT cmd FROM commands WHERE cmd = (?)", 
-                [ctx.invoked_with.lower()]).fetchone()
-            
-            if result:
-                return
+                [ctx.invoked_with.lower()]) as c:
+
+                result = await c.fetchone()
+                if result:
+                    return
             self.logger.info(error)
 
         if hasattr(ctx.command, 'on_error'):

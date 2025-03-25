@@ -1,7 +1,6 @@
-import asyncio
 import discord
 from discord.ext import commands
-import sqlite3
+import aiosqlite
 from yarl import URL
 
 REJECT_LIST = ['\N{BLACK UNIVERSAL RECYCLING SYMBOL}\N{VARIATION SELECTOR-16}',
@@ -23,17 +22,15 @@ class Stars(commands.Cog):
     # so hat I don't restar
     def __init__(self, bot):
         self.bot = bot
-        self.conn = sqlite3.connect("stars.sqlite3")
-        self.c = self.conn.cursor()
-        result = self.c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='posts';").fetchone()
-        if not result:
-            self.c.execute("CREATE TABLE 'posts' ('original' INTEGER UNIQUE ON CONFLICT REPLACE, 'starpost'INTEGER );")
-            self.conn.commit()
-        result = self.c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='settings';").fetchone()
-        if not result:
-            self.c.execute("CREATE TABLE 'settings' ('guild' INTEGER, 'setting' TEXT, 'value' TEXT);")
-            self.conn.commit()
 
+    async def cog_load(self):
+        self.conn = await aiosqlite.connect("stars.sqlite3")
+        await self.conn.execute("""CREATE TABLE IF NOT EXISTS 'posts' (
+            'original' INTEGER UNIQUE ON CONFLICT REPLACE, 'starpost' INTEGER );""")
+        await self.conn.execute("""CREATE TABLE IF NOT EXISTS 'settings' (
+            'guild' INTEGER, 'setting' TEXT, 'value' TEXT, 
+            PRIMARY KEY (guild, setting) );""")
+        await self.conn.commit()
 
     @commands.Cog.listener()
     async def on_reaction_add(self, reaction, user):
@@ -42,8 +39,8 @@ class Stars(commands.Cog):
             return
         stars = reaction.count
         message = reaction.message
-        starlimit = self.get_setting(message.guild.id, 'starlimit')
-        starboard = self.get_setting(message.guild.id, 'starboard')
+        starlimit = await self.get_setting(message.guild.id, 'starlimit')
+        starboard = await self.get_setting(message.guild.id, 'starboard')
         if message.channel.id == starboard:
             return
         if not starboard or not starlimit or stars < int(starlimit):
@@ -52,7 +49,8 @@ class Stars(commands.Cog):
 #        ctx = await self.bot.get_context(reaction.message, cls=self.bot.utils.MoreContext)
 
         q = '''SELECT starpost FROM posts WHERE original = (?)'''
-        result = self.c.execute(q, [(message.id)]).fetchone()
+        async with self.conn.execute(q, [(message.id)]) as c:
+            result = await c.fetchone()
         if result:
             original = result[0]
         else:
@@ -67,8 +65,8 @@ class Stars(commands.Cog):
         if not original:
             post = await channel.send(content=content, embed=embed)
             q = '''INSERT INTO posts VALUES (?, ?); '''
-            self.c.execute(q, (message.id, post.id))
-            self.conn.commit()
+            await self.conn.execute(q, (message.id, post.id))
+            await self.conn.commit()
         else:
             o_msg = await channel.fetch_message(original)
             await o_msg.edit(content=content, embed=embed)
@@ -103,35 +101,27 @@ class Stars(commands.Cog):
             embed.timestamp = message.created_at
             return embed
 
-    def setting_set(self, guild, setting, val):
-        q = '''SELECT value FROM settings WHERE guild = (?) AND setting = (?); '''
-        result = self.c.execute(q, (guild, setting)).fetchone()
-        if result:
-            q = '''UPDATE settings SET value = (?) WHERE guild = (?) AND setting = (?); '''
-            self.c.execute(q, (val, guild, setting))
-        else:
-            q = '''INSERT INTO settings VALUES(?, ?, ?);'''
-            self.c.execute(q, (guild, setting, val))
-        self.conn.commit()
+    async def setting_set(self, guild, setting, val):
+        q = '''INSERT OR REPLACE INTO settings VALUES(?, ?, ?);'''
+        await self.conn.execute(q, (guild, setting, val))
+        await self.conn.commit()
 
-    def get_setting(self, guild, setting):
+    async def get_setting(self, guild, setting):
         q = '''SELECT value FROM settings WHERE guild = (?) AND setting = (?); '''
-        result = self.c.execute(q, (guild, setting)).fetchone()
-        if result:
-            return result[0]
-        else:
-            return None
+        async with self.conn.execute(q, (guild, setting)) as c:
+            result = await c.fetchone()
+            return result[0] if result else None
     
     @commands.command()
     @commands.has_any_role('Admins', 'GOD')
     async def starboard(self, ctx):
-        self.setting_set(ctx.guild.id, 'starboard', ctx.channel.id)
+        await self.setting_set(ctx.guild.id, 'starboard', ctx.channel.id)
         await ctx.send(f"The starboard for {ctx.guild} is now set to #{ctx.channel}")
 
     @commands.command()
     @commands.has_any_role('Admins', 'GOD')
     async def starlimit(self, ctx, *, limit: int):
-        self.setting_set(ctx.guild.id, 'starlimit', limit)
+        await self.setting_set(ctx.guild.id, 'starlimit', limit)
         await ctx.send(f"The starboard on {ctx.guild} now requires **{limit}** stars")
 
 

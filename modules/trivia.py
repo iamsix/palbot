@@ -7,11 +7,12 @@ import random
 import re
 from unidecode import unidecode
 import time
-import sqlite3
+import aiosqlite
 import json
 
-CLUE_Q = "SELECT value, category, clue, answer, links \
+CLUE_Q = "SELECT value, category, clue, answer, links, airdate \
             FROM clues \
+            JOIN airdates ON clues.game = airdates.game \
             JOIN documents ON clues.id = documents.id \
             JOIN classifications ON clues.id = classifications.clue_id \
             JOIN categories ON classifications.category_id = categories.id \
@@ -49,23 +50,23 @@ class Trivia(commands.Cog):
         self.answer_timer = None
         self.question_channel = None
 
-        self.clues_conn = sqlite3.connect("clues.db")
-        self.clues_c = self.clues_conn.cursor()
-        self.clue_count = int(self.clues_c.execute("SELECT Count(*) FROM clues").fetchone()[0])
-    
+    async def cog_load(self):
+        self.clues_conn = await aiosqlite.connect("clues.db")
+        async with self.clues_conn.execute("SELECT Count(*) FROM clues") as c:
+            res = await c.fetchone()
+            self.clue_count = int(res[0])
 
-        self.scores_conn = sqlite3.connect("triviascores.sqlite")
-        self.scores_c = self.scores_conn.cursor()
-        q = "SELECT name FROM sqlite_master WHERE type='table' AND name='scores';"
-        result = self.scores_c.execute(q).fetchone()
-        if not result:
-            q = '''CREATE TABLE 'scores' ("dateid" date NOT NULL UNIQUE, numqs integer, "scores" text);'''
-            self.scores_c.execute(q)
-            self.scores_conn.commit()
+        self.scores_conn = await aiosqlite.connect("triviascores.sqlite")
+        q = '''CREATE TABLE IF NOT EXISTS 'scores' (
+                "dateid" date NOT NULL UNIQUE, 
+                numqs integer, "scores" text
+            );'''
+        await self.scores_conn.execute(q)
+        await self.scores_conn.commit()
 
-    def cog_unload(self):
-        self.clues_conn.close()
-        self.scores_conn.close()
+    async def cog_unload(self):
+        await self.clues_conn.close()
+        await self.scores_conn.close()
         self.stop_after_next = True
         self.game_on = False
         if self.answer_timer:
@@ -96,8 +97,11 @@ class Trivia(commands.Cog):
         if not (await self.trivia_check(ctx)):
             return
 
+        sessid = 0
         q = "SELECT Count(*) FROM scores WHERE dateid LIKE (?)"
-        sessid = int(self.scores_c.execute(q, [time.strftime("%Y-%m-%d") + "%"]).fetchone()[0])
+        async with self.scores_conn.execute(q, [time.strftime("%Y-%m-%d") + "%"]) as c:
+            r = await c.fetchone()
+            sessid = int(r[0])
         sessid += 1
         
         self.points = {}
@@ -204,7 +208,8 @@ class Trivia(commands.Cog):
         if not self.game_on:
             return
         clueid = str(random.randint(1, self.clue_count))
-        clue = self.clues_c.execute(CLUE_Q, [clueid]).fetchone()
+        async with self.clues_conn.execute(CLUE_Q, [clueid]) as c:
+            clue = await c.fetchone()
 
         self.bot.logger.info(clue)
 
@@ -228,12 +233,14 @@ class Trivia(commands.Cog):
         if self.questions_asked == self.question_limit:
             self.stop_after_next = True
 
+        airdate = clue[5].strip()
+
         question_number = self.questions_asked
         if self.session[-2:] == "-0":
             question_number = self.questions_asked_session
         
         wordcount = len(self.hint.split(" "))
-        self.question = (f"**Question** {question_number}: ${self.value}. [ {clue[1]} ] {question}"
+        self.question = (f"**Question** {question_number} {airdate}: ${self.value}. [ {clue[1]} ] {question}"
                          f" [{wordcount}]"
                          f"{links}")
         if not self.hard_mode:
@@ -419,7 +426,8 @@ class Trivia(commands.Cog):
     async def load_scores(self):
         self.points = {}
         self.questions_asked_session = 0
-        result = self.scores_c.execute("SELECT * FROM scores WHERE dateid = (?)", [self.session]).fetchone()
+        async with self.scores_conn.execute("SELECT * FROM scores WHERE dateid = (?)", [self.session]) as c:
+            result = await c.fetchone()
         if result:
             self.points = json.loads(result[2])
             self.questions_asked_session = int(result[1])
@@ -427,8 +435,8 @@ class Trivia(commands.Cog):
     async def save_scores(self):
         score = json.dumps(self.points)
         q = "INSERT OR REPLACE INTO scores(dateid, numqs, scores) VALUES (?, ?, ?)"
-        self.scores_c.execute(q, (self.session, self.questions_asked_session, score))
-        self.scores_conn.commit()
+        await self.scores_conn.execute(q, (self.session, self.questions_asked_session, score))
+        await self.scores_conn.commit()
 
 
 async def setup(bot):

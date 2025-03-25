@@ -4,9 +4,8 @@ from discord.ext import commands, tasks
 import asyncio
 import random
 import re
-from urllib.parse import quote as uriquote
-import sqlite3
-from datetime import timedelta, datetime
+import aiosqlite
+from datetime import timedelta, datetime, timezone
 
 FACES = [" ͡° ͜ʖ ͡°", " ͡° ʖ̯ ͡°", " ͠° ͟ʖ ͡°", " ͡ᵔ ͜ʖ ͡ᵔ", " . •́ _ʖ •̀ .", " ఠ ͟ʖ ఠ", " ͡ಠ ʖ̯ ͡ಠ",
          " ಠ ʖ̯ ಠ", " ಠ ͜ʖ ಠ", " ͡• ͜ʖ ͡• ", " ･ิ ͜ʖ ･ิ", " ͡ ͜ʖ ͡ ", "≖ ͜ʖ≖", "ʘ ʖ̯ ʘ", "ʘ ͟ʖ ʘ",
@@ -50,19 +49,26 @@ class Chat(commands.Cog):
     reminders = set()
     def __init__(self, bot):
         self.bot = bot
-        self.tags_conn = sqlite3.connect("tags.sqlite")
-        self.tags_c = self.tags_conn.cursor()
-        q = '''CREATE TABLE IF NOT EXISTS 'tags' ("untag_timestamp" integer, "guild" integer, "user" integer, "tag" integer, "plaintext" text);'''
-        self.tags_c.execute(q)
         self.check_userthings.start()
 
         self.cmd_menu = app_commands.ContextMenu(name='React Command', callback=self.command_ctx)
         self.bot.tree.add_command(self.cmd_menu)
 
-        self.custom_command_conn = sqlite3.connect("customcommands.sqlite")
-        cursor = self.custom_command_conn.cursor()
-        self.custom_command_cursor = cursor
-        cursor.execute("CREATE TABLE IF NOT EXISTS 'commands' ('cmd' TEXT UNIQUE ON CONFLICT REPLACE, 'output' TEXT, 'owner' TEXT, 'description' TEXT);")
+    async def cog_load(self):
+        self.tags_conn = await aiosqlite.connect("tags.sqlite")
+        q = '''CREATE TABLE IF NOT EXISTS 'tags' (
+            "untag_timestamp" integer, 
+            "guild" integer, 
+            "user" integer, 
+            "tag" integer, 
+            "plaintext" text);'''
+        await self.tags_conn.execute(q)
+        
+        self.custom_command_conn = await aiosqlite.connect("customcommands.sqlite")
+        await self.custom_command_conn.execute(
+            "CREATE TABLE IF NOT EXISTS 'commands' ("
+            "'cmd' TEXT UNIQUE ON CONFLICT REPLACE, "
+            "'output' TEXT, 'owner' TEXT, 'description' TEXT);")
         
 
         cfind_q = """
@@ -83,8 +89,8 @@ class Chat(commands.Cog):
             DELETE FROM cfind WHERE cmd = old.cmd;
             INSERT INTO cfind(cmd, description) VALUES (new.cmd, new.description);
         END;"""
-        cursor.executescript(cfind_q)
-        self.custom_command_conn.commit()
+        await self.custom_command_conn.executescript(cfind_q)
+        await self.custom_command_conn.commit()
 
     
     REPOST = ['\N{REGIONAL INDICATOR SYMBOL LETTER R}',
@@ -258,9 +264,10 @@ class Chat(commands.Cog):
         interaction: discord.Interaction,
         current: str,
     ):
-        c = self.custom_command_cursor
+        c = self.custom_command_conn
         q = "SELECT cmd, description FROM commands WHERE cmd LIKE (?);"
-        res = c.execute(q, [f"%{current}%"]).fetchall()
+        async with c.execute(q, [f"%{current}%"]) as c:
+            res = await c.fetchall()
         res = res[:24]
         return [
             app_commands.Choice(
@@ -271,13 +278,11 @@ class Chat(commands.Cog):
         ]
  
     async def custom_command(self, command):
-        c = self.custom_command_cursor
-        result = c.execute("SELECT output FROM commands WHERE cmd = (?)", 
-                           [command.lower()]).fetchone()
-        if not result:
-            return
-        else:
-            return result[0].strip()
+        c = self.custom_command_conn
+        async with c.execute("SELECT output FROM commands WHERE cmd = (?)", 
+                           [command.lower()]) as c:
+            result = await c.fetchone()
+            return result[0].strip() if result else None
     
     pdlre = re.compile(r'poorlydrawnlines.com/wp-content/uploads/\d{4}/\d{2}/')
     @commands.command()
@@ -298,30 +303,36 @@ class Chat(commands.Cog):
 
     @commands.command()
     async def find(self, ctx, find: str):
-        c = self.custom_command_cursor
-        q = "SELECT commands.cmd, output, commands.description FROM commands JOIN cfind ON commands.cmd = cfind.cmd WHERE cfind MATCH (?) ORDER BY rank;"
-        res = c.execute(q, [find]).fetchall()
-        if res:
-            lines = []
-            for row in res:
-                lines.append(f"**!{row[0].strip()}** *{(row[2].strip() if row[2] else 'No description')}*")
-                
-            await ctx.send("\n".join(lines))
-        else:
-            await ctx.send("Not found")
+        conn = self.custom_command_conn
+        q = "SELECT commands.cmd, output, commands.description FROM commands " \
+            "JOIN cfind ON commands.cmd = cfind.cmd WHERE cfind MATCH (?) ORDER BY rank;"
 
+        async with conn.execute(q, [find]) as c:
+            lines = []
+            async for row in c:
+                desc = (row[2].strip() if row[2] else 'No description')
+                lines.append(f"**!{row[0].strip()}** *{desc}*")
+                
+            if lines:
+                await ctx.send("\n".join(lines))
+            else:
+                await ctx.send("Not found")
+        
     @commands.command(hidden=True)
     async def describecommand(self, ctx, command: str, *, description: str):
-        c = self.custom_command_cursor
+        c = self.custom_command_conn
         if command.startswith("!"):
             command = command[1:]
-        result = c.execute("SELECT output FROM commands WHERE cmd = (?)", [command.lower()]).fetchone()
+        async with c.execute(
+            "SELECT output FROM commands WHERE cmd = (?)", [command.lower()]) as c:
+            result = await c.fetchone()
         if not result:
             await ctx.send(f"No such command `{command}`")
             return
         
         q = "UPDATE commands SET description=(?) WHERE cmd = (?)"
-        result = c.execute(q, (description, command))
+        result = await c.execute(q, (description, command))
+        await c.commit()
         await ctx.send(f"!{command}: {description}")
 
     @commands.command()
@@ -329,24 +340,23 @@ class Chat(commands.Cog):
     async def addcmd(self, ctx, cmd, *, output: str):
         """Adds a custom command to the bot that will output whatever is in the <output> field"""
         #Currently hard insert so can be used to edit too
-        if cmd in [c.name for c in self.bot.commands]:
+        if cmd in self.bot.all_commands:
             await ctx.send("No shadowing real commands.")
             return
         if cmd.startswith("!"):
             cmd = cmd[1:]
         owner = str(ctx.author)
-        c = self.custom_command_cursor
         conn = self.custom_command_conn
-        c.execute("INSERT INTO commands VALUES (?,?,?,?)", (cmd.lower(), output, owner, ""))
-        conn.commit()
+        await conn.execute("INSERT INTO commands VALUES (?,?,?,?)",
+                            (cmd.lower(), output, owner, ""))
+        await conn.commit()
             
     @commands.command()
     @commands.has_any_role('Admins', 'GOD')
     async def delcmd(self, ctx, cmd: str):
-        c = self.custom_command_cursor
         conn = self.custom_command_conn
-        c.execute("DELETE FROM commands WHERE cmd = (?)", [cmd.lower()])
-        conn.commit()
+        await conn.execute("DELETE FROM commands WHERE cmd = (?)", [cmd.lower()])
+        await conn.commit()
 
 
     @commands.command()
@@ -356,11 +366,11 @@ class Chat(commands.Cog):
   
         await user.add_roles(tag, reason=f"{ctx.author.display_name} used !tag")
   
-        when = int(datetime.utcnow().timestamp() + (7 * 24 * 60 * 60))
+        when = int(datetime.now(timezone.utc).timestamp() + (7 * 24 * 60 * 60))
         plaintext = f"Untag `{tag}` from `{user.display_name}` in `{ctx.guild}` on: {datetime.fromtimestamp(when)} UTC"
         q = "INSERT INTO tags VALUES (?, ?, ?, ?, ?)"
-        self.tags_c.execute(q, (when,ctx.guild.id, user.id, tag.id, plaintext))
-        self.tags_conn.commit()
+        await self.tags_conn.execute(q, (when,ctx.guild.id, user.id, tag.id, plaintext))
+        await self.tags_conn.commit()
 
     @tasks.loop(minutes=60)
     async def check_userthings(self):
@@ -371,24 +381,24 @@ class Chat(commands.Cog):
         for reminder in self.reminders:
             reminder.cancel()
         self.reminders.clear()
-        ts = int(datetime.utcnow().timestamp())
+        ts = int(datetime.now(timezone.utc).timestamp())
         ts += 60*60
 
         q = 'SELECT untag_timestamp, guild, user, tag, plaintext FROM tags WHERE untag_timestamp <= ?'
-        res = self.tags_c.execute(q, [(ts)])
-        for row in res:
-            self.bot.logger.debug("tagloop:", row[4])
-            when = datetime.fromtimestamp(row[0])
-            guild = await self.bot.fetch_guild(row[1])
-            user = await guild.fetch_member(row[2])
-            tag = guild.get_role(row[3])
+        async with self.tags_conn.execute(q, [(ts)]) as res:
+            for row in res:
+                self.bot.logger.debug("tagloop:", row[4])
+                when = datetime.fromtimestamp(row[0])
+                guild = await self.bot.fetch_guild(row[1])
+                user = await guild.fetch_member(row[2])
+                tag = guild.get_role(row[3])
 
-            task = asyncio.create_task(self.untag(when, user, tag))
-            self.reminders.add(task)
-            task.add_done_callback(self.reminders.discard)
+                task = asyncio.create_task(self.untag(when, user, tag))
+                self.reminders.add(task)
+                task.add_done_callback(self.reminders.discard)
 
     async def untag(self, when, user, tag):
-        seconds = max(0,int((when - datetime.utcnow()).total_seconds()))
+        seconds = max(0,int((when - datetime.now(timezone.utc)).total_seconds()))
         self.bot.logger.debug(f"untag: {user} tag: {tag} waiting: {seconds}s")
         await asyncio.sleep(seconds)
         try:
@@ -398,13 +408,13 @@ class Chat(commands.Cog):
         
 
         q = 'DELETE FROM tags WHERE untag_timestamp <= ?'
-        self.tags_c.execute(q, [(int(when.timestamp()))])
-        self.tags_conn.commit()
+        await self.tags_conn.execute(q, [(int(when.timestamp()))])
+        await self.tags_conn.commit()
 
 
     async def cog_unload(self):
-        self.custom_command_conn.close()
-        self.tags_conn.close()
+        await self.custom_command_conn.close()
+        await self.tags_conn.close()
         self.bot.tree.remove_command(self.cmd_menu)
         self.check_userthings.cancel()
         # cancel all the timers here
