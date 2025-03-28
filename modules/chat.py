@@ -6,6 +6,7 @@ import random
 import re
 import aiosqlite
 from datetime import timedelta, datetime, timezone
+import base64
 
 FACES = [" ͡° ͜ʖ ͡°", " ͡° ʖ̯ ͡°", " ͠° ͟ʖ ͡°", " ͡ᵔ ͜ʖ ͡ᵔ", " . •́ _ʖ •̀ .", " ఠ ͟ʖ ఠ", " ͡ಠ ʖ̯ ͡ಠ",
          " ಠ ʖ̯ ಠ", " ಠ ͜ʖ ಠ", " ͡• ͜ʖ ͡• ", " ･ิ ͜ʖ ･ิ", " ͡ ͜ʖ ͡ ", "≖ ͜ʖ≖", "ʘ ʖ̯ ʘ", "ʘ ͟ʖ ʘ",
@@ -148,6 +149,12 @@ class Chat(commands.Cog):
         """Add a Checkmark and X to your post for a quick yes-no poll"""
         await ctx.message.add_reaction('\N{WHITE HEAVY CHECK MARK}')
         await ctx.message.add_reaction('\N{CROSS MARK}')
+
+    @commands.command()
+    async def mermaid(self, ctx, *, arg):
+         url = 'https://mermaid.ink/img/' 
+         url += base64.b64encode(arg.encode('ascii')).decode('ascii')
+         await ctx.message.reply(url)
 
     @commands.command()
     async def testbutton(self, ctx):
