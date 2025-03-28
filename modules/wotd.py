@@ -469,7 +469,7 @@ class Wotd(commands.Cog):
         if (not self.full_word_match and self.wotd.lower() in message.clean_content.lower()) or \
                 (self.full_word_match and self.fwr.search(message.clean_content.lower())):
             self.expire_timer.cancel()
-            self.record_hit(message)
+            await self.record_hit(message)
 
             count = await self.hitcount(message.author.id)
             ttime = 1
