@@ -21,8 +21,8 @@ WEMOJI ={
     "clear-day": "\N{BLACK SUN WITH RAYS}\N{VARIATION SELECTOR-16}",
     "clear-night": "\N{CRESCENT MOON}",
     "rain": "\N{CLOUD WITH RAIN}", # doubles for YR
-    "snow": "\N{SNOWFLAKE}", # doubles for YR
-    "sleet": "\N{SNOWFLAKE}\N{CLOUD WITH RAIN}", #doubles for yr
+    "snow": "\N{SNOWFLAKE}\N{VARIATION SELECTOR-16}", # doubles for YR
+    "sleet": "\N{SNOWFLAKE}\N{VARIATION SELECTOR-16}\N{CLOUD WITH RAIN}", #doubles for yr
     "wind": "\N{DASH SYMBOL}",
     "fog": "\N{FOG}", #doubles for YR
     # yr.no
@@ -99,12 +99,12 @@ WEMOJI ={
         19: "\N{DASH SYMBOL}\N{SNOWFLAKE}",
         20: "\N{DASH SYMBOL}\N{SNOWFLAKE}\N{WHITE SUN BEHIND CLOUD}",
         21: "\N{DASH SYMBOL}\N{SNOWFLAKE}\N{WHITE SUN BEHIND CLOUD}",
-        22: "\N{SNOWFLAKE}",
-        23: "\N{SNOWFLAKE}\N{WHITE SUN BEHIND CLOUD}",
+        22: "\N{SNOWFLAKE}\N{VARIATION SELECTOR-16}",
+        23: "\N{SNOWFLAKE}\N{VARIATION SELECTOR-16}\N{WHITE SUN BEHIND CLOUD}",
         24: "\N{ICE CUBE}",
-        25: "\N{SNOWFLAKE}\N{CLOUD WITH RAIN}",
+        25: "\N{SNOWFLAKE}\N{VARIATION SELECTOR-16}\N{CLOUD WITH RAIN}",
         26: "\N{ICE CUBE}\N{CLOUD WITH RAIN}",
-        29: "\N{SNOWFLAKE}\N{CLOUD WITH RAIN}",
+        29: "\N{SNOWFLAKE}\N{VARIATION SELECTOR-16}\N{CLOUD WITH RAIN}",
         30: "\N{OVERHEATED FACE}",
         31: "\N{FREEZING FACE}",
         31: "\N{FREEZING FACE}",
@@ -127,19 +127,19 @@ WEMOJI ={
         "wc2": "\N{CYCLONE}",
         "wc3": "\N{THUNDER CLOUD AND RAIN}",
         "wc4": "\N{THUNDER CLOUD AND RAIN}",
-        "wc5": "\N{SNOWFLAKE}\N{CLOUD WITH RAIN}",
-        "wc6": "\N{SNOWFLAKE}\N{CLOUD WITH RAIN}",
-        "wc7": "\N{SNOWFLAKE}\N{CLOUD WITH RAIN}",
+        "wc5": "\N{SNOWFLAKE}\N{VARIATION SELECTOR-16}\N{CLOUD WITH RAIN}",
+        "wc6": "\N{SNOWFLAKE}\N{VARIATION SELECTOR-16}\N{CLOUD WITH RAIN}",
+        "wc7": "\N{SNOWFLAKE}\N{VARIATION SELECTOR-16}\N{CLOUD WITH RAIN}",
         "wc8": "\N{ICE CUBE}\N{CLOUD WITH RAIN}",
         "wc9": "\N{CLOUD WITH RAIN}",
         "wc10": "\N{ICE CUBE}\N{CLOUD WITH RAIN}",
         "wc11": "\N{CLOUD WITH RAIN}",
         "wc12": "\N{CLOUD WITH RAIN}",
-        "wc13": "\N{SNOWFLAKE}",
-        "wc14": "\N{SNOWFLAKE}",
-        "wc15": "\N{DASH SYMBOL}\N{SNOWFLAKE}",
-        "wc16": "\N{SNOWFLAKE}",
-        "wc17": "\N{SNOWFLAKE}",
+        "wc13": "\N{SNOWFLAKE}\N{VARIATION SELECTOR-16}",
+        "wc14": "\N{SNOWFLAKE}\N{VARIATION SELECTOR-16}",
+        "wc15": "\N{DASH SYMBOL}\N{SNOWFLAKE}\N{VARIATION SELECTOR-16}",
+        "wc16": "\N{SNOWFLAKE}\N{VARIATION SELECTOR-16}",
+        "wc17": "\N{SNOWFLAKE}\N{VARIATION SELECTOR-16}",
         "wc18": "\N{SNOWFLAKE}\N{CLOUD WITH RAIN}",
         "wc19": "\N{FOG}",
         "wc20": "\N{FOG}",
@@ -161,7 +161,7 @@ WEMOJI ={
         "wc36": "\N{OVERHEATED FACE}",
         "wc38": "\N{THUNDER CLOUD AND RAIN}",
         "wc40": "\N{CLOUD WITH RAIN}",
-        "wc42": "\N{SNOWFLAKE}",
+        "wc42": "\N{SNOWFLAKE}\N{VARIATION SELECTOR-16}",
         "wc47": "\N{THUNDER CLOUD AND RAIN}",
     }
 
