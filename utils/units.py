@@ -7,7 +7,7 @@ class units:
     km_to_mi = lambda n: int(round(n / 1.609, 0))
     in_to_cm = lambda n: int(round(n * 2.54, 1))
 
-    IN_CM_RE = re.compile(r"(?:(\d+)(?:-(\d+))?|(an?)) inch(?:es)? ?(or two)?", flags=re.IGNORECASE)
+    IN_CM_RE = re.compile(r"(?:(\d+)(?:-(\d+))?|(an?)) inch(?:es)?( ?or two)?", flags=re.IGNORECASE)
     F_C_RE = re.compile(r"(-?\d+)°F")
     MI_KM_RE = re.compile(r"(\d+\.?\d+) mph", flags=re.IGNORECASE)
 
