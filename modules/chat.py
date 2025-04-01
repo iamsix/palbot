@@ -154,6 +154,7 @@ class Chat(commands.Cog):
     async def mermaid(self, ctx, *, arg):
          url = 'https://mermaid.ink/img/' 
          url += base64.b64encode(arg.encode('ascii')).decode('ascii')
+         url += "?bgColor=000&theme=dark"
          await ctx.message.reply(url)
 
     @commands.command()
