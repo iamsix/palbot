@@ -457,7 +457,7 @@ class Wotd(commands.Cog):
         if fullword or self.full_word_match:
             wordcount = await self.count_word_db(word, fullword=True)
         else:
-            wordcount = self.count_word_db(word) 
+            wordcount = await self.count_word_db(word) 
         self.wotd_count = wordcount
         return wordcount
 
