@@ -2,6 +2,7 @@ from discord.ext import commands
 from urllib.parse import quote as uriquote
 import html
 from utils.formats import millify
+from curl_cffi.requests import AsyncSession
 
 
 CURR = ["AUD", "BRL", "CAD", "CHF", "CLP", "CNY", "CZK", "DKK", "EUR", 
@@ -12,6 +13,8 @@ CURR = ["AUD", "BRL", "CAD", "CHF", "CLP", "CNY", "CZK", "DKK", "EUR",
 
 class Finance(commands.Cog):
     yahoo_crumb = None
+    yahoo_cookies = None
+
     def __init__(self, bot):
         self.bot = bot
 
@@ -24,36 +27,39 @@ class Finance(commands.Cog):
         """Look up a stock and show its current price, change, etc"""
         symbol = name
 
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/112.0",
-                   "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"}
-        
-        if not self.yahoo_crumb:
-            url = "https://finance.yahoo.com/"
-            async with self.bot.session.get(url, headers=headers) as resp:
-                cookies = resp.cookies
+        async with AsyncSession(impersonate="firefox", verify=True) as session:
+            if not self.yahoo_crumb:
+                # we have to do this first to get cookies.
+                url = "https://finance.yahoo.com/"
+                resp = await session.get(url, timeout=30)
+                self.yahoo_cookies = session.cookies
             
-            url = "https://query1.finance.yahoo.com/v1/test/getcrumb"
-            async with self.bot.session.get(url, headers=headers, cookies=cookies) as resp:
-                crumb = await resp.read()
-                self.yahoo_crumb = crumb.decode()
+                url = "https://query1.finance.yahoo.com/v1/test/getcrumb"
+                resp = await session.get(url, cookies=self.yahoo_cookies, timeout=30)
+                if resp.status_code == 200:
+                    crumb = resp.text
+                    self.yahoo_crumb = crumb
+                else:
+                    print(resp.status_code)
+                    print(await resp.text)
 
-        url = f'https://query1.finance.yahoo.com/v1/finance/search?q={uriquote(name)}&lang=en-US&region=US&newsCount=0'
-
-        async with self.bot.session.get(url, headers=headers) as resp:
+            url = f'https://query1.finance.yahoo.com/v1/finance/search?q={uriquote(name)}&lang=en-US&region=US&newsCount=0'
             try:
-                data = await resp.json(content_type=None)
+                resp = await session.get(url, cookies=self.yahoo_cookies, timeout=30)
+                data = resp.json()
+                #print(data)
                 symbol = data['quotes'][0]['symbol']
             except Exception as e:
                 print(e)
                 symbol = name
 
 
-        url = f"http://query1.finance.yahoo.com/v7/finance/quote?symbols={symbol}&crumb={self.yahoo_crumb}"
-#        print(url)
-        async with self.bot.session.get(url, headers=headers) as resp:
-            data = await resp.json()
+            url = f"http://query1.finance.yahoo.com/v7/finance/quote?symbols={symbol}&crumb={self.yahoo_crumb}"
+            resp = await session.get(url, cookies=self.yahoo_cookies, timeout=30)
+            data = resp.json()
             if "quoteResponse" not in data:
                 print(data)
+                return
             if not data["quoteResponse"]["result"]:
                 await ctx.send(f"Unable to find a stonk named `{name}`")
                 return
