@@ -213,11 +213,16 @@ class Sports(commands.Cog):
             return name
         
     @commands.check(sports_channel)
-    @commands.command()
+    @commands.command(aliases=['ncaahockey'])
     async def ncaa(self, ctx, *, date: HumanTime = None):
         """Show today's or [date]s NCAA games with score, status"""
         date = await self.sports_date(ctx, date)
-        url = "https://data.ncaa.com/casablanca/scoreboard/basketball-men/d1/{}/{:02d}/{:02d}/scoreboard.json"
+        if ctx.invoked_with.lower() == "ncaahockey":
+            url = ("https://data.ncaa.com/casablanca/scoreboard/"
+                "icehockey-men/d1/{}/{:02d}/{:02d}/scoreboard.json")
+        else:
+            url = ("https://data.ncaa.com/casablanca/scoreboard/"
+                "basketball-men/d1/{}/{:02d}/{:02d}/scoreboard.json")
         url = url.format(date.year, date.month, date.day)
         async with self.bot.session.get(url) as resp:
             data = await resp.json()
