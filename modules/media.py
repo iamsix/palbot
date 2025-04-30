@@ -139,6 +139,56 @@ class Media(commands.Cog):
 
         await ctx.send(embed=e)
 
+    @commands.command()
+    async def rttv(self, ctx, *, title: str):
+        """Scrape Rotten Tomatoes for ratings. Less reliable than !rt"""
+        
+        urls = await self.bot.utils.google_for_urls(self.bot,
+                "site:rottentomatoes.com " + title,
+                url_regex="rottentomatoes.com/(tv|m)/")
+        
+        headers = {'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0"}
+        page = await self.bot.utils.bs_from_url(self.bot, urls[0], headers=headers)
+
+        titledata = json.loads(page.find('script', type='application/ld+json').string)
+        rtdata = json.loads(page.find('script', 
+                                    id="media-scorecard-json", 
+                                    type='application/json').string
+                                    )
+        
+        
+        if titledata["@type"] in ["TVSeries", "TVSeason"]:
+            title = titledata['partOfSeries']['name']
+            title += " (TV)"
+            if titledata["@type"] == "TVSeason":
+                title += f" {titledata['name']}"
+        else:
+            title = titledata['name']
+
+        e = discord.Embed(title=title, url=urls[0])
+        e.set_thumbnail(url=titledata['image'])
+        e.description = rtdata['description']
+
+        tomato_rating = int(rtdata['criticsScore']['score'])
+        critic_ratings = rtdata['criticsScore']['ratingCount']
+
+        if rtdata['criticsScore']['certified']:
+            icon = '<:rtcertified:623695619017539584> '
+        elif tomato_rating and int(tomato_rating) >= 60:
+            icon = '\N{TOMATO} '
+        else:
+            icon = '<:rtrotten:623695558141411329> '
+        tomatometer = f"{icon} {tomato_rating}% ({critic_ratings} ratings)"
+        e.add_field(name="Tomatometer", value=tomatometer)
+        e.add_field(name="User Score", 
+                    value=rtdata['audienceScore']['scorePercent'])
+        
+        await ctx.send(embed=e)
+
+        
+
+
+
     MC_MEDIA_MAP = {"tv": "shows", "game": "games", "movie": "movies"}
     MC_FRIENDLY_NAME = {"tv": "TV", "movie": "Movie", "game": "Game"}
     MC_IMG_URL = "https://www.metacritic.com/a/img/catalog{}"
