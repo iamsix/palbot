@@ -574,7 +574,7 @@ class Weather(commands.Cog):
 
 
        
-        fcurl= f'https://api.weather.com/v1/geocode/{loc.latitude}/{loc.longitude}/forecast/daily/3day.json?apiKey={key}&units=e'
+        fcurl= f'https://api.weather.com/v1/geocode/{loc.latitude}/{loc.longitude}/forecast/daily/3day.json?apiKey={key}&units=e&language=en'
         async with self.bot.session.get(fcurl) as resp:
             data = await resp.json()
             forecast = data['forecasts']

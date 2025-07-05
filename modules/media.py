@@ -181,7 +181,7 @@ class Media(commands.Cog):
         tomatometer = f"{icon} {tomato_rating}% ({critic_ratings} ratings)"
         e.add_field(name="Tomatometer", value=tomatometer)
         e.add_field(name="User Score", 
-                    value=rtdata['audienceScore']['scorePercent'])
+                    value=rtdata['audienceScore'].get('scorePercent', "-"))
         
         await ctx.send(embed=e)
 

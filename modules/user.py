@@ -103,6 +103,7 @@ class User(commands.Cog):
         age = await self.show_age(ctx.author_info, day=day)
         await ctx.send(age)
 
+
     async def show_age(self, author_info, *, day: HumanTime = None):
         if not author_info.birthday and not day:
             return "Need to enter a birthday such as `!age 1985-10-26` or set it with `!set age 1955-11-05`"
@@ -112,6 +113,7 @@ class User(commands.Cog):
             utz = pytz.timezone(author_info.timezone)
         now = datetime.datetime.now(utz)
         fromday = day if day else HumanTime(author_info.birthday, now=now, now_tz=utz)
+        now = now + datetime.timedelta(seconds=2)
 
         d = relativedelta.relativedelta(now, fromday.dt)
         if d.months == 0 and d.days == 0:
@@ -136,6 +138,7 @@ class User(commands.Cog):
 
     @commands.command()
     async def beats(self, ctx):
+        """https://beats.wiki/"""
         now = datetime.datetime.now(datetime.timezone.utc)
         beats = (((now.minute+1) * 60) + ((now.hour+1) * 3600)) / 86.4
         await ctx.send(f'@{beats:.2f}')

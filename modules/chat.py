@@ -181,9 +181,12 @@ class Chat(commands.Cog):
              except:
                  pass
             
-    @commands.command(hidden=True)
+    @commands.command(hidden=True, aliases=['onions'])
     async def ban(self, ctx):
-        await ctx.message.reply(f"OK, you've been banned. <:LEOKEK:803268251064729670>")
+        if ctx.invoked_with.lower() == "onions":
+            await ctx.message.reply(f"How about these onions. <:LEOKEK:803268251064729670>")
+        else:
+            await ctx.message.reply(f"OK, you've been banned. <:LEOKEK:803268251064729670>")
         try:
             await ctx.message.author.timeout(timedelta(minutes=1), reason="!ban")
         except:
@@ -300,13 +303,26 @@ class Chat(commands.Cog):
     pdlre = re.compile(r'poorlydrawnlines.com/wp-content/uploads/\d{4}/\d{2}/')
     @commands.command()
     async def pdl(self, ctx, *, td: str = ""):
-        url = "https://poorlydrawnlines.com/?random"
+        url = "https://poorlydrawnlines.com/?random=true"
         if td.lower() == "today":
             url = "https://poorlydrawnlines.com/"
         pg = await self.bot.utils.bs_from_url(self.bot, url)
         div = pg.find('div', attrs={'class' : "entry-content"})
         comic = div.find('img',src=self.pdlre)
         await ctx.send(comic.get('src'))
+
+    @commands.command()
+    async def xkcd(self, ctx, *, td: str = ""):
+        url = "https://c.xkcd.com/random/comic/"
+        if td.lower() == "today":
+            url = "https://xkcd.com/"
+        pg = await self.bot.utils.bs_from_url(self.bot, url)
+        div = pg.find('div', attrs={'id' : "comic"})
+        img = div.find('img')
+        out = img.get("title") + "\n"
+        out += "https:" + img.get('src')
+        await ctx.send(out)
+
 
     @commands.command()
     async def mock(self, ctx, *, text: str):
@@ -343,6 +359,7 @@ class Chat(commands.Cog):
             await ctx.send(f"No such command `{command}`")
             return
         
+        c = self.custom_command_conn
         q = "UPDATE commands SET description=(?) WHERE cmd = (?)"
         result = await c.execute(q, (description, command))
         await c.commit()
@@ -353,11 +370,11 @@ class Chat(commands.Cog):
     async def addcmd(self, ctx, cmd, *, output: str):
         """Adds a custom command to the bot that will output whatever is in the <output> field"""
         #Currently hard insert so can be used to edit too
+        if cmd.startswith("!"):
+            cmd = cmd[1:]
         if cmd in self.bot.all_commands:
             await ctx.send("No shadowing real commands.")
             return
-        if cmd.startswith("!"):
-            cmd = cmd[1:]
         owner = str(ctx.author)
         conn = self.custom_command_conn
         await conn.execute("INSERT INTO commands VALUES (?,?,?,?)",
