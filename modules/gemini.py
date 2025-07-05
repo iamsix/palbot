@@ -1,4 +1,6 @@
-import google.generativeai as genai
+# import google.generativeai as genai
+from google import genai
+from google.genai.types import HarmCategory, HarmBlockThreshold, GenerateContentConfig, ThinkingConfig
 import asyncio
 from discord.ext import commands
 import discord
@@ -20,12 +22,38 @@ import os.path
 # change these to a bot config probably. Will need to change the chat_channel check for that.
 allowed_channels = [985728639981211728, 1333677981322969149, 1337293879153791036]
 
-SAFETY = {
-    'HATE': 'BLOCK_NONE',
-    'HARASSMENT': 'BLOCK_NONE',
-    'SEXUAL' : 'BLOCK_NONE',
-    'DANGEROUS' : 'BLOCK_NONE'
-}
+
+SAFETY = [
+    {
+        "category": HarmCategory.HARM_CATEGORY_HARASSMENT,
+        "threshold": HarmBlockThreshold.BLOCK_NONE,
+    },
+    {
+        "category": HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+        "threshold": HarmBlockThreshold.BLOCK_NONE,
+    },
+    {
+        "category": HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+        "threshold": HarmBlockThreshold.BLOCK_NONE,
+    },
+    {
+        "category": HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+        "threshold": HarmBlockThreshold.BLOCK_NONE,
+    },
+    # Add other categories if your specific model supports them
+   # {
+   #      "category": HarmCategory.HARM_CATEGORY_TOXICITY,
+   #      "threshold": HarmBlockThreshold.BLOCK_NONE,
+   #  },
+   #  {
+   #      "category": HarmCategory.HARM_CATEGORY_VIOLENCE,
+   #      "threshold": HarmBlockThreshold.BLOCK_NONE,
+   #  },
+   #  {
+   #      "category": HarmCategory.HARM_CATEGORY_DEROGATORY,
+   #      "threshold": HarmBlockThreshold.BLOCK_NONE,
+   #  },
+]
 
 class Gemini(commands.Cog):
     def __init__(self, bot):
@@ -36,11 +64,12 @@ class Gemini(commands.Cog):
         self.listeners.remove(1337293879153791036)
         self.last_stats = {}
 
-        genai.configure(api_key=self.bot.config.gemini_key)
+        genai.Client(api_key=self.bot.config.gemini_key)
         for ch in allowed_channels:
-            self.load_chat(ch)
+             self.load_chat(ch)
 
     def cog_unload(self):
+        pass
         # print("HELP I'M BEING UNLOADED")
         for chan in self.chats.keys():
             self.save_chat(chan)
@@ -51,9 +80,9 @@ class Gemini(commands.Cog):
         with open(f'logfiles/gemini_{channel}.pkl', 'wb') as fp:
             
             obj = {"channel": channel,
-                "model": self.chats[channel].model.model_name,
-                "instructions": self.chats[channel].model._system_instruction.parts[0].text,
-                "history": self.chats[channel].history,
+                "model": self.chats[channel]._model,
+                "instructions": self.chats[channel]._config.system_instruction,
+                "history": self.chats[channel].get_history(),
             }
             pickle.dump(obj, fp, -1)
 
@@ -63,11 +92,15 @@ class Gemini(commands.Cog):
         if os.path.isfile(f'logfiles/gemini_{channel}.pkl'):
             with open(f'logfiles/gemini_{channel}.pkl', 'rb') as fp:
                 obj = pickle.load(fp)
-                model = genai.GenerativeModel(
-                    model_name=obj['model'],
-                    system_instruction=obj['instructions']
+                client = genai.Client(api_key=self.bot.config.gemini_key)
+                chat_session = client.aio.chats.create(
+                    model=obj['model'],
+                    history=obj['history'],
+                    config=GenerateContentConfig(
+                        system_instruction=obj['instructions']
+                    ),
                 )
-                self.chats[channel] = model.start_chat(history=obj['history'])
+                self.chats[channel] = chat_session
                 
                 return True
         else:
@@ -98,16 +131,15 @@ class Gemini(commands.Cog):
 
     @commands.command()
     async def ai(self, ctx, *, ask: str):
-        genai.configure(api_key=self.bot.config.gemini_key)
-        model = genai.GenerativeModel(
-            model_name="gemini-2.0-flash",
-            system_instruction="Give brief answers of around 1 paragraph"
-        )
-        response = await model.generate_content_async(
-            ask,
-            generation_config = genai.GenerationConfig(
-                max_output_tokens=200,
-            )
+        client = genai.Client(api_key=self.bot.config.gemini_key)
+        response = await client.aio.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=ask,
+            config=GenerateContentConfig(
+                max_output_tokens=5000,
+                system_instruction="Give very curt brief answers under 1 paragraph.",
+                thinking_config=ThinkingConfig(thinking_budget=0)
+            ),
         )
         await ctx.send(response.text)
 
@@ -117,24 +149,24 @@ class Gemini(commands.Cog):
             print(type(chat))
 
 
-    @commands.command(hidden=True)
-    @commands.is_owner()
-    async def specialchat(self, ctx):
-        history = []
-        with open(f'logfiles/clean2024.log', 'r') as fp:
-            for line in fp:
-                history.append({"role": "user", "parts": [{"text": line}]})
-        instr = """You will recieve a discord log in the format of: <@userid:username>: message
-        Input messages and queries will be in the same format - no need to include that format in your own messages or quote the user's id or nick.
-You should analyze this log file and provde information about the users in the log that the other discord users in the chat will ask you about.
-"""
-        model = genai.GenerativeModel(
-                model_name="gemini-2.0-flash",
-                system_instruction=instr
-        )
-        self.chats[ctx.channel.id] = model.start_chat(history=history)
-#        self.listeners.append(ctx.channel.id)
-        await ctx.send("OK. The special chat is initiated, and you can now ask questions about the discord log from early 2024")
+#     @commands.command(hidden=True)
+#     @commands.is_owner()
+#     async def specialchat(self, ctx):
+#         history = []
+#         with open(f'logfiles/clean2024.log', 'r') as fp:
+#             for line in fp:
+#                 history.append({"role": "user", "parts": [{"text": line}]})
+#         instr = """You will recieve a discord log in the format of: <@userid:username>: message
+#         Input messages and queries will be in the same format - no need to include that format in your own messages or quote the user's id or nick.
+# You should analyze this log file and provde information about the users in the log that the other discord users in the chat will ask you about.
+# """
+#         model = genai.GenerativeModel(
+#                 model_name="gemini-2.0-flash",
+#                 system_instruction=instr
+#         )
+#         self.chats[ctx.channel.id] = model.start_chat(history=history)
+# #        self.listeners.append(ctx.channel.id)
+#         await ctx.send("OK. The special chat is initiated, and you can now ask questions about the discord log from early 2024")
 
     @commands.check(chat_channel)
     @commands.command()
@@ -149,11 +181,14 @@ You should analyze this log file and provde information about the users in the l
             return
         
         instr = "You are in a discord, all input messages will be in the format of '<@userid:username> message', you don't need to include your nick in the output. "
-        model = genai.GenerativeModel(
-            model_name="gemini-2.0-flash",
-            system_instruction=instr + instructions
+        client = genai.Client(api_key=self.bot.config.gemini_key)
+        chat_session = client.aio.chats.create(
+            model="gemini-2.5-flash",
+            config=GenerateContentConfig(
+                system_instruction=instr + instructions
+            ),
         )
-        self.chats[ctx.channel.id] = model.start_chat()
+        self.chats[ctx.channel.id] = chat_session
 
 
     async def resetchat(self, ctx):
@@ -187,31 +222,30 @@ You should analyze this log file and provde information about the users in the l
         if message.content.startswith('!') or message.content.startswith('>'):
             return
         
-        await self.chat_response(message)
+        await self.chat_response(message.content, message)
 
     
     @commands.check(chat_channel)
     @commands.command()
     async def chat(self, ctx, *, line: str):
-        ctx.message.content = ctx.message.content[6:]
-        await self.chat_response(ctx.message)
+        await self.chat_response(line, ctx.message)
 
-    async def chat_response(self, message: discord.Message):
+    async def chat_response(self, line, message):
         # Right now this part is redundant until I do the thread thing
         if message.channel.id not in self.chats and not self.load_chat(message.channel.id):
             await message.channel.send("Failed to load chat history, probably need to create one")
             return
         async with message.channel.typing():
-            msg = f"<@{message.author.id}:{message.author.display_name}> {message.content}"
-            response = await self.chats[message.channel.id].send_message_async(
-                    msg, 
-               #     safety_settings=SAFETY
-                    )
-            # parse safety_ratings instead?
-            # self.last_stats[message.channel.id] = 
-            self.last_stats[message.channel.id] = f"{response.usage_metadata}\n{response.candidates[0].safety_ratings}"
-            for i in range(0, len(response.text), 1970):                
-                await message.reply(response.text[i:i+1970])
+            msg = f"<@{message.author.id}:{message.author.display_name}> {line}"
+            try: 
+                response = await self.chats[message.channel.id].send_message(msg)
+                # parse safety_ratings instead?
+                # self.last_stats[message.channel.id] = 
+                self.last_stats[message.channel.id] = f"{response.usage_metadata}\n{response.candidates[0].safety_ratings}"
+                for i in range(0, len(response.text), 1970):                
+                    await message.reply(response.text[i:i+1970])
+            except Exception as e:
+                await message.reply(f"Probably a rate limit: {e}")
 
     @commands.command()
     async def aistats(self, ctx, channel: int = None):
