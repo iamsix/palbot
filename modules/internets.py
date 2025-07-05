@@ -95,13 +95,15 @@ class Internets(commands.Cog):
         
         t = html2text.HTML2Text(bodywidth=5000)
         # t.emphasis_mark = "*"
+       # pg = str(pg).replace('(', uriquote('(')).replace(')', uriquote(')'))
         text = t.handle(str(pg)).strip()
 
         text = text.replace('](/wiki', f'](https://{url.host}/wiki')
+        text = text.replace('\\(', '(').replace('\\)', ')')
         text = re.sub(r'\[\d*?\]', '', text)
         e = discord.Embed()
         
-        embed_url = str(url).replace("(", "\\(").replace(")","\\)").replace("_","\\_")
+        embed_url = str(url) #.replace("(", "\\(").replace(")","\\)")
         embed_url = embed_url
         link_first = re.sub(r"\*\*(.+?)\*\*", r'**[\g<1>]' + f'({embed_url})**', text, 1)
         if link_first == text:
