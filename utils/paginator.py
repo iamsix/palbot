@@ -14,8 +14,8 @@ class Paginator:
         self.paginating = len(data) > 1
         self.current_page = 0
         self.interface = {
-                '\N{BLACK LEFT-POINTING TRIANGLE}': self.previous_page,
-                '\N{BLACK RIGHT-POINTING TRIANGLE}': self.next_page,
+                '\N{BLACK LEFT-POINTING TRIANGLE}\N{VARIATION SELECTOR-16}': self.previous_page,
+                '\N{BLACK RIGHT-POINTING TRIANGLE}\N{VARIATION SELECTOR-16}': self.next_page,
                 }
 
     def __del__(self):
@@ -71,8 +71,8 @@ class Paginator:
             except asyncio.TimeoutError:
                 self.paginating = False
                 try:
-                    await self.message.clear_reaction('\N{BLACK LEFT-POINTING TRIANGLE}')
-                    await self.message.clear_reaction('\N{BLACK RIGHT-POINTING TRIANGLE}')
+                    await self.message.clear_reaction('\N{BLACK LEFT-POINTING TRIANGLE}\N{VARIATION SELECTOR-16}')
+                    await self.message.clear_reaction('\N{BLACK RIGHT-POINTING TRIANGLE}\N{VARIATION SELECTOR-16}')
                 except:
                     pass
                 finally:
