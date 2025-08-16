@@ -45,6 +45,7 @@ class User(commands.Cog):
 
     @commands.command()
     async def whopper (self, ctx):
+        """Burger"""
         tag = discord.utils.get(ctx.guild.roles, name="WHOPPER WHOPPER WHOPPER WHOPPER")
         await ctx.author.add_roles(tag, reason="!whopper")
         await ctx.reply("You have been given the 12 hour whopper buff, go forth and use this power wisely!")
@@ -53,6 +54,7 @@ class User(commands.Cog):
 
     @commands.command()
     async def bounce (self, ctx):
+        """Make it bounce, cat style"""
         await ctx.send(file=discord.File("../media/yeah_Bounce.webm"))
 
     @commands.group(name="set", case_insensitive=True)

@@ -15,6 +15,7 @@ class News(commands.Cog):
 
     @commands.command(name='news')
     async def bing_news(self, ctx, *, query: str = "cats"):
+        """Search bing news for a specific topic"""
         url = f"https://www.bing.com/news/search?q={query}&format=rss"
         async with self.bot.session.get(url) as resp:
             data = await resp.read()
@@ -107,23 +108,6 @@ class News(commands.Cog):
         decoded_urls = await self.decode_urls(articles_params)
         return decoded_urls[0]
 
-    @commands.command(name='approval')
-    async def get_presidential_approval(self, ctx):
-        """
-        Gets presidential approval ratings from fivethirtyeight
-        """
-        data_url = "https://projects.fivethirtyeight.com/polls/approval/donald-trump/2/polling-average.json"
-        url = 'https://projects.fivethirtyeight.com/polls/approval/donald-trump/'
-        async with self.bot.session.get(data_url) as resp:
-            data = await resp.json()
-            # Only grab the top 3 lines from the CSV including the header
-
-
-            output = "President: Trump 2 - {}: {:2.1f}% {}: {:2.1f}% Date: {} [ <{}> ]"
-            output = output.format(data[0]['candidate'], data[0]['pct_estimate'],  
-                                   data[1]['candidate'], data[1]['pct_estimate'],
-                                   data[0]['date'], url)
-            await ctx.send(output)
     
 
 async def setup(bot):

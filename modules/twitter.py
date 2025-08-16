@@ -27,6 +27,7 @@ class Twitter(commands.Cog):
 
     @commands.command()
     async def bsky(self, ctx, *, nick: str):
+        """Testing bluesky API. Can show the latest bluesky of a user"""
         url = f"https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor={nick}&limit=1"
         async with self.bot.session.get(url) as resp:
 #            blah = await resp.read()
@@ -49,7 +50,7 @@ class Twitter(commands.Cog):
             response = await resp.json()
             print(response)
 
-    @commands.command(name='lasttweet')
+    @commands.command(name='lasttweet', hidden=True)
     async def last_tweet(self, ctx, *, handle: str):
         """Show the last tweet of a twitter user"""
         tweets = await self.read_timeline(handle)

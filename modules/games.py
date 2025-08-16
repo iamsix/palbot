@@ -21,37 +21,39 @@ class Games(commands.Cog):
     @commands.command()
     async def mtg(self, ctx, *, card: str):
         """Search for and post an MTG <card>"""
-        card = f'[{card}]'
-        card, cset = self.CARD_REGEX.findall(card)[0]
-        data = await self.get_card(card, cset)
-        e = discord.Embed(title=f"{data['name']} ({data['set']})")
-        e.set_image(url=data['imageUrl'])
+#        card = f'[{card}]'
+#        card, cset = self.CARD_REGEX.findall(card)[0]
+        data = await self.get_card(card)
+        e = discord.Embed(title=f"{data['name']} ({data['set']})",
+                          url=data['scryfall_uri'])
+        e.set_image(url=data['image_uris']['normal'])
         await ctx.send(embed=e)
 
     async def get_card(self, card, cset=""):
         card = uriquote(card.strip())
         cset = uriquote(cset.strip())
 
-        url = f"http://api.magicthegathering.io/v1/cards?name={card}"
-        if cset:
-            url += f"&set={cset}"
+        url = f"https://api.scryfall.com/cards/search?q={card}"
+#        if cset:
+#            url += f"&set={cset}"
 
         headers = {'User-agent': 'Palbot for discord/2.0'}
         async with self.bot.session.get(url, headers=headers) as resp:
             data = await resp.json()
-            cards = data['cards']
+            cards = data['data']
         
         if not cards:
             return None
         data = None
         for card in cards:
-            if "imageUrl" in card:
+            if "image_uris" in card:
                 data = card
                 break
         return data
 
     @commands.command()
     async def cs2(self, ctx, *, date: HumanTime = None):
+        """Show current pro cs2 matches"""
         #return
         if not date:
             today = datetime.datetime.now(pytz.timezone("UTC")).astimezone(pytz.timezone("US/Eastern"))

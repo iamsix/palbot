@@ -170,8 +170,9 @@ class Reminder(commands.Cog):
         return date, message
 
 
-    @commands.command()
+    @commands.command(hidden=True)
     async def timetest(self, ctx, *, time):
+        """Test the input for the time formatter"""
         tz = ctx.author_info.timezone
 
         time += " to test"

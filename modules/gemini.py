@@ -1,6 +1,6 @@
 # import google.generativeai as genai
 from google import genai
-from google.genai.types import HarmCategory, HarmBlockThreshold, GenerateContentConfig, ThinkingConfig
+from google.genai.types import HarmCategory, HarmBlockThreshold, GenerateContentConfig, ThinkingConfig, Tool, GoogleSearch
 import asyncio
 from discord.ext import commands
 import discord
@@ -128,22 +128,46 @@ class Gemini(commands.Cog):
 #        else:
 #            print(error)
 
+    @commands.command()
+    async def sai(self, ctx, *, ask: str):
+        """Ask "smart" gemini a question. It uses google and is better for current event questions."""
+        client = genai.Client(api_key=self.bot.config.gemini_key)
+        grounding_tool = Tool(
+            google_search=GoogleSearch()
+        )
+        response = await client.aio.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=ask,
+            config=GenerateContentConfig(
+#                max_output_tokens=5000,
+                tools=[grounding_tool],
+                system_instruction="Give very curt brief answers under 1 paragraph.",
+#                thinking_config=ThinkingConfig(thinking_budget=0)
+            ),
+        )
+        await ctx.send(response.text)
+
 
     @commands.command()
     async def ai(self, ctx, *, ask: str):
+        """Ask gemini AI a question"""
         client = genai.Client(api_key=self.bot.config.gemini_key)
+#        grounding_tool = Tool(
+#            google_search=GoogleSearch()
+#        )
         response = await client.aio.models.generate_content(
             model="gemini-2.5-flash",
             contents=ask,
             config=GenerateContentConfig(
                 max_output_tokens=5000,
+#                tools=[grounding_tool],
                 system_instruction="Give very curt brief answers under 1 paragraph.",
                 thinking_config=ThinkingConfig(thinking_budget=0)
             ),
         )
         await ctx.send(response.text)
 
-    @commands.command()
+    @commands.command(hidden=True)
     async def dbgchat(self, ctx):
         for key, chat in self.chats.items():
             print(type(chat))
@@ -195,7 +219,7 @@ class Gemini(commands.Cog):
         # this one will reset with the same params but no history
         pass
 
-    @commands.command()
+    @commands.command(hidden=True)
     async def listenall(self, ctx):
         chan = ctx.channel.id
         if not await Gemini.chat_channel(ctx, True):
@@ -226,7 +250,7 @@ class Gemini(commands.Cog):
 
     
     @commands.check(chat_channel)
-    @commands.command()
+    @commands.command(hidden=True)
     async def chat(self, ctx, *, line: str):
         await self.chat_response(line, ctx.message)
 
@@ -247,7 +271,7 @@ class Gemini(commands.Cog):
             except Exception as e:
                 await message.reply(f"Probably a rate limit: {e}")
 
-    @commands.command()
+    @commands.command(hidden=True)
     async def aistats(self, ctx, channel: int = None):
         if not channel:
             await ctx.send(self.last_stats[ctx.channel.id]) 

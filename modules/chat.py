@@ -125,6 +125,7 @@ class Chat(commands.Cog):
 
     @commands.command()
     async def fruits(self, ctx):
+        """The great fruit poll"""
 
         FRUITS = ['\N{GRAPES}',
             '\N{WATERMELON}',
@@ -152,12 +153,13 @@ class Chat(commands.Cog):
 
     @commands.command()
     async def mermaid(self, ctx, *, arg):
+         """Output a merdmaid chart of the given input"""
          url = 'https://mermaid.ink/img/' 
          url += base64.b64encode(arg.encode('ascii')).decode('ascii')
          url += "?bgColor=000&theme=dark"
          await ctx.message.reply(url)
 
-    @commands.command()
+    @commands.command(hidden=True)
     async def testbutton(self, ctx):
         test = TestView()
         await ctx.send("What does this do...", view=test)
@@ -303,6 +305,7 @@ class Chat(commands.Cog):
     pdlre = re.compile(r'poorlydrawnlines.com/wp-content/uploads/\d{4}/\d{2}/')
     @commands.command()
     async def pdl(self, ctx, *, td: str = ""):
+        """Show a random poorlydrawnlines comic. Add 'today' to show the latest."""
         url = "https://poorlydrawnlines.com/?random=true"
         if td.lower() == "today":
             url = "https://poorlydrawnlines.com/"
@@ -313,6 +316,7 @@ class Chat(commands.Cog):
 
     @commands.command()
     async def xkcd(self, ctx, *, td: str = ""):
+        """Show a random XKCD. Add 'today' to show the latest."""
         url = "https://c.xkcd.com/random/comic/"
         if td.lower() == "today":
             url = "https://xkcd.com/"
@@ -332,6 +336,13 @@ class Chat(commands.Cog):
 
     @commands.command()
     async def find(self, ctx, find: str):
+        """Find a custom command
+        
+        Attributes
+        -----------
+        find: str
+            What to search for in the cmmand name or description
+        """
         conn = self.custom_command_conn
         q = "SELECT commands.cmd, output, commands.description FROM commands " \
             "JOIN cfind ON commands.cmd = cfind.cmd WHERE cfind MATCH (?) ORDER BY rank;"
@@ -349,6 +360,15 @@ class Chat(commands.Cog):
         
     @commands.command(hidden=True)
     async def describecommand(self, ctx, command: str, *, description: str):
+        """Describes the custom command
+
+        Attributes
+        -----------
+        cmd: str
+            The command to add. such as `lol` - No need to add the ! 
+        description: str
+            The general description of what is in the command
+        """
         c = self.custom_command_conn
         if command.startswith("!"):
             command = command[1:]
@@ -368,7 +388,15 @@ class Chat(commands.Cog):
     @commands.command()
 #    @commands.has_role('Admins')
     async def addcmd(self, ctx, cmd, *, output: str):
-        """Adds a custom command to the bot that will output whatever is in the <output> field"""
+        """Adds a custom command to the bot that will output whatever is in the <output> field
+
+        Attributes
+        -----------
+        cmd: str
+            The command to add. such as `lol` - No need to add the ! 
+        output: str
+            The output of the command. Can be a URL if you want it to show an image/link/etc
+        """
         #Currently hard insert so can be used to edit too
         if cmd.startswith("!"):
             cmd = cmd[1:]
@@ -392,6 +420,7 @@ class Chat(commands.Cog):
     @commands.command()
     @commands.has_any_role('Admins', 'GOD')
     async def tag(self, ctx, user: discord.Member, tag: discord.Role):
+        """Tag a user"""
         # might change the interface to only work on replies
   
         await user.add_roles(tag, reason=f"{ctx.author.display_name} used !tag")

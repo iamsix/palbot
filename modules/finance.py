@@ -20,6 +20,7 @@ class Finance(commands.Cog):
 
     @commands.command()
     async def coin(self, ctx, *, line: str):
+        """Try to lookup a cryptocoin with yahoo finance"""
         await self.stock(ctx, name=line + "-usd")
     
     @commands.command(aliases=['stonks', 'stocks'])
