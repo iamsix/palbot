@@ -3,8 +3,8 @@ from discord.ext import commands
 from urllib.parse import quote as uriquote
 from utils.paginator import Paginator
 import json
-import asyncio
-import xml.dom.minidom
+from curl_cffi.requests import AsyncSession
+from bs4 import BeautifulSoup
 import html
 import re
 from datetime import datetime
@@ -147,9 +147,15 @@ class Media(commands.Cog):
                 "site:rottentomatoes.com " + title,
                 url_regex="rottentomatoes.com/(tv|m)/")
         
-        headers = {'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0"}
-        page = await self.bot.utils.bs_from_url(self.bot, urls[0], headers=headers)
+        #headers = {'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:144.0) Gecko/20100101 Firefox/144.0"}
+        #page = await self.bot.utils.bs_from_url(self.bot, urls[0], headers=headers)
+        async with AsyncSession(impersonate="firefox", verify=True) as session:
+            data = await session.get(urls[0])
+            #print(data.text)
+            page = BeautifulSoup(data.text, 'lxml')
 
+        # print(urls[0])
+        # print(page)
         titledata = json.loads(page.find('script', type='application/ld+json').string)
         rtdata = json.loads(page.find('script', 
                                     id="media-scorecard-json", 
@@ -185,7 +191,41 @@ class Media(commands.Cog):
         
         await ctx.send(embed=e)
 
+    
+    @commands.command()
+    async def oc(self, ctx, *, title:str):
+        """OpenCritic game lookup"""
+
+        url = f"https://api.opencritic.com/api/meta/search?criteria={uriquote(title)}"
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:144.0) Gecko/20100101 Firefox/144.0",
+                   "Referer": "https://opencritic.com/search",
+                   "Origin": "https://opencritic.com",
+                   "Accept": "application/json, text/plain, */*",
+                }
+        async with self.bot.session.get(url, headers=headers) as resp:
+            data = await resp.json()
+            print(data)
+            gameid = data[0]['id']
+
+        url = f"https://api.opencritic.com/api/game/{gameid}"
+        async with self.bot.session.get(url, headers=headers) as resp:
+            data = await resp.json()
+        title = f"{data['name']} ({data['firstReleaseDate'][:4]})"
         
+        e = discord.Embed(title=title, url=data['url'])
+        e.description = data['description'] if 'description' in data else ""
+
+        imgurl = f"https://img.opencritic.com/{data['images']['masthead']['og']}"
+        e.set_thumbnail(url=imgurl)
+        ocscore = f"{data['medianScore']} ({data['numReviews']} reviews)"
+        e.add_field(name="Rating", value=ocscore)
+        recc = f"{data['percentRecommended']:.1f}%"
+        e.add_field(name="Reccomended", value=recc)
+        genres = ", ".join([g['name'] for g in data['Genres'] ])
+        e.add_field(name="Genres", value=genres)
+
+        await ctx.send(embed=e)
+
 
 
 
