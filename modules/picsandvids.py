@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 import asyncio
 import aiohttp
+import instaloader
 import re
 from yarl import URL
 from io import BytesIO
@@ -103,6 +104,7 @@ class Pics(commands.Cog):
 class Vids(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.il = instaloader.Instaloader()
 
     #TODO : Reddit video (on_message)
 
@@ -144,7 +146,7 @@ class Vids(commands.Cog):
         uploader = ytjson['snippet']['channelTitle']
         pubdate = ytjson['snippet']['publishedAt'][:10]
         likes = int(ytjson['statistics'].get('likeCount', 0))
-        viewcount = int(ytjson['statistics']['viewCount'])
+        viewcount = int(ytjson['statistics'].get('viewCount', 0))
 
         duration = ytjson['contentDetails']['duration'][2:].lower()
 
@@ -170,7 +172,7 @@ class Vids(commands.Cog):
 
     REDDIT_URL = re.compile(r'v\.redd\.it|reddit\.com/r/')
     REDDIT_GIF = re.compile(r'preview.redd.it/.+\.gif\?format=mp4')
-    IG_URL = re.compile(r'[www\.|\/\/]instagram.com\/(p/|reel/).+')
+    IG_URL = re.compile(r"instagram.com\/([a-zA-Z0-9\.\_\-]+)?/(p/)?([a-zA-Z0-9\-\_\.]+)\/?")
     URL_REGEX = re.compile(r"(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>])*\))+(?:\(([^\s()<>])*\)|[^\s`!()\[\]{};:'\".,<>?«»“”‘’]))")
     @commands.Cog.listener()
     async def on_message(self, message):
@@ -190,17 +192,24 @@ class Vids(commands.Cog):
 
         ig = self.IG_URL.search(message.content)
         if ig:
-            url = self.URL_REGEX.search(message.content).group(0)
-            if not url:
-                return
-            await self.ig_url(message, url)
+            await self.ig_url(message, ig)
 
     async def ig_url(self, message, url):
         ctx = await self.bot.get_context(message, cls=self.bot.utils.MoreContext)
+        headers = {'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:144.0) Gecko/20100101 Firefox/144.0"}
 
-        url = URL(url)
-        url = url.with_host("instagramez.com").with_query(None)
-        await ctx.send(url)
+        post = instaloader.Post.from_shortcode(self.il.context, url.group(3))
+        if post.is_video:
+            filename = url.group(3) + ".mp4"
+            async with self.bot.session.get(post.video_url, headers=headers) as resp:
+                viddata = await resp.read()
+
+            await ctx.send(file=discord.File(BytesIO(viddata), filename=filename))
+
+        else:
+            await ctx.send(post.url)
+
+        #await ctx.send(url)
         try:
             await asyncio.sleep(1)
             await message.edit(suppress=True)
@@ -313,7 +322,7 @@ class Vids(commands.Cog):
                 if el.attrib['contentType'] == "video":
                     best = 0
                     for vid in el.findall('.//{*}BaseURL'):
-                        qual = re.search(r"DASH_(\d+)", vid.text)
+                        qual = re.search(r".*_(\d+).mp4", vid.text)
                         if qual and int(qual.group(1)) > best:
                             best = int(qual.group(1))
                             besturl = vid.text
