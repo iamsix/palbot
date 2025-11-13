@@ -75,6 +75,8 @@ class WotdPrompt(discord.ui.Modal):
         self.fullword = not (word[0] == '*' and word[-1] == '*')
         # self.fullword = True
         word = self.s_re.sub("", word)
+        if word[0] == "!" or word[-1] == "!":
+            self.fullword = False
         word = word.strip()
         self.word = word
         fw = ""
@@ -373,8 +375,8 @@ class Wotd(commands.Cog):
         else:
             waittime = self.wait_time()
             nexthint = f"<t:{int(datetime.now(timezone.utc).timestamp() + waittime)}:R>"
-            await ctx.send(f"You didn't set the wotd. Current hint is `{self.hint}` \
-                           - The next hint will be {nexthint}")
+            await ctx.send(f"You didn't set the wotd. Current hint is `{self.hint}` \n \
+The next hint will be {nexthint}")
 
     @commands.command(hidden=True)
     @commands.is_owner()

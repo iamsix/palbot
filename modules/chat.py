@@ -448,6 +448,7 @@ class Chat(commands.Cog):
             async for row in res:
                 self.bot.logger.debug("tagloop:", row[4])
                 when = datetime.fromtimestamp(row[0])
+                when = when.replace(tzinfo=timezone.utc)
                 guild = await self.bot.fetch_guild(row[1])
                 user = await guild.fetch_member(row[2])
                 tag = guild.get_role(row[3])

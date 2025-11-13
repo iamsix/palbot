@@ -356,7 +356,7 @@ class Weather(commands.Cog):
             if day['Day']['HasPrecipitation']:
                 pop = f" {day['Day']['PrecipitationProbability']}%"
 
-            days.append(f"`{dayname}:` {condition}{pop} :: {low} / {high}")
+            days.append(f"`{dayname}:` {condition}{pop} :: {high} / {low}")
  
         out = f"{loc.formatted_address} :: {headline}\n"
         out += "\n".join(days)
