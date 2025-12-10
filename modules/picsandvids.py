@@ -198,7 +198,15 @@ class Vids(commands.Cog):
         ctx = await self.bot.get_context(message, cls=self.bot.utils.MoreContext)
         headers = {'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:144.0) Gecko/20100101 Firefox/144.0"}
 
-        post = instaloader.Post.from_shortcode(self.il.context, url.group(3))
+        async with message.channel.typing():
+            pass
+        try:
+            post = instaloader.Post.from_shortcode(self.il.context, url.group(3))
+        except:
+            url = URL(url)
+            url = url.with_host("vxinstagram.com").with_query(None)
+            await ctx.send(f"Failed to load IG post, might be 18+? This URL might work:\n{url}")
+            return
         if post.is_video:
             filename = url.group(3) + ".mp4"
             async with self.bot.session.get(post.video_url, headers=headers) as resp:
