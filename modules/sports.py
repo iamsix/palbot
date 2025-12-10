@@ -24,6 +24,44 @@ class Sports(commands.Cog):
             return
         else:
             self.bot.logger.info(error)
+            print(error)
+
+    GLOBAL_BUCKET = commands.CooldownMapping.from_cooldown(
+        3, 
+        86400, 
+        commands.BucketType.user
+    )
+    GLOBAL_COOLDOWN_TIME = 300
+    GLOBAL_COOLDOWN = 0
+    SPORTS_CHAN_ONLY = ['cfb', 'ncaa', 'ncaahockey']
+
+    async def cog_check(self, ctx):
+        if await ctx.bot.is_owner(ctx.author):
+             return True
+        if ctx.invoked_with == "help":
+            return True
+        if ctx.channel.id == 1243723119567310858:
+            return True
+        if ctx.invoked_with in self.SPORTS_CHAN_ONLY:
+            await ctx.send(f"`!{ctx.invoked_with}` is restricted to <#1243723119567310858>",
+                           delete_after=5.0)
+            return False
+        now = datetime.datetime.now(datetime.UTC).timestamp()
+        if now - self.GLOBAL_COOLDOWN < self.GLOBAL_COOLDOWN_TIME:
+            await ctx.send(f"Global sports commands cooldown.\nCooldown ends in {300 - int(now - self.GLOBAL_COOLDOWN)} seconds (or you can use the sports channel.)",
+                           delete_after=5.0)
+            return False
+        
+        bucket = self.GLOBAL_BUCKET.get_bucket(ctx.message)
+        retry_after = bucket.update_rate_limit()
+        if retry_after:
+            await ctx.send(f"User cooldown. 3 sports commands per day in non-sports channels.\nCooldown ends in {int(retry_after)} seconds",
+                           delete_after=5.0)
+            return False
+        
+        self.GLOBAL_COOLDOWN = now
+
+        return True
 
         
     async def sports_formatter(self, data):
@@ -49,7 +87,7 @@ class Sports(commands.Cog):
 
         return out
 
-    @commands.command() 
+    @commands.command(hidden=True) 
     async def nhlt(self, ctx, *, date: HumanTime = None):
         """Test command of a self-updating scoreboard"""
         post = await ctx.send("testing")
@@ -62,24 +100,23 @@ class Sports(commands.Cog):
             await asyncio.sleep(30)
         await post.clear_reaction("\N{HIGH VOLTAGE SIGN}")
 
-
-    async def sports_channel(ctx):
-        if await ctx.bot.is_owner(ctx.author):
-            return True
-        if ctx.invoked_with == "help":
-            return True
-        if  (ctx.guild and ctx.guild.id == 124572142485504002) and ctx.channel.id != 1243723119567310858:
-            msg = await ctx.reply(f"`!{ctx.invoked_with}` is stored in the <#1243723119567310858>. This message will self destruct.")
-            await asyncio.sleep(5)
-            await msg.delete()
-
-            return False
-        else:
-            return True
+    @commands.command(hidden=True) 
+    async def nbat(self, ctx, *, date: HumanTime = None):
+        """Test command of a self-updating scoreboard"""
+        post = await ctx.send("testing")
+        await asyncio.sleep(1)
+        await post.add_reaction("\N{HIGH VOLTAGE SIGN}")
+        for repeat in range(10):
+            data = await self.nba(ctx, date=date, test=True)
+            out = await self.sports_formatter(data)
+            await post.edit(content="\n".join(out))
+            await asyncio.sleep(30)
+        await post.clear_reaction("\N{HIGH VOLTAGE SIGN}")
 
 
-
-    @commands.check(sports_channel)
+#    @commands.check(sports_channel)
+    # @commands.cooldown(3, 86400, commands.BucketType.user)
+    # @commands.cooldown(1, 300, commands.BucketType.channel)
     @commands.command()
     async def mlb(self, ctx, *, date: HumanTime = None):
         """Show today's or [date]s MLB games with score, status"""
@@ -131,10 +168,48 @@ class Sports(commands.Cog):
         else:
             await ctx.send(f"No games found for {date.date()}")
 
+    #https://global.nba.com/stats2/scores/miniscoreboardlive.json
+#  #   @commands.check(sports_channel)
+#     @commands.cooldown(3, 86400, commands.BucketType.user)
+#     @commands.cooldown(1, 300, commands.BucketType.channel)
+    @commands.command()
+    async def nba2(self, ctx, *, date: HumanTime = None):
+        """Alternate NBA testing"""
+        todaydate = await self.sports_date(ctx, None)
+        url = "https://global.nba.com/stats2/scores/miniscoreboardlive.json"
+        
+        async with self.bot.session.get(url) as resp:
+            data = await resp.json(content_type=None)
+            games = data['payload']['today']['games']
+        gdata = []
+        for g in games:
+            homet = g['homeTeam']['profile']['name']
+            awayt = g['awayTeam']['profile']['name']
+            hscore = g['boxscore']['homeScore']
+            ascore = g['boxscore']['awayScore']
 
-    @commands.check(sports_channel)
+            clock = g['boxscore']['periodClock']
+            if clock == "00:00.0":
+                status = g['boxscore']['statusDesc']
+            else:
+                status = f"Q{g['boxscore']['period']} {clock}"
+
+            gdata.append({"ateam": awayt, 
+                            "ascore": ascore,
+                            "hteam": homet,
+                            "hscore": hscore,
+                            "status": status, 
+                            "scheduled": False})
+        out = await self.sports_formatter(gdata)
+        await ctx.send("\n".join(out))
+
+
+
+  #  @commands.check(sports_channel)
+    # @commands.cooldown(3, 86400, commands.BucketType.user)
+    # @commands.cooldown(1, 300, commands.BucketType.channel)
     @commands.command(aliases=['wnba'])
-    async def nba(self, ctx, *, date: HumanTime = None):
+    async def nba(self, ctx, *, date: HumanTime = None, test=False):
         """Show today's or [date]s NBA games with score, status"""
         todaydate = await self.sports_date(ctx, None)
         date = await self.sports_date(ctx, date)
@@ -196,7 +271,9 @@ class Sports(commands.Cog):
                             "hscore": home['score'],
                             "status": status, 
                             "scheduled": False})
-               
+        
+        if test:
+            return gdata
         out = await self.sports_formatter(gdata)
         await ctx.send("\n".join(out))
 
@@ -212,7 +289,9 @@ class Sports(commands.Cog):
         else:
             return name
         
-    @commands.check(sports_channel)
+   # @commands.check(sports_channel)
+    # @commands.cooldown(3, 86400, commands.BucketType.user)
+    # @commands.cooldown(1, 300, commands.BucketType.channel)
     @commands.command(aliases=['ncaahockey'])
     async def ncaa(self, ctx, *, date: HumanTime = None):
         """Show today's or [date]s NCAA games with score, status"""
@@ -261,7 +340,9 @@ class Sports(commands.Cog):
         out = await self.sports_formatter(gdata)
         await ctx.send("\n".join(out))
 	
-    @commands.check(sports_channel)
+    #@commands.check(sports_channel)
+    # @commands.cooldown(3, 86400, commands.BucketType.user)
+    # @commands.cooldown(1, 300, commands.BucketType.channel)
     @commands.command()
     async def nhl(self, ctx, *, date: HumanTime = None, test=False):
         """Show today's or [date]s NHL games with score, status"""
@@ -354,8 +435,10 @@ class Sports(commands.Cog):
 
         return f"{winner} {leads} {wscore}-{lscore}"
 
-    @commands.check(sports_channel)
+    #@commands.check(sports_channel)
     @commands.command(aliases=['cfl', 'xfl', 'ufl', 'cfb'])
+    # @commands.cooldown(3, 86400, commands.BucketType.user)
+    # @commands.cooldown(1, 300, commands.BucketType.channel)
     async def nfl(self, ctx, *, date: HumanTime = None):
         """Show today's NFL games with score, status
            While a date can be provided the API is weird and only works for the current week?"""
