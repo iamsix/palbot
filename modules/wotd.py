@@ -41,7 +41,7 @@ WHERE channel_id = (?)
   AND is_bot = 0
   AND deleted = 0
   AND message LIKE (?) COLLATE NOCASE
-  AND message REGEXP (?) COLLATE NOCASE
+  AND message REGEXP (?)
 ;"""
 
 WOTD_COUNT = """SELECT count()
@@ -53,9 +53,6 @@ WHERE channel_id = (?)
   AND message LIKE (?) COLLATE NOCASE
 ;"""
 
-def regexp(expr, item):
-    reg = re.compile(expr)
-    return reg.search(item) is not None
 
 
 class WotdPrompt(discord.ui.Modal):
@@ -485,7 +482,7 @@ The next hint will be {nexthint}")
         channel = self.bot.get_channel(self.bot.config.wotd_whitelist[0])
         db = await self.bot.cogs['Logger'].get_db(channel.guild)
         l_word = f"%{word}%"
-        r_word = rf"\b{word}\b"
+        r_word = rf"(?i)\b{word}\b"
         if fullword:
             q = F_WOTD_COUNT
             args = [channel.id, l_word, r_word]
