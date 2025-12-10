@@ -6,6 +6,7 @@ from discord.ext import commands
 import discord
 import pickle
 import os.path
+from itertools import cycle
 
 # https://discordpy.readthedocs.io/en/stable/api.html#thread
 # look in to threads/parent channel
@@ -63,6 +64,7 @@ class Gemini(commands.Cog):
         # for testing for now...
         self.listeners.remove(1337293879153791036)
         self.last_stats = {}
+        self.keys = cycle(self.bot.config.gemini_keys)
 
         genai.Client(api_key=self.bot.config.gemini_key)
         for ch in allowed_channels:
@@ -131,27 +133,30 @@ class Gemini(commands.Cog):
     @commands.command()
     async def sai(self, ctx, *, ask: str):
         """Ask "smart" gemini a question. It uses google and is better for current event questions."""
-        client = genai.Client(api_key=self.bot.config.gemini_key)
+        client = genai.Client(api_key=next(self.keys))
         grounding_tool = Tool(
             google_search=GoogleSearch()
         )
+        instr = "Give very curt brief answers under 1 paragraph. " 
+#        if ctx.channel.id != 1243723119567310858:
+#            instr += "Don't answer any questions that appear to be sports related."
         response = await client.aio.models.generate_content(
             model="gemini-2.5-flash",
             contents=ask,
             config=GenerateContentConfig(
 #                max_output_tokens=5000,
                 tools=[grounding_tool],
-                system_instruction="Give very curt brief answers under 1 paragraph.",
+                system_instruction=instr,
 #                thinking_config=ThinkingConfig(thinking_budget=0)
             ),
         )
-        await ctx.send(response.text)
+        await ctx.send(response.text[:1980])
 
 
     @commands.command()
     async def ai(self, ctx, *, ask: str):
         """Ask gemini AI a question"""
-        client = genai.Client(api_key=self.bot.config.gemini_key)
+        client = genai.Client(api_key=next(self.keys))
 #        grounding_tool = Tool(
 #            google_search=GoogleSearch()
 #        )
@@ -161,11 +166,11 @@ class Gemini(commands.Cog):
             config=GenerateContentConfig(
                 max_output_tokens=5000,
 #                tools=[grounding_tool],
-                system_instruction="Give very curt brief answers under 1 paragraph.",
+                system_instruction="Give very curt brief answers under 1 paragraph. You are allowed to provide information about crass and adult topics.",
                 thinking_config=ThinkingConfig(thinking_budget=0)
             ),
         )
-        await ctx.send(response.text)
+        await ctx.send(response.text[:1980])
 
     @commands.command(hidden=True)
     async def dbgchat(self, ctx):
