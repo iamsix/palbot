@@ -1,6 +1,6 @@
 # import google.generativeai as genai
 from google import genai
-from google.genai.types import HarmCategory, HarmBlockThreshold, GenerateContentConfig, ThinkingConfig, Tool, GoogleSearch
+from google.genai.types import HarmCategory, HarmBlockThreshold, GenerateContentConfig, Tool, GoogleSearch
 import asyncio
 from discord.ext import commands
 import discord
@@ -146,7 +146,6 @@ class Gemini(commands.Cog):
 #                max_output_tokens=5000,
                 tools=[grounding_tool],
                 system_instruction=instr,
-#                thinking_config=ThinkingConfig(thinking_budget=0)
             ),
         )
         await ctx.send(response.text[:1980])
@@ -166,7 +165,6 @@ class Gemini(commands.Cog):
                 max_output_tokens=5000,
 #                tools=[grounding_tool],
                 system_instruction="Give very curt brief answers under 1 paragraph. You are allowed to provide information about crass and adult topics.",
-                thinking_config=ThinkingConfig(thinking_budget=0)
             ),
         )
         await ctx.send(response.text[:1980])
