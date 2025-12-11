@@ -66,7 +66,6 @@ class Gemini(commands.Cog):
         self.last_stats = {}
         self.keys = cycle(self.bot.config.gemini_keys)
 
-        genai.Client(api_key=self.bot.config.gemini_key)
         for ch in allowed_channels:
              self.load_chat(ch)
 
@@ -94,7 +93,7 @@ class Gemini(commands.Cog):
         if os.path.isfile(f'logfiles/gemini_{channel}.pkl'):
             with open(f'logfiles/gemini_{channel}.pkl', 'rb') as fp:
                 obj = pickle.load(fp)
-                client = genai.Client(api_key=self.bot.config.gemini_key)
+                client = genai.Client(api_key=next(self.keys))
                 chat_session = client.aio.chats.create(
                     model=obj['model'],
                     history=obj['history'],
@@ -210,7 +209,7 @@ class Gemini(commands.Cog):
             return
         
         instr = "You are in a discord, all input messages will be in the format of '<@userid:username> message', you don't need to include your nick in the output. "
-        client = genai.Client(api_key=self.bot.config.gemini_key)
+        client = genai.Client(api_key=next(self.keys))
         chat_session = client.aio.chats.create(
             model="gemini-2.5-flash",
             config=GenerateContentConfig(
