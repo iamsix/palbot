@@ -81,7 +81,7 @@ class Sports(commands.Cog):
         
         for g in data:
             if g['scheduled']:
-                out.append(f"`{g['ateam'].ljust(lmax + slen)}  @ {" " * slen} {g['hteam'].ljust(rmax)} |`{g['status']}")
+                out.append(f"`{g['ateam'].ljust(lmax + slen)}  @ {' ' * slen} {g['hteam'].ljust(rmax)} |`{g['status']}")
             else:
                 out.append(f"`{g['ateam'].ljust(lmax)} {str(g['ascore']).rjust(slen)} - {str(g['hscore']).ljust(slen)} {g['hteam'].ljust(rmax)} | {g['status']}`")
 
