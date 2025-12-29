@@ -439,9 +439,14 @@ The next hint will be {nexthint}")
         fw = ""
         if self.full_word_match:
             fw = " This is a full word only match, substrings will not match."
+        
+        hinttime = 24*60*60 // len(self.wotd)
+        waittime = self.wait_time()
+        nexthint = f"<t:{int(datetime.now(timezone.utc).timestamp() + waittime)}:R>"
 
         out = (f"The WOTD {hint}was set by **{self.setter.display_name}** {ago}.\n"
                 f"The word has been used {wordcount} times in this channel.{fw}\n"
+                f"Next hint: {nexthint} - every {hinttime//60} minutes\n"
                 "You must use the word in a sentence.")
         await ctx.send(out)
 

@@ -3,6 +3,7 @@ from discord.ext import commands
 
 import re
 from urllib.parse import quote as uriquote
+from yarl import URL
 import json
 import html2text
 import random
@@ -237,8 +238,7 @@ class Food(commands.Cog):
         await ctx.send(embed=e)
 
 
-
-    @commands.command(aliases=['liquor', 'booze'])
+    @commands.command(aliases=['liquor', 'booze', 'spirit'])
     async def spirits(self, ctx, *, spirit: str):
         """Search Distiller.com for a <spirit> and return some information about it"""
         url = await self.bot.utils.google_for_urls(self.bot, 
@@ -249,10 +249,13 @@ class Food(commands.Cog):
             await ctx.send(f"Unabled to find a spirit named `{spirit}` on Distiller")
             return
         self.bot.logger.debug(url)
-        jsurl = url[0].replace('r.com/', 'r.com/api/')
+        yurl = URL(url[0])
+        clean_path = yurl.with_query(None).parent.path
+        jsurl = yurl.with_path(f"/api{clean_path}").with_query(None)
+
         headers = {'User-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:57.0) Gecko/20100101 Firefox/57.0',
                    'X-DISTILLER-DEVELOPER-TOKEN': self.bot.config.distillertoken}
-                   
+
         async with self.bot.session.get(jsurl, headers=headers) as resp:
             data = await resp.read()
             data = json.loads(data)

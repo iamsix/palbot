@@ -203,7 +203,7 @@ class Vids(commands.Cog):
         try:
             post = instaloader.Post.from_shortcode(self.il.context, url.group(3))
         except:
-            url = URL(url)
+            url = URL(url.string)
             url = url.with_host("vxinstagram.com").with_query(None)
             await ctx.send(f"Failed to load IG post, might be 18+? This URL might work:\n{url}")
             return
