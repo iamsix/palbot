@@ -172,7 +172,7 @@ class Vids(commands.Cog):
 
     REDDIT_URL = re.compile(r'v\.redd\.it|reddit\.com/r/')
     REDDIT_GIF = re.compile(r'preview.redd.it/.+\.gif\?format=mp4')
-    IG_URL = re.compile(r"instagram.com\/([a-zA-Z0-9\.\_\-]+)?/(p/)?([a-zA-Z0-9\-\_\.]+)\/?")
+    IG_URL = re.compile(r"\binstagram.com\/([a-zA-Z0-9\.\_\-]+)?/(p/)?([a-zA-Z0-9\-\_\.]+)\/?")
     URL_REGEX = re.compile(r"(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>])*\))+(?:\(([^\s()<>])*\)|[^\s`!()\[\]{};:'\".,<>?«»“”‘’]))")
     @commands.Cog.listener()
     async def on_message(self, message):

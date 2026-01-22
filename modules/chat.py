@@ -318,6 +318,10 @@ class Chat(commands.Cog):
     async def xkcd(self, ctx, *, td: str = ""):
         """Show a random XKCD. Add 'today' to show the latest."""
         url = "https://c.xkcd.com/random/comic/"
+        try:
+            url = f"https://xkcd.com/{int(td)}/"
+        except:
+            pass
         if td.lower() == "today":
             url = "https://xkcd.com/"
         pg = await self.bot.utils.bs_from_url(self.bot, url)
