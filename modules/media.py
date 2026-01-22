@@ -9,6 +9,8 @@ import html
 import re
 from datetime import datetime
 from yarl import URL
+from gql import Client, gql
+from gql.transport.aiohttp import AIOHTTPTransport
 
 
 class Media(commands.Cog):
@@ -90,17 +92,40 @@ class Media(commands.Cog):
     async def imdb(self, ctx, *, movie_name: str):
         """Search for a movie or TV show on IMDB to return some info"""
 
-        imdb_m = {'name': '',
-                  'datePublished': '',
-                  'description': '',
-                  'aggregateRating': {
-                      'ratingValue': ''
-                      },
-                  'genre': '',
-                  'image': ''
-        }
-
-
+        query = gql("""query GetMedia($id: ID!) {
+                    title(id: $id) {
+                        titleText {
+                        text
+                    }
+                    titleType {
+                        text
+                    }
+                    releaseYear {
+                        year
+                    }
+                    plot {
+                        plotText {
+                            plainText
+                        }
+                    }
+                    ratingsSummary {
+                        aggregateRating
+                        voteCount
+                    }
+                    titleGenres {
+                        genres {
+                            genre {
+                                text
+                            }
+                        }
+                    }
+                    primaryImage {
+                        url
+                        width
+                        height
+                        }
+                    }
+                }""")
         urls = await self.bot.utils.google_for_urls(self.bot,
                 "site:imdb.com inurl:com/title " + movie_name,
                 url_regex="imdb.com/title/tt\\d+/")
@@ -108,28 +133,32 @@ class Media(commands.Cog):
         if not urls:
             await ctx.send(f"Couldn't find a movie named `{movie_name}` on IMDb")
             return
+        
+        headers = {'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:147.0) Gecko/20100101 Firefox/147.0"}
 
         imdbid = re.search(r"tt\d+", urls[0]).group(0)
         url = f"https://imdb.com/title/{imdbid}/"
+        
+        query.variable_values = {"id": imdbid}
+        
+        transport = AIOHTTPTransport(url="https://api.graphql.imdb.com/", headers=headers)
+        client = Client(transport=transport)
 
-        headers = {'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0"}
-        page = await self.bot.utils.bs_from_url(self.bot, url, headers=headers)
-        data = json.loads(page.find('script', type='application/ld+json').string)
-        self.bot.logger.debug(data)
-        self.bot.utils.dict_merge(imdb_m, data)
+        # page = await self.bot.utils.bs_from_url(self.bot, url, headers=headers)
+        async with client as session:
+            result = await session.execute(query)
+            print(result)
+        result = result['title']
 
-        movie_title = f"{imdb_m['name']} ({imdb_m['datePublished'][:4]})"
-        movie_title = html.unescape(movie_title)
-        desc = html.unescape(imdb_m['description'])
+        movie_title = f"{result['titleText']['text']} ({result['releaseYear']['year']})"
+        desc = result['plot']['plotText']['plainText']
 
         e = discord.Embed(title=movie_title, description=desc, url=url)
 
-        rating = imdb_m['aggregateRating']['ratingValue']
-        if isinstance(imdb_m['genre'], list):
-            genre = ", ".join(imdb_m['genre'])
-        else:
-            genre = imdb_m['genre']
-        thumb = imdb_m['image'].replace(".jpg", "_UX128_.jpg")
+        rating = f"{result['ratingsSummary']['aggregateRating']} ({result['ratingsSummary']['voteCount']} votes)"
+        genre = ", ".join([g['genre']['text'] for g in result['titleGenres']['genres']])
+        
+        thumb = result['primaryImage']['url'].replace("_V1_", "_UX128_.jpg")
         e.set_thumbnail(url=thumb)
 
         embed_fields = {"Rating": rating, "Genre": genre}
