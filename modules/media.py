@@ -147,7 +147,7 @@ class Media(commands.Cog):
         # page = await self.bot.utils.bs_from_url(self.bot, url, headers=headers)
         async with client as session:
             result = await session.execute(query)
-            print(result)
+            # print(result)
         result = result['title']
 
         movie_title = f"{result['titleText']['text']} ({result['releaseYear']['year']})"
