@@ -62,7 +62,9 @@ class Internets(commands.Cog):
                     f"site:wikipedia.org {term}",
                     url_regex="wikipedia.org/wiki")
 
-        page, url = await self.bot.utils.bs_from_url(self.bot, url[0], return_url=True)
+        headers = {'User-agent': 'Palbot/2.0 (https://github.com/iamsix/palbot/)',
+                   'Accept-Encoding': 'gzip'}
+        page, url = await self.bot.utils.bs_from_url(self.bot, url[0], return_url=True, headers=headers)
         e = await self.parse_wiki_page(page, url)
         await ctx.send(embed=e)
 
