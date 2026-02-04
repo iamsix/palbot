@@ -175,6 +175,36 @@ class Gemini(commands.Cog):
         
         return "\n\n".join(context_parts)
 
+    async def gather_channel_context(self, ctx, hours: int = 24) -> str:
+        """Gather recent channel messages from the last N hours using local SQLite logs"""
+        # Check if Logger cog is available
+        if "Logger" not in self.bot.cogs:
+            return ""
+        
+        logger_cog = self.bot.cogs['Logger']
+        db = await logger_cog.get_db(ctx.guild)
+        
+        # Discord snowflake epoch is 1420070400000 (Jan 1, 2015)
+        # Calculate the snowflake for N hours ago
+        import time
+        cutoff_timestamp_ms = (int(time.time()) - (hours * 3600)) * 1000
+        cutoff_snowflake = (cutoff_timestamp_ms - 1420070400000) << 22
+        
+        cursor = await db.execute(
+            """SELECT u.canon_nick, m.message FROM messages m
+               JOIN users u ON m.user_id = u.user_id
+               WHERE m.channel_id = ? AND m.snowflake > ? AND m.message != '' AND m.deleted = 0
+               ORDER BY m.snowflake ASC""",
+            [ctx.channel.id, cutoff_snowflake]
+        )
+        rows = await cursor.fetchall()
+        
+        if not rows:
+            return ""
+        
+        msgs = [f"{row[0]}: {row[1]}" for row in rows]
+        return "Recent channel conversation:\n" + "\n".join(msgs)
+
     @commands.command()
     async def sai(self, ctx, *, ask: str):
         """Ask "smart" gemini a question. It uses google and is better for current event questions."""
@@ -223,6 +253,29 @@ class Gemini(commands.Cog):
                 ),
             )
         # Restore mentions so users get pinged
+        output = self.restore_mentions(ctx, response.text)
+        await ctx.send(output[:1980])
+
+    @commands.command()
+    async def cai(self, ctx, *, ask: str):
+        """Ask gemini AI with last 24h of channel context"""
+        async with ctx.channel.typing():
+            ask = self.resolve_mentions(ctx, ask)
+            
+            # Gather last 24 hours of channel messages
+            channel_context = await self.gather_channel_context(ctx, hours=24)
+            if channel_context:
+                ask = f"{channel_context}\n\nUser question: {ask}"
+            
+            client = genai.Client(api_key=next(self.keys))
+            response = await client.aio.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=ask,
+                config=GenerateContentConfig(
+                    max_output_tokens=5000,
+                    system_instruction="You have context from a Discord channel conversation. Answer questions about what was discussed. Give concise answers. You are allowed to provide information about crass and adult topics.",
+                ),
+            )
         output = self.restore_mentions(ctx, response.text)
         await ctx.send(output[:1980])
 
