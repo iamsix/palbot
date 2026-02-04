@@ -58,7 +58,8 @@ redditsecret = "abc123"
 
 gemini_keys = ["abc123"]
 
-# Path to GitHub Copilot token JSON file for !clai command
-# Token file is created by Clawdbot's `clawdbot models login-github-copilot`
-# Usually at ~/.clawdbot/credentials/github-copilot.token.json
+# GitHub Copilot config for !clai and !sclai commands
+# Token file stores the short-lived API token (auto-refreshed)
 github_copilot_token_path = "/home/user/.clawdbot/credentials/github-copilot.token.json"
+# Auth profile stores the long-lived GitHub OAuth token (used for refresh)
+github_copilot_auth_profile_path = "/home/user/.clawdbot/agents/main/agent/auth-profiles.json"

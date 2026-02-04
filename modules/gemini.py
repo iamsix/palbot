@@ -7,6 +7,9 @@ from discord.ext import commands
 import discord
 import pickle
 import os.path
+import json
+import re
+import time
 from itertools import cycle
 
 # https://discordpy.readthedocs.io/en/stable/api.html#thread
@@ -143,6 +146,78 @@ class Gemini(commands.Cog):
             text = text.replace(user.display_name, f'<@{user.id}>')
         return text
 
+    async def get_copilot_token(self):
+        """Get a valid GitHub Copilot API token, refreshing if needed.
+        
+        Returns tuple of (token, base_url) or raises on failure.
+        """
+        token_path = self.bot.config.github_copilot_token_path
+        auth_profile_path = self.bot.config.github_copilot_auth_profile_path
+        
+        # Load cached token
+        with open(token_path) as f:
+            token_data = json.load(f)
+        
+        # Check if token is still valid (with 5 min buffer)
+        expires_at = token_data.get("expiresAt", 0)
+        now_ms = time.time() * 1000
+        
+        if expires_at - now_ms > 5 * 60 * 1000:
+            # Token still valid
+            token = token_data["token"]
+        else:
+            # Token expired or expiring soon - refresh it
+            self.bot.logger.info("Copilot token expired, refreshing...")
+            
+            # Load the GitHub OAuth token from auth profile
+            with open(auth_profile_path) as f:
+                auth_data = json.load(f)
+            
+            github_token = auth_data["profiles"]["github-copilot:github"]["token"]
+            
+            # Exchange for new Copilot API token
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    "https://api.github.com/copilot_internal/v2/token",
+                    headers={
+                        "Accept": "application/json",
+                        "Authorization": f"Bearer {github_token}",
+                    }
+                ) as resp:
+                    if resp.status != 200:
+                        error_text = await resp.text()
+                        raise Exception(f"Token refresh failed: {resp.status} - {error_text}")
+                    
+                    data = await resp.json()
+                    token = data["token"]
+                    # GitHub returns seconds, convert to ms
+                    expires_at_raw = data["expires_at"]
+                    if expires_at_raw > 10_000_000_000:
+                        expires_at = expires_at_raw  # already ms
+                    else:
+                        expires_at = expires_at_raw * 1000  # convert to ms
+            
+            # Save refreshed token
+            new_token_data = {
+                "token": token,
+                "expiresAt": expires_at,
+                "updatedAt": int(now_ms),
+            }
+            with open(token_path, 'w') as f:
+                json.dump(new_token_data, f, indent=2)
+            
+            self.bot.logger.info("Copilot token refreshed successfully")
+        
+        # Extract API base URL from token's proxy-ep field
+        match = re.search(r'proxy-ep=([^;\s]+)', token)
+        if match:
+            proxy_ep = match.group(1)
+            base_url = "https://" + proxy_ep.replace("proxy.", "api.")
+        else:
+            base_url = "https://api.individual.githubcopilot.com"
+        
+        return token, base_url
+
     async def gather_user_context(self, ctx, max_users: int = 2, max_msgs_per_user: int = 1000) -> str:
         """Gather recent messages from mentioned users using local SQLite logs"""
         mentioned = ctx.message.mentions[:max_users]
@@ -269,22 +344,12 @@ class Gemini(commands.Cog):
             if user_context:
                 ask = f"[Optional background - use only if relevant to the question. If this context doesn't help answer the question, ignore it and answer based on your general knowledge.]\n{user_context}\n\n[User's actual question:]\n{ask}"
             
-            # Load token from file (same format as Clawdbot)
-            import json as _json
-            token_path = self.bot.config.github_copilot_token_path
-            with open(token_path) as f:
-                token_data = _json.load(f)
-            
-            token = token_data["token"]
-            
-            # Extract API base URL from token's proxy-ep field
-            import re as _re
-            match = _re.search(r'proxy-ep=([^;\s]+)', token)
-            if match:
-                proxy_ep = match.group(1)
-                base_url = "https://" + proxy_ep.replace("proxy.", "api.")
-            else:
-                base_url = "https://api.individual.githubcopilot.com"
+            # Get valid token (auto-refreshes if expired)
+            try:
+                token, base_url = await self.get_copilot_token()
+            except Exception as e:
+                await ctx.send(f"Token error: {e}")
+                return
             
             headers = {
                 "Authorization": f"Bearer {token}",
@@ -359,22 +424,12 @@ class Gemini(commands.Cog):
                 combined_context = "\n\n---\n\n".join(context_parts)
                 ask = f"[Background context - use if relevant:]\n{combined_context}\n\n[User's question:]\n{ask}"
             
-            # Load token from file (same format as Clawdbot)
-            import json as _json
-            token_path = self.bot.config.github_copilot_token_path
-            with open(token_path) as f:
-                token_data = _json.load(f)
-            
-            token = token_data["token"]
-            
-            # Extract API base URL from token's proxy-ep field
-            import re as _re
-            match = _re.search(r'proxy-ep=([^;\s]+)', token)
-            if match:
-                proxy_ep = match.group(1)
-                base_url = "https://" + proxy_ep.replace("proxy.", "api.")
-            else:
-                base_url = "https://api.individual.githubcopilot.com"
+            # Get valid token (auto-refreshes if expired)
+            try:
+                token, base_url = await self.get_copilot_token()
+            except Exception as e:
+                await ctx.send(f"Token error: {e}")
+                return
             
             headers = {
                 "Authorization": f"Bearer {token}",
