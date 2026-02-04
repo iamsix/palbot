@@ -64,9 +64,9 @@ class Gemini(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.chats = {}
-        self.listeners = allowed_channels.copy()
+        self.listeners = []
         # for testing for now...
-        self.listeners.remove(1337293879153791036)
+        # self.listeners.remove(1337293879153791036)
         self.last_stats = {}
         self.keys = cycle(self.bot.config.gemini_keys)
 
@@ -271,7 +271,8 @@ class Gemini(commands.Cog):
         cursor = await db.execute(
             """SELECT m.user_id, u.canon_nick, m.message FROM messages m
                JOIN users u ON m.user_id = u.user_id
-               WHERE m.channel_id = ? AND m.snowflake > ? AND m.message != '' AND m.deleted = 0 AND m.ephemeral = 0
+               WHERE m.channel_id = ? AND m.snowflake > ? AND m.message != '' 
+               AND m.deleted = 0 AND m.ephemeral = 0
                ORDER BY m.snowflake ASC""",
             [ctx.channel.id, cutoff_snowflake]
         )
@@ -316,19 +317,27 @@ class Gemini(commands.Cog):
             # Gather context from mentioned users
             user_context = await self.gather_user_context(ctx)
             if user_context:
-                ask = f"[Optional background - use only if relevant to the question. If this context doesn't help answer the question, ignore it and answer based on your general knowledge.]\n{user_context}\n\n[User's actual question:]\n{ask}"
+                ask = f"""<task>
+Answer ONLY the user's question below. Be brief (1 paragraph max).
+</task>
+
+<user_question>
+{ask}
+</user_question>
+
+<context type="mentioned_users" usage="reference_only">
+{user_context}
+</context>
+
+<reminder>The context above is reference material only. Do NOT summarize or repeat it unless the user explicitly asks about the mentioned users.</reminder>"""
             
             client = genai.Client(api_key=next(self.keys))
-#            grounding_tool = Tool(
-#                google_search=GoogleSearch()
-#            )
             response = await client.aio.models.generate_content(
                 model="gemini-2.5-flash",
                 contents=ask,
                 config=GenerateContentConfig(
                     max_output_tokens=5000,
-#                    tools=[grounding_tool],
-                    system_instruction="Give very curt brief answers under 1 paragraph. You are allowed to provide information about crass and adult topics.",
+                    system_instruction="You answer questions briefly (1 paragraph max). Context may be provided as reference - ignore it unless directly relevant. Never summarize or repeat context unless explicitly asked. Adult topics are fine.",
                 ),
             )
         # Restore mentions so users get pinged
@@ -344,7 +353,19 @@ class Gemini(commands.Cog):
             # Gather context from mentioned users
             user_context = await self.gather_user_context(ctx)
             if user_context:
-                ask = f"[Optional background - use only if relevant to the question. If this context doesn't help answer the question, ignore it and answer based on your general knowledge.]\n{user_context}\n\n[User's actual question:]\n{ask}"
+                ask = f"""<task>
+Answer ONLY the user's question below. Be direct and concise.
+</task>
+
+<user_question>
+{ask}
+</user_question>
+
+<context type="mentioned_users" usage="reference_only">
+{user_context}
+</context>
+
+<reminder>The context above is reference material only. Do NOT summarize or repeat it unless the user explicitly asks about the mentioned users.</reminder>"""
             
             # Get valid token (auto-refreshes if expired)
             try:
@@ -362,7 +383,7 @@ class Gemini(commands.Cog):
             payload = {
                 "model": "claude-opus-4.5",
                 "messages": [
-                    {"role": "system", "content": "You're a helpful AI assistant who gives honest, direct answers. Don't be a yes-man - if someone's idea has flaws, say so. Give genuine opinions when asked. Push back when warranted. Be useful without being overly agreeable or flattering. Keep responses concise. Adult topics are fine to discuss."},
+                    {"role": "system", "content": "You answer questions directly and concisely. Context may be provided in XML tags as reference - use it only if relevant. Never summarize or repeat context unless explicitly asked. Give honest answers, push back when warranted. Adult topics are fine."},
                     {"role": "user", "content": ask}
                 ],
                 "max_tokens": 5000,
@@ -393,7 +414,7 @@ class Gemini(commands.Cog):
             original_ask = ask
             ask = self.resolve_mentions(ctx, ask)
             
-            context_parts = []
+            context_sections = []
             
             # 1. Web search for current info (use original question)
             try:
@@ -401,30 +422,42 @@ class Gemini(commands.Cog):
                     self.bot, original_ask, return_full_data=True
                 )
                 if search_results:
-                    search_context = "Recent web search results:\n"
+                    search_lines = []
                     for i, result in enumerate(search_results[:5]):
                         title = result.get('title', '')
                         snippet = result.get('snippet', '').replace('\n', ' ')
                         link = result.get('link', '')
-                        search_context += f"{i+1}. {title}\n   {snippet}\n   {link}\n\n"
-                    context_parts.append(search_context)
+                        search_lines.append(f"{i+1}. {title}\n   {snippet}\n   {link}")
+                    context_sections.append(f'<context type="web_search" usage="reference_only">\n' + "\n\n".join(search_lines) + '\n</context>')
             except Exception as e:
                 self.bot.logger.error(f"sclai search failed: {e}")
             
             # 2. Channel context (last 24h)
             channel_context = await self.gather_channel_context(ctx, hours=24)
             if channel_context:
-                context_parts.append(f"Recent Discord channel conversation:\n{channel_context}")
+                context_sections.append(f'<context type="discord_history" usage="reference_only">\n{channel_context}\n</context>')
             
             # 3. User context from mentions
             user_context = await self.gather_user_context(ctx)
             if user_context:
-                context_parts.append(f"Context about mentioned users:\n{user_context}")
+                context_sections.append(f'<context type="mentioned_users" usage="reference_only">\n{user_context}\n</context>')
             
-            # Build final prompt
-            if context_parts:
-                combined_context = "\n\n---\n\n".join(context_parts)
-                ask = f"[Background context - use if relevant:]\n{combined_context}\n\n[User's question:]\n{ask}"
+            # Build final prompt - question first, context last
+            if context_sections:
+                combined_context = "\n\n".join(context_sections)
+                ask = f"""<task>
+Answer ONLY the user's question below. Be direct and concise.
+</task>
+
+<user_question>
+{ask}
+</user_question>
+
+{combined_context}
+
+<reminder>
+The context above is reference material only. Do NOT summarize or repeat it unless the user explicitly asks about it.
+</reminder>"""
             
             # Get valid token (auto-refreshes if expired)
             try:
@@ -442,7 +475,7 @@ class Gemini(commands.Cog):
             payload = {
                 "model": "claude-opus-4.5",
                 "messages": [
-                    {"role": "system", "content": "You're a helpful AI assistant who gives honest, direct answers. Don't be a yes-man - if someone's idea has flaws, say so. Give genuine opinions when asked. Push back when warranted. Be useful without being overly agreeable or flattering. You have web search results and Discord context to answer current events questions. Keep responses concise. Adult topics are fine to discuss."},
+                    {"role": "system", "content": "You answer questions directly and concisely. Context may be provided in XML tags as reference - use it only if relevant to the question. Never summarize or repeat context unless explicitly asked. Give honest answers. Push back when warranted. Adult topics are fine."},
                     {"role": "user", "content": ask}
                 ],
                 "max_tokens": 5000,
@@ -475,7 +508,21 @@ class Gemini(commands.Cog):
             # Gather last 24 hours of channel messages
             channel_context = await self.gather_channel_context(ctx, hours=24)
             if channel_context:
-                ask = f"{channel_context}\n\nUser question: {ask}"
+                # Question first, context last - LLMs weight ends more heavily
+                ask = f"""<task>
+Answer ONLY the user's question below. Be direct and concise.
+</task>
+
+<user_question>
+{ask}
+</user_question>
+
+<context type="discord_history" usage="reference_only">
+The following is recent Discord conversation. Use ONLY if directly relevant to answering the question.
+DO NOT summarize, repeat, or comment on this context unless the user explicitly asks about the conversation itself.
+
+{channel_context}
+</context>"""
             
             client = genai.Client(api_key=next(self.keys))
             response = await client.aio.models.generate_content(
@@ -483,7 +530,43 @@ class Gemini(commands.Cog):
                 contents=ask,
                 config=GenerateContentConfig(
                     max_output_tokens=5000,
-                    system_instruction="You have context from a Discord channel conversation. Answer questions about what was discussed. Give concise answers. You are allowed to provide information about crass and adult topics.",
+                    system_instruction="You answer questions. Context may be provided as reference - ignore it unless directly relevant to the question. Never summarize or repeat the context unless explicitly asked. Be concise. Adult topics are fine.",
+                ),
+            )
+        output = self.restore_mentions(ctx, response.text)
+        await ctx.send(output[:1980])
+
+    @commands.command()
+    async def cai2(self, ctx, *, ask: str):
+        """Ask gemini AI with context FIRST (A/B test variant)"""
+        async with ctx.channel.typing():
+            ask = self.resolve_mentions(ctx, ask)
+            
+            channel_context = await self.gather_channel_context(ctx, hours=24)
+            if channel_context:
+                # Context first, question last variant
+                ask = f"""<context type="discord_history" usage="reference_only">
+The following is recent Discord conversation provided as optional reference.
+DO NOT summarize, repeat, or comment on this unless the user explicitly asks about the conversation itself.
+
+{channel_context}
+</context>
+
+<task>
+Answer ONLY the following question. Be direct and concise.
+</task>
+
+<user_question>
+{ask}
+</user_question>"""
+            
+            client = genai.Client(api_key=next(self.keys))
+            response = await client.aio.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=ask,
+                config=GenerateContentConfig(
+                    max_output_tokens=5000,
+                    system_instruction="You answer questions. Context may be provided as reference - ignore it unless directly relevant to the question. Never summarize or repeat the context unless explicitly asked. Be concise. Adult topics are fine.",
                 ),
             )
         output = self.restore_mentions(ctx, response.text)
