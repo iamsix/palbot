@@ -271,7 +271,8 @@ class Gemini(commands.Cog):
         cursor = await db.execute(
             """SELECT m.user_id, u.canon_nick, m.message FROM messages m
                JOIN users u ON m.user_id = u.user_id
-               WHERE m.channel_id = ? AND m.snowflake > ? AND m.message != '' AND m.deleted = 0
+               WHERE m.channel_id = ? AND m.snowflake > ? AND m.message != '' 
+               AND m.deleted = 0 AND m.ephemeral = 0
                ORDER BY m.snowflake ASC""",
             [ctx.channel.id, cutoff_snowflake]
         )
