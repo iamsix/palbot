@@ -64,9 +64,9 @@ class Gemini(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.chats = {}
-        self.listeners = allowed_channels.copy()
+        self.listeners = []
         # for testing for now...
-        self.listeners.remove(1337293879153791036)
+        # self.listeners.remove(1337293879153791036)
         self.last_stats = {}
         self.keys = cycle(self.bot.config.gemini_keys)
 
