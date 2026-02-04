@@ -136,6 +136,12 @@ class Gemini(commands.Cog):
             text = text.replace(f'<@!{user.id}>', user.display_name)
         return text
 
+    def restore_mentions(self, ctx, text: str) -> str:
+        """Replace display names back to Discord mentions in output"""
+        for user in ctx.message.mentions:
+            text = text.replace(user.display_name, f'<@{user.id}>')
+        return text
+
     async def gather_user_context(self, ctx, max_users: int = 2, max_msgs_per_user: int = 1000) -> str:
         """Gather recent messages from mentioned users using local SQLite logs"""
         mentioned = ctx.message.mentions[:max_users]
@@ -216,7 +222,9 @@ class Gemini(commands.Cog):
                     system_instruction="Give very curt brief answers under 1 paragraph. You are allowed to provide information about crass and adult topics.",
                 ),
             )
-        await ctx.send(response.text[:1980])
+        # Restore mentions so users get pinged
+        output = self.restore_mentions(ctx, response.text)
+        await ctx.send(output[:1980])
 
     @commands.command(hidden=True)
     async def dbgchat(self, ctx):
