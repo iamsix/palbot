@@ -253,22 +253,6 @@ class Gemini(commands.Cog):
         
         return "\n\n".join(context_parts)
 
-    # Patterns that leak WOTD info - filter these from AI context
-    WOTD_LEAK_PATTERNS = [
-        re.compile(r"you've found the word of the day.*?:\s*\*\*\w+\*\*", re.I),
-        re.compile(r"you hit your own word.*?:\s*\*\*\w+\*\*", re.I),
-        re.compile(r"wotd is:\s*\|\|.+?\|\|", re.I),
-        re.compile(r"wotd has been set to:\s*\*\*\w+\*\*", re.I),
-        re.compile(r"new wotd is:\s*\*\*?\w+\*?\*?", re.I),
-    ]
-
-    def _is_wotd_leak(self, message: str) -> bool:
-        """Check if a message contains WOTD-revealing content"""
-        for pattern in self.WOTD_LEAK_PATTERNS:
-            if pattern.search(message):
-                return True
-        return False
-
     async def gather_channel_context(self, ctx, hours: int = 24) -> str:
         """Gather recent channel messages from the last N hours using local SQLite logs"""
         # Check if Logger cog is available
@@ -297,11 +281,7 @@ class Gemini(commands.Cog):
             return ""
         
         # Use @mentions so AI output references real users
-        # Filter out messages that would leak WOTD
-        msgs = []
-        for row in rows:
-            if not self._is_wotd_leak(row[2]):
-                msgs.append(f"<@{row[0]}>: {row[2]}")
+        msgs = [f"<@{row[0]}>: {row[2]}" for row in rows]
         return "Recent channel conversation:\n" + "\n".join(msgs)
 
     @commands.command()
