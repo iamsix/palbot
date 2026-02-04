@@ -182,6 +182,8 @@ class Gemini(commands.Cog):
                     headers={
                         "Accept": "application/json",
                         "Authorization": f"Bearer {github_token}",
+                        "Editor-Version": "vscode/1.96.2",
+                        "User-Agent": "GitHubCopilotChat/0.26.7",
                     }
                 ) as resp:
                     if resp.status != 200:
