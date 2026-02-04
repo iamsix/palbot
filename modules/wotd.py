@@ -487,7 +487,7 @@ The next hint will be {nexthint}")
         channel = self.bot.get_channel(self.bot.config.wotd_whitelist[0])
         db = await self.bot.cogs['Logger'].get_db(channel.guild)
         l_word = f"%{word}%"
-        r_word = rf"(?i)\b{word}\b"
+        r_word = rf"(?i)(?<!\S){re.escape(word)}\b"
         if fullword:
             q = F_WOTD_COUNT
             args = [channel.id, l_word, r_word]
