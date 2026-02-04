@@ -293,7 +293,7 @@ class Gemini(commands.Cog):
                 "Editor-Version": "vscode/1.95.0",
             }
             payload = {
-                "model": "claude-opus-4-5",
+                "model": "claude-opus-4.5",
                 "messages": [
                     {"role": "system", "content": "Give very curt brief answers under 1 paragraph. You are allowed to provide information about crass and adult topics."},
                     {"role": "user", "content": ask}
