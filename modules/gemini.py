@@ -328,10 +328,10 @@ class Gemini(commands.Cog):
             
             context_parts = []
             
-            # 1. Web search for current info
+            # 1. Web search for current info (use original question)
             try:
                 search_results = await self.bot.utils.google_for_urls(
-                    self.bot, ask, return_full_data=True
+                    self.bot, original_ask, return_full_data=True
                 )
                 if search_results:
                     search_context = "Recent web search results:\n"
