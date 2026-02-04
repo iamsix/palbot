@@ -58,6 +58,7 @@ redditsecret = "abc123"
 
 gemini_keys = ["abc123"]
 
-# GitHub Copilot API key for !clai command (Claude access)
-# Get from GitHub Copilot settings
-github_copilot_key = "abc123"
+# Path to GitHub Copilot token JSON file for !clai command
+# Token file is created by Clawdbot's `clawdbot models login-github-copilot`
+# Usually at ~/.clawdbot/credentials/github-copilot.token.json
+github_copilot_token_path = "/home/user/.clawdbot/credentials/github-copilot.token.json"
