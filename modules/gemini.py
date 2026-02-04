@@ -238,7 +238,7 @@ class Gemini(commands.Cog):
             # Gather context from mentioned users
             user_context = await self.gather_user_context(ctx)
             if user_context:
-                ask = f"Context about mentioned users:\n{user_context}\n\nUser request: {ask}"
+                ask = f"[Optional background - use only if relevant to the question. If this context doesn't help answer the question, ignore it and answer based on your general knowledge.]\n{user_context}\n\n[User's actual question:]\n{ask}"
             
             client = genai.Client(api_key=next(self.keys))
 #            grounding_tool = Tool(
