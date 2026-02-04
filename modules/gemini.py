@@ -345,20 +345,30 @@ class Gemini(commands.Cog):
 
     @commands.command()
     async def clai(self, ctx, *, ask: str):
-        """Ask Claude Opus 4.5 via GitHub Copilot API"""
+        """Ask Claude Opus 4.5 via GitHub Copilot API (with channel + user context)"""
         async with ctx.channel.typing():
             ask = self.resolve_mentions(ctx, ask)
+            
+            context_sections = []
+            
+            # Gather last 24 hours of channel messages
+            channel_context = await self.gather_channel_context(ctx, hours=24)
+            if channel_context:
+                context_sections.append(f'<context type="discord_history" usage="internal_reference_only">\n{channel_context}\n</context>')
             
             # Gather context from mentioned users
             user_context = await self.gather_user_context(ctx)
             if user_context:
+                context_sections.append(f'<context type="mentioned_users" usage="internal_reference_only">\n{user_context}\n</context>')
+            
+            # Build prompt with context
+            if context_sections:
+                combined_context = "\n\n".join(context_sections)
                 ask = f"""<user_question>
 {ask}
 </user_question>
 
-<context type="mentioned_users" usage="internal_reference_only">
-{user_context}
-</context>"""
+{combined_context}"""
             
             # Get valid token (auto-refreshes if expired)
             try:
@@ -376,7 +386,7 @@ class Gemini(commands.Cog):
             payload = {
                 "model": "claude-opus-4.5",
                 "messages": [
-                    {"role": "system", "content": """Answer the user's question. You have access to user context as reference.
+                    {"role": "system", "content": """Answer the user's question. You have access to Discord chat history and user context as reference.
 
 STRICT RULES:
 1. NEVER output raw message logs or context dumps
@@ -498,34 +508,10 @@ STRICT RULES:
         output = self.restore_mentions(ctx, response_text)
         await ctx.send(output[:1980])
 
-    @commands.command()
+    @commands.command(hidden=True)
     async def cai(self, ctx, *, ask: str):
-        """Ask gemini AI a question (no context - use !sclai for context)"""
-        async with ctx.channel.typing():
-            ask = self.resolve_mentions(ctx, ask)
-            
-            # No context gathering - Gemini free tier uses data for training
-            # Use !sclai (Claude) for context-aware queries
-            
-            try:
-                client = genai.Client(api_key=next(self.keys))
-                response = await client.aio.models.generate_content(
-                    model="gemini-2.5-flash",
-                    contents=ask,
-                    config=GenerateContentConfig(
-                        max_output_tokens=5000,
-                        system_instruction="Answer questions concisely. Adult topics are fine.",
-                    ),
-                )
-                output = self.restore_mentions(ctx, response.text)
-                await ctx.send(output[:1980])
-            except Exception as e:
-                error_msg = str(e)
-                if "429" in error_msg or "quota" in error_msg.lower():
-                    await ctx.send("⚠️ API quota exceeded. Try again later.")
-                else:
-                    await ctx.send(f"❌ API error: {error_msg[:100]}")
-                self.bot.logger.error(f"!cai error: {e}")
+        """Deprecated - use !ai or !clai"""
+        await ctx.send("⚠️ `!cai` removed. Use `!ai` (Gemini) or `!clai` (Claude with context).")
 
     @commands.command(hidden=True)
     async def cai2(self, ctx, *, ask: str):
