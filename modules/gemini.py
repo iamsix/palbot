@@ -222,8 +222,23 @@ class Gemini(commands.Cog):
                     system_instruction="Give very curt brief answers under 1 paragraph. You are allowed to provide information about crass and adult topics.",
                 ),
             )
+            
+            output = response.text
+            
+            # If response is too long, ask Gemini to summarize it
+            if len(output) > 1980:
+                summary_response = await client.aio.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=f"Summarize this in under 1900 characters while keeping the key points:\n\n{output}",
+                    config=GenerateContentConfig(
+                        max_output_tokens=1000,
+                        system_instruction="You are a summarizer. Keep the response under 1900 characters. Be concise but preserve important information.",
+                    ),
+                )
+                output = summary_response.text
+        
         # Restore mentions so users get pinged
-        output = self.restore_mentions(ctx, response.text)
+        output = self.restore_mentions(ctx, output)
         await ctx.send(output[:1980])
 
     @commands.command(hidden=True)
