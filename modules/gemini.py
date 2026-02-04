@@ -320,6 +320,96 @@ class Gemini(commands.Cog):
         await ctx.send(output[:1980])
 
     @commands.command()
+    async def sclai(self, ctx, *, ask: str):
+        """Ask Claude Opus 4.5 with web search + channel context for current events"""
+        async with ctx.channel.typing():
+            original_ask = ask
+            ask = self.resolve_mentions(ctx, ask)
+            
+            context_parts = []
+            
+            # 1. Web search for current info
+            try:
+                search_results = await self.bot.utils.google_for_urls(
+                    self.bot, ask, return_full_data=True
+                )
+                if search_results:
+                    search_context = "Recent web search results:\n"
+                    for i, result in enumerate(search_results[:5]):
+                        title = result.get('title', '')
+                        snippet = result.get('snippet', '').replace('\n', ' ')
+                        link = result.get('link', '')
+                        search_context += f"{i+1}. {title}\n   {snippet}\n   {link}\n\n"
+                    context_parts.append(search_context)
+            except Exception as e:
+                self.bot.logger.error(f"sclai search failed: {e}")
+            
+            # 2. Channel context (last 24h)
+            channel_context = await self.gather_channel_context(ctx, hours=24)
+            if channel_context:
+                context_parts.append(f"Recent Discord channel conversation:\n{channel_context}")
+            
+            # 3. User context from mentions
+            user_context = await self.gather_user_context(ctx)
+            if user_context:
+                context_parts.append(f"Context about mentioned users:\n{user_context}")
+            
+            # Build final prompt
+            if context_parts:
+                combined_context = "\n\n---\n\n".join(context_parts)
+                ask = f"[Background context - use if relevant:]\n{combined_context}\n\n[User's question:]\n{ask}"
+            
+            # Load token from file (same format as Clawdbot)
+            import json as _json
+            token_path = self.bot.config.github_copilot_token_path
+            with open(token_path) as f:
+                token_data = _json.load(f)
+            
+            token = token_data["token"]
+            
+            # Extract API base URL from token's proxy-ep field
+            import re as _re
+            match = _re.search(r'proxy-ep=([^;\s]+)', token)
+            if match:
+                proxy_ep = match.group(1)
+                base_url = "https://" + proxy_ep.replace("proxy.", "api.")
+            else:
+                base_url = "https://api.individual.githubcopilot.com"
+            
+            headers = {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+                "Copilot-Integration-Id": "vscode-chat",
+                "Editor-Version": "vscode/1.95.0",
+            }
+            payload = {
+                "model": "claude-opus-4.5",
+                "messages": [
+                    {"role": "system", "content": "You have access to recent web search results and Discord channel context. Use this to answer questions about current events accurately. Give concise answers. You are allowed to provide information about crass and adult topics."},
+                    {"role": "user", "content": ask}
+                ],
+                "max_tokens": 5000,
+            }
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{base_url}/chat/completions",
+                    headers=headers,
+                    json=payload
+                ) as resp:
+                    if resp.status != 200:
+                        error_text = await resp.text()
+                        await ctx.send(f"API error: {resp.status}")
+                        self.bot.logger.error(f"GitHub Copilot API error: {resp.status} - {error_text}")
+                        return
+                    data = await resp.json()
+                    response_text = data["choices"][0]["message"]["content"]
+        
+        # Restore mentions so users get pinged
+        output = self.restore_mentions(ctx, response_text)
+        await ctx.send(output[:1980])
+
+    @commands.command()
     async def cai(self, ctx, *, ask: str):
         """Ask gemini AI with last 24h of channel context"""
         async with ctx.channel.typing():
