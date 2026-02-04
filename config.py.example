@@ -57,3 +57,7 @@ redditclient = "abc123"
 redditsecret = "abc123"
 
 gemini_keys = ["abc123"]
+
+# GitHub Copilot API key for !clai command (Claude access)
+# Get from GitHub Copilot settings
+github_copilot_key = "abc123"
