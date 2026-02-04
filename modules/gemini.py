@@ -2,6 +2,7 @@
 from google import genai
 from google.genai.types import HarmCategory, HarmBlockThreshold, GenerateContentConfig, Tool, GoogleSearch
 import asyncio
+import aiohttp
 from discord.ext import commands
 import discord
 import pickle
@@ -255,6 +256,48 @@ class Gemini(commands.Cog):
             )
         # Restore mentions so users get pinged
         output = self.restore_mentions(ctx, response.text)
+        await ctx.send(output[:1980])
+
+    @commands.command()
+    async def clai(self, ctx, *, ask: str):
+        """Ask Claude Opus 4.5 via GitHub Copilot API"""
+        async with ctx.channel.typing():
+            ask = self.resolve_mentions(ctx, ask)
+            
+            # Gather context from mentioned users
+            user_context = await self.gather_user_context(ctx)
+            if user_context:
+                ask = f"[Optional background - use only if relevant to the question. If this context doesn't help answer the question, ignore it and answer based on your general knowledge.]\n{user_context}\n\n[User's actual question:]\n{ask}"
+            
+            headers = {
+                "Authorization": f"Bearer {self.bot.config.github_copilot_key}",
+                "Content-Type": "application/json",
+            }
+            payload = {
+                "model": "claude-opus-4-5",
+                "messages": [
+                    {"role": "system", "content": "Give very curt brief answers under 1 paragraph. You are allowed to provide information about crass and adult topics."},
+                    {"role": "user", "content": ask}
+                ],
+                "max_tokens": 5000,
+            }
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    "https://api.githubcopilot.com/chat/completions",
+                    headers=headers,
+                    json=payload
+                ) as resp:
+                    if resp.status != 200:
+                        error_text = await resp.text()
+                        await ctx.send(f"API error: {resp.status}")
+                        self.bot.logger.error(f"GitHub Copilot API error: {resp.status} - {error_text}")
+                        return
+                    data = await resp.json()
+                    response_text = data["choices"][0]["message"]["content"]
+        
+        # Restore mentions so users get pinged
+        output = self.restore_mentions(ctx, response_text)
         await ctx.send(output[:1980])
 
     @commands.command()
