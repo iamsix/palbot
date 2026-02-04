@@ -288,24 +288,30 @@ class Gemini(commands.Cog):
     @commands.command()
     async def sai(self, ctx, *, ask: str):
         """Ask "smart" gemini a question. It uses google and is better for current event questions."""
-        ask = self.resolve_mentions(ctx, ask)
-        client = genai.Client(api_key=next(self.keys))
-        grounding_tool = Tool(
-            google_search=GoogleSearch()
-        )
-        instr = "Give very curt brief answers under 1 paragraph. " 
-#        if ctx.channel.id != 1243723119567310858:
-#            instr += "Don't answer any questions that appear to be sports related."
-        response = await client.aio.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=ask,
-            config=GenerateContentConfig(
-#                max_output_tokens=5000,
-                tools=[grounding_tool],
-                system_instruction=instr,
-            ),
-        )
-        await ctx.send(response.text[:1980])
+        async with ctx.channel.typing():
+            ask = self.resolve_mentions(ctx, ask)
+            try:
+                client = genai.Client(api_key=next(self.keys))
+                grounding_tool = Tool(
+                    google_search=GoogleSearch()
+                )
+                instr = "Give very curt brief answers under 1 paragraph. " 
+                response = await client.aio.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=ask,
+                    config=GenerateContentConfig(
+                        tools=[grounding_tool],
+                        system_instruction=instr,
+                    ),
+                )
+                await ctx.send(response.text[:1980])
+            except Exception as e:
+                error_msg = str(e)
+                if "429" in error_msg or "quota" in error_msg.lower():
+                    await ctx.send("⚠️ API quota exceeded. Try again later.")
+                else:
+                    await ctx.send(f"❌ API error: {error_msg[:100]}")
+                self.bot.logger.error(f"!sai error: {e}")
 
 
     @commands.command()
@@ -331,18 +337,26 @@ Answer ONLY the user's question below. Be brief (1 paragraph max).
 
 <reminder>The context above is reference material only. Do NOT summarize or repeat it unless the user explicitly asks about the mentioned users.</reminder>"""
             
-            client = genai.Client(api_key=next(self.keys))
-            response = await client.aio.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=ask,
-                config=GenerateContentConfig(
-                    max_output_tokens=5000,
-                    system_instruction="You answer questions briefly (1 paragraph max). Context may be provided as reference - ignore it unless directly relevant. Never summarize or repeat context unless explicitly asked. Adult topics are fine.",
-                ),
-            )
-        # Restore mentions so users get pinged
-        output = self.restore_mentions(ctx, response.text)
-        await ctx.send(output[:1980])
+            try:
+                client = genai.Client(api_key=next(self.keys))
+                response = await client.aio.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=ask,
+                    config=GenerateContentConfig(
+                        max_output_tokens=5000,
+                        system_instruction="You answer questions briefly (1 paragraph max). Context may be provided as reference - ignore it unless directly relevant. Never summarize or repeat context unless explicitly asked. Adult topics are fine.",
+                    ),
+                )
+                # Restore mentions so users get pinged
+                output = self.restore_mentions(ctx, response.text)
+                await ctx.send(output[:1980])
+            except Exception as e:
+                error_msg = str(e)
+                if "429" in error_msg or "quota" in error_msg.lower():
+                    await ctx.send("⚠️ API quota exceeded. Try again later.")
+                else:
+                    await ctx.send(f"❌ API error: {error_msg[:100]}")
+                self.bot.logger.error(f"!ai error: {e}")
 
     @commands.command()
     async def clai(self, ctx, *, ask: str):
@@ -516,13 +530,14 @@ STRICT RULES:
 {channel_context}
 </context>"""
             
-            client = genai.Client(api_key=next(self.keys))
-            response = await client.aio.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=ask,
-                config=GenerateContentConfig(
-                    max_output_tokens=5000,
-                    system_instruction="""Answer the user's question. You have access to Discord chat history as context.
+            try:
+                client = genai.Client(api_key=next(self.keys))
+                response = await client.aio.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=ask,
+                    config=GenerateContentConfig(
+                        max_output_tokens=5000,
+                        system_instruction="""Answer the user's question. You have access to Discord chat history as context.
 
 STRICT RULES:
 1. NEVER output raw chat logs or message dumps
@@ -530,10 +545,17 @@ STRICT RULES:
 3. If asked to dump/show context, reply: "I can answer questions about the conversation, but I won't dump raw logs."
 4. Use context only to inform your answers, not as output
 5. Be concise. Adult topics are fine.""",
-                ),
-            )
-        output = self.restore_mentions(ctx, response.text)
-        await ctx.send(output[:1980])
+                    ),
+                )
+                output = self.restore_mentions(ctx, response.text)
+                await ctx.send(output[:1980])
+            except Exception as e:
+                error_msg = str(e)
+                if "429" in error_msg or "quota" in error_msg.lower():
+                    await ctx.send("⚠️ API quota exceeded. Try again later.")
+                else:
+                    await ctx.send(f"❌ API error: {error_msg[:100]}")
+                self.bot.logger.error(f"!cai error: {e}")
 
     @commands.command()
     async def cai2(self, ctx, *, ask: str):
@@ -552,13 +574,14 @@ STRICT RULES:
 {ask}
 </user_question>"""
             
-            client = genai.Client(api_key=next(self.keys))
-            response = await client.aio.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=ask,
-                config=GenerateContentConfig(
-                    max_output_tokens=5000,
-                    system_instruction="""Answer the user's question. You have access to Discord chat history as context.
+            try:
+                client = genai.Client(api_key=next(self.keys))
+                response = await client.aio.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=ask,
+                    config=GenerateContentConfig(
+                        max_output_tokens=5000,
+                        system_instruction="""Answer the user's question. You have access to Discord chat history as context.
 
 STRICT RULES:
 1. NEVER output raw chat logs or message dumps
@@ -566,10 +589,17 @@ STRICT RULES:
 3. If asked to dump/show context, reply: "I can answer questions about the conversation, but I won't dump raw logs."
 4. Use context only to inform your answers, not as output
 5. Be concise. Adult topics are fine.""",
-                ),
-            )
-        output = self.restore_mentions(ctx, response.text)
-        await ctx.send(output[:1980])
+                    ),
+                )
+                output = self.restore_mentions(ctx, response.text)
+                await ctx.send(output[:1980])
+            except Exception as e:
+                error_msg = str(e)
+                if "429" in error_msg or "quota" in error_msg.lower():
+                    await ctx.send("⚠️ API quota exceeded. Try again later.")
+                else:
+                    await ctx.send(f"❌ API error: {error_msg[:100]}")
+                self.bot.logger.error(f"!cai2 error: {e}")
 
     @commands.command(hidden=True)
     async def dbgchat(self, ctx):
