@@ -7,6 +7,7 @@ import discord
 import pickle
 import os.path
 from itertools import cycle
+from datetime import datetime, timedelta, timezone
 
 # https://discordpy.readthedocs.io/en/stable/api.html#thread
 # look in to threads/parent channel
@@ -136,6 +137,41 @@ class Gemini(commands.Cog):
             text = text.replace(f'<@!{user.id}>', user.display_name)
         return text
 
+    async def gather_user_context(self, ctx, max_users: int = 2, max_msgs_per_user: int = 50,
+                                   max_history: int = 5000, max_days: int = 30) -> str:
+        """Gather recent messages from mentioned users as context for AI"""
+        mentioned = ctx.message.mentions[:max_users]
+        if not mentioned:
+            return ""
+        
+        # Track messages per user
+        user_messages = {user.id: [] for user in mentioned}
+        users_done = set()
+        cutoff_time = datetime.now(timezone.utc) - timedelta(days=max_days)
+        
+        async for msg in ctx.channel.history(limit=max_history, after=cutoff_time):
+            if msg.author.id in user_messages and msg.author.id not in users_done:
+                user_messages[msg.author.id].append(f"{msg.author.display_name}: {msg.content}")
+                if len(user_messages[msg.author.id]) >= max_msgs_per_user:
+                    users_done.add(msg.author.id)
+            
+            # Stop early if we have enough for all users
+            if len(users_done) == len(mentioned):
+                break
+        
+        # Build context string
+        context_parts = []
+        for user in mentioned:
+            msgs = user_messages[user.id]
+            if msgs:
+                # Reverse to get chronological order (oldest first)
+                msgs.reverse()
+                context_parts.append(f"Recent messages from {user.display_name}:\n" + "\n".join(msgs))
+            else:
+                context_parts.append(f"No recent messages found for {user.display_name} in this channel.")
+        
+        return "\n\n".join(context_parts)
+
     @commands.command()
     async def sai(self, ctx, *, ask: str):
         """Ask "smart" gemini a question. It uses google and is better for current event questions."""
@@ -162,20 +198,27 @@ class Gemini(commands.Cog):
     @commands.command()
     async def ai(self, ctx, *, ask: str):
         """Ask gemini AI a question"""
-        ask = self.resolve_mentions(ctx, ask)
-        client = genai.Client(api_key=next(self.keys))
-#        grounding_tool = Tool(
-#            google_search=GoogleSearch()
-#        )
-        response = await client.aio.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=ask,
-            config=GenerateContentConfig(
-                max_output_tokens=5000,
-#                tools=[grounding_tool],
-                system_instruction="Give very curt brief answers under 1 paragraph. You are allowed to provide information about crass and adult topics.",
-            ),
-        )
+        async with ctx.channel.typing():
+            ask = self.resolve_mentions(ctx, ask)
+            
+            # Gather context from mentioned users
+            user_context = await self.gather_user_context(ctx)
+            if user_context:
+                ask = f"Context about mentioned users:\n{user_context}\n\nUser request: {ask}"
+            
+            client = genai.Client(api_key=next(self.keys))
+#            grounding_tool = Tool(
+#                google_search=GoogleSearch()
+#            )
+            response = await client.aio.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=ask,
+                config=GenerateContentConfig(
+                    max_output_tokens=5000,
+#                    tools=[grounding_tool],
+                    system_instruction="Give very curt brief answers under 1 paragraph. You are allowed to provide information about crass and adult topics.",
+                ),
+            )
         await ctx.send(response.text[:1980])
 
     @commands.command(hidden=True)
