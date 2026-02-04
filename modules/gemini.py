@@ -269,9 +269,28 @@ class Gemini(commands.Cog):
             if user_context:
                 ask = f"[Optional background - use only if relevant to the question. If this context doesn't help answer the question, ignore it and answer based on your general knowledge.]\n{user_context}\n\n[User's actual question:]\n{ask}"
             
+            # Load token from file (same format as Clawdbot)
+            import json as _json
+            token_path = self.bot.config.github_copilot_token_path
+            with open(token_path) as f:
+                token_data = _json.load(f)
+            
+            token = token_data["token"]
+            
+            # Extract API base URL from token's proxy-ep field
+            import re as _re
+            match = _re.search(r'proxy-ep=([^;\s]+)', token)
+            if match:
+                proxy_ep = match.group(1)
+                base_url = "https://" + proxy_ep.replace("proxy.", "api.")
+            else:
+                base_url = "https://api.individual.githubcopilot.com"
+            
             headers = {
-                "Authorization": f"Bearer {self.bot.config.github_copilot_key}",
+                "Authorization": f"Bearer {token}",
                 "Content-Type": "application/json",
+                "Copilot-Integration-Id": "vscode-chat",
+                "Editor-Version": "vscode/1.95.0",
             }
             payload = {
                 "model": "claude-opus-4-5",
@@ -284,7 +303,7 @@ class Gemini(commands.Cog):
             
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    "https://api.githubcopilot.com/chat/completions",
+                    f"{base_url}/chat/completions",
                     headers=headers,
                     json=payload
                 ) as resp:
