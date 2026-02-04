@@ -136,6 +136,39 @@ class Gemini(commands.Cog):
             text = text.replace(f'<@!{user.id}>', user.display_name)
         return text
 
+    async def gather_user_context(self, ctx, max_users: int = 2, max_msgs_per_user: int = 1000) -> str:
+        """Gather recent messages from mentioned users using local SQLite logs"""
+        mentioned = ctx.message.mentions[:max_users]
+        if not mentioned:
+            return ""
+        
+        # Check if Logger cog is available
+        if "Logger" not in self.bot.cogs:
+            return ""
+        
+        logger_cog = self.bot.cogs['Logger']
+        db = await logger_cog.get_db(ctx.guild)
+        
+        context_parts = []
+        for user in mentioned:
+            cursor = await db.execute(
+                """SELECT message FROM messages 
+                   WHERE user_id = ? AND channel_id = ? AND message != '' AND deleted = 0
+                   ORDER BY snowflake DESC 
+                   LIMIT ?""",
+                [user.id, ctx.channel.id, max_msgs_per_user]
+            )
+            rows = await cursor.fetchall()
+            
+            if rows:
+                # Reverse to get chronological order (oldest first)
+                msgs = [f"{user.display_name}: {row[0]}" for row in reversed(rows)]
+                context_parts.append(f"Recent messages from {user.display_name}:\n" + "\n".join(msgs))
+            else:
+                context_parts.append(f"No recent messages found for {user.display_name} in this channel.")
+        
+        return "\n\n".join(context_parts)
+
     @commands.command()
     async def sai(self, ctx, *, ask: str):
         """Ask "smart" gemini a question. It uses google and is better for current event questions."""
@@ -162,20 +195,27 @@ class Gemini(commands.Cog):
     @commands.command()
     async def ai(self, ctx, *, ask: str):
         """Ask gemini AI a question"""
-        ask = self.resolve_mentions(ctx, ask)
-        client = genai.Client(api_key=next(self.keys))
-#        grounding_tool = Tool(
-#            google_search=GoogleSearch()
-#        )
-        response = await client.aio.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=ask,
-            config=GenerateContentConfig(
-                max_output_tokens=5000,
-#                tools=[grounding_tool],
-                system_instruction="Give very curt brief answers under 1 paragraph. You are allowed to provide information about crass and adult topics.",
-            ),
-        )
+        async with ctx.channel.typing():
+            ask = self.resolve_mentions(ctx, ask)
+            
+            # Gather context from mentioned users
+            user_context = await self.gather_user_context(ctx)
+            if user_context:
+                ask = f"Context about mentioned users:\n{user_context}\n\nUser request: {ask}"
+            
+            client = genai.Client(api_key=next(self.keys))
+#            grounding_tool = Tool(
+#                google_search=GoogleSearch()
+#            )
+            response = await client.aio.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=ask,
+                config=GenerateContentConfig(
+                    max_output_tokens=5000,
+#                    tools=[grounding_tool],
+                    system_instruction="Give very curt brief answers under 1 paragraph. You are allowed to provide information about crass and adult topics.",
+                ),
+            )
         await ctx.send(response.text[:1980])
 
     @commands.command(hidden=True)
