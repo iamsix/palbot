@@ -129,9 +129,17 @@ class Gemini(commands.Cog):
 #        else:
 #            print(error)
 
+    def resolve_mentions(self, ctx, text: str) -> str:
+        """Replace Discord mention IDs with display names"""
+        for user in ctx.message.mentions:
+            text = text.replace(f'<@{user.id}>', user.display_name)
+            text = text.replace(f'<@!{user.id}>', user.display_name)
+        return text
+
     @commands.command()
     async def sai(self, ctx, *, ask: str):
         """Ask "smart" gemini a question. It uses google and is better for current event questions."""
+        ask = self.resolve_mentions(ctx, ask)
         client = genai.Client(api_key=next(self.keys))
         grounding_tool = Tool(
             google_search=GoogleSearch()
@@ -154,6 +162,7 @@ class Gemini(commands.Cog):
     @commands.command()
     async def ai(self, ctx, *, ask: str):
         """Ask gemini AI a question"""
+        ask = self.resolve_mentions(ctx, ask)
         client = genai.Client(api_key=next(self.keys))
 #        grounding_tool = Tool(
 #            google_search=GoogleSearch()
