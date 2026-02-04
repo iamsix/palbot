@@ -226,37 +226,6 @@ class Gemini(commands.Cog):
         output = self.restore_mentions(ctx, response.text)
         await ctx.send(output[:1980])
 
-    @commands.command(name="ai-embed")
-    async def ai_embed(self, ctx, *, ask: str):
-        """Ask gemini AI a question (response in embed, no length limit)"""
-        async with ctx.channel.typing():
-            ask = self.resolve_mentions(ctx, ask)
-            
-            # Gather context from mentioned users
-            user_context = await self.gather_user_context(ctx)
-            if user_context:
-                ask = f"Context about mentioned users:\n{user_context}\n\nUser request: {ask}"
-            
-            client = genai.Client(api_key=next(self.keys))
-            response = await client.aio.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=ask,
-                config=GenerateContentConfig(
-                    max_output_tokens=5000,
-                    system_instruction="You are allowed to provide information about crass and adult topics.",
-                ),
-            )
-        
-        output = self.restore_mentions(ctx, response.text)
-        
-        # Split into embeds (4096 char limit per embed description)
-        for i in range(0, len(output), 4096):
-            chunk = output[i:i+4096]
-            embed = discord.Embed(description=chunk, color=discord.Color.blue())
-            if i == 0:
-                embed.title = "AI Response"
-            await ctx.send(embed=embed)
-
     @commands.command(hidden=True)
     async def dbgchat(self, ctx):
         for key, chat in self.chats.items():
