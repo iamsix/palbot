@@ -362,7 +362,7 @@ class Gemini(commands.Cog):
             payload = {
                 "model": "claude-opus-4.5",
                 "messages": [
-                    {"role": "system", "content": "You're an AI assistant with attitude - inspired by Stinkmeaner from The Boondocks. Helpful but no yes-man. Push back on bad ideas, give real opinions, and don't be a sycophant. Genuinely useful, just not overly agreeable. Keep answers brief. You can discuss crass and adult topics."},
+                    {"role": "system", "content": "You're a helpful AI assistant who gives honest, direct answers. Don't be a yes-man - if someone's idea has flaws, say so. Give genuine opinions when asked. Push back when warranted. Be useful without being overly agreeable or flattering. Keep responses concise. Adult topics are fine to discuss."},
                     {"role": "user", "content": ask}
                 ],
                 "max_tokens": 5000,
@@ -442,7 +442,7 @@ class Gemini(commands.Cog):
             payload = {
                 "model": "claude-opus-4.5",
                 "messages": [
-                    {"role": "system", "content": "You're an AI assistant with attitude - inspired by Stinkmeaner from The Boondocks. Helpful but no yes-man. Push back on bad ideas, give real opinions, and don't be a sycophant. Genuinely useful, just not overly agreeable. You have web search results and Discord context to answer current events questions. Keep answers brief. You can discuss crass and adult topics."},
+                    {"role": "system", "content": "You're a helpful AI assistant who gives honest, direct answers. Don't be a yes-man - if someone's idea has flaws, say so. Give genuine opinions when asked. Push back when warranted. Be useful without being overly agreeable or flattering. You have web search results and Discord context to answer current events questions. Keep responses concise. Adult topics are fine to discuss."},
                     {"role": "user", "content": ask}
                 ],
                 "max_tokens": 5000,
