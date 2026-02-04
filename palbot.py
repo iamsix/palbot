@@ -118,7 +118,7 @@ class PalBot(commands.Bot):
             self.recent_posts.remove(remove)
 
     async def on_message_edit(self, before, after):
-        # Consider iterating copy to prevent race condition
+        # Check if this was a tracked message (bot already responded)
         for user_msg, bot_msg, pg in self.recent_posts:
             if before.id == user_msg.id:
                 if pg:
@@ -127,7 +127,13 @@ class PalBot(commands.Bot):
                 ctx = await self.get_context(after, cls=self.utils.MoreContext)
                 ctx.override_send_for_edit = (after, bot_msg)
                 await self.invoke(ctx)
-                break
+                return
+        
+        # If not tracked, treat edited message as a new command
+        # (handles case where user corrects a typo in command)
+        if after.content.startswith(tuple(self.command_prefix)):
+            ctx = await self.get_context(after, cls=self.utils.MoreContext)
+            await self.invoke(ctx)
             
     def run(self):
         super().run(config.token, reconnect=True)
