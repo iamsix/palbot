@@ -64,9 +64,9 @@ class Gemini(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.chats = {}
-        self.listeners = []
+        self.listeners = allowed_channels.copy()
         # for testing for now...
-        # self.listeners.remove(1337293879153791036)
+        self.listeners.remove(1337293879153791036)
         self.last_stats = {}
         self.keys = cycle(self.bot.config.gemini_keys)
 
@@ -287,8 +287,7 @@ class Gemini(commands.Cog):
         cursor = await db.execute(
             """SELECT m.user_id, u.canon_nick, m.message FROM messages m
                JOIN users u ON m.user_id = u.user_id
-               WHERE m.channel_id = ? AND m.snowflake > ? AND m.message != '' 
-               AND m.deleted = 0 AND m.ephemeral = 0
+               WHERE m.channel_id = ? AND m.snowflake > ? AND m.message != '' AND m.deleted = 0 AND m.ephemeral = 0
                ORDER BY m.snowflake ASC""",
             [ctx.channel.id, cutoff_snowflake]
         )
