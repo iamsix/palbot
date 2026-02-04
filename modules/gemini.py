@@ -191,7 +191,7 @@ class Gemini(commands.Cog):
         cutoff_snowflake = (cutoff_timestamp_ms - 1420070400000) << 22
         
         cursor = await db.execute(
-            """SELECT u.canon_nick, m.message FROM messages m
+            """SELECT m.user_id, u.canon_nick, m.message FROM messages m
                JOIN users u ON m.user_id = u.user_id
                WHERE m.channel_id = ? AND m.snowflake > ? AND m.message != '' AND m.deleted = 0
                ORDER BY m.snowflake ASC""",
@@ -202,7 +202,8 @@ class Gemini(commands.Cog):
         if not rows:
             return ""
         
-        msgs = [f"{row[0]}: {row[1]}" for row in rows]
+        # Use @mentions so AI output references real users
+        msgs = [f"<@{row[0]}>: {row[2]}" for row in rows]
         return "Recent channel conversation:\n" + "\n".join(msgs)
 
     @commands.command()
