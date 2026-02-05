@@ -268,13 +268,16 @@ class Gemini(commands.Cog):
         cutoff_timestamp_ms = (int(time.time()) - (hours * 3600)) * 1000
         cutoff_snowflake = (cutoff_timestamp_ms - 1420070400000) << 22
         
+        # Exclude bot's own messages to avoid self-referential loops
+        bot_user_id = self.bot.user.id
+        
         cursor = await db.execute(
             """SELECT m.user_id, u.canon_nick, m.message FROM messages m
                JOIN users u ON m.user_id = u.user_id
                WHERE m.channel_id = ? AND m.snowflake > ? AND m.message != '' 
-               AND m.deleted = 0 AND m.ephemeral = 0
+               AND m.deleted = 0 AND m.ephemeral = 0 AND m.user_id != ?
                ORDER BY m.snowflake ASC""",
-            [ctx.channel.id, cutoff_snowflake]
+            [ctx.channel.id, cutoff_snowflake, bot_user_id]
         )
         rows = await cursor.fetchall()
         
