@@ -462,21 +462,20 @@ STRICT RULES:
                     self.bot, original_ask, return_full_data=True
                 )
                 if search_results:
-                    web_content = []
-                    # Fetch actual content from top 3 results
-                    for i, result in enumerate(search_results[:3]):
+                    # Fetch content from top 3 results in parallel
+                    async def fetch_result(i, result):
                         title = result.get('title', '')
                         link = result.get('link', '')
                         snippet = result.get('snippet', '').replace('\n', ' ')
-                        
-                        # Try to fetch page content
                         page_text = await self.fetch_page_text(link, max_chars=3000)
-                        
                         if page_text:
-                            web_content.append(f"[Source {i+1}] {title}\nURL: {link}\nContent: {page_text}")
+                            return f"[Source {i+1}] {title}\nURL: {link}\nContent: {page_text}"
                         else:
-                            # Fall back to snippet if fetch fails
-                            web_content.append(f"[Source {i+1}] {title}\nURL: {link}\nSnippet: {snippet}")
+                            return f"[Source {i+1}] {title}\nURL: {link}\nSnippet: {snippet}"
+                    
+                    import asyncio
+                    tasks = [fetch_result(i, r) for i, r in enumerate(search_results[:3])]
+                    web_content = await asyncio.gather(*tasks)
                     
                     if web_content:
                         context_sections.append(f'<web_search_results>\n' + "\n\n".join(web_content) + '\n</web_search_results>')
