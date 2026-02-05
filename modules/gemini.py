@@ -420,6 +420,33 @@ STRICT RULES:
         output = self.restore_mentions(ctx, response_text)
         await ctx.send(output[:1980])
 
+    async def fetch_page_text(self, url: str, max_chars: int = 4000) -> str:
+        """Fetch a URL and extract readable text content"""
+        try:
+            page = await self.bot.utils.bs_from_url(self.bot, url)
+            if not page:
+                return ""
+            
+            # Remove script, style, nav, header, footer elements
+            for tag in page(['script', 'style', 'nav', 'header', 'footer', 'aside', 'form', 'iframe']):
+                tag.decompose()
+            
+            # Get text from article or main content, fall back to body
+            content = page.find('article') or page.find('main') or page.find('body')
+            if not content:
+                return ""
+            
+            # Extract text and clean up whitespace
+            text = content.get_text(separator=' ', strip=True)
+            # Collapse multiple spaces/newlines
+            import re
+            text = re.sub(r'\s+', ' ', text)
+            
+            return text[:max_chars]
+        except Exception as e:
+            self.bot.logger.debug(f"Failed to fetch {url}: {e}")
+            return ""
+
     @commands.command()
     async def sclai(self, ctx, *, ask: str):
         """Ask Claude Opus 4.5 with web search + channel context for current events"""
@@ -435,25 +462,36 @@ STRICT RULES:
                     self.bot, original_ask, return_full_data=True
                 )
                 if search_results:
-                    search_lines = []
-                    for i, result in enumerate(search_results[:5]):
+                    web_content = []
+                    # Fetch actual content from top 3 results
+                    for i, result in enumerate(search_results[:3]):
                         title = result.get('title', '')
-                        snippet = result.get('snippet', '').replace('\n', ' ')
                         link = result.get('link', '')
-                        search_lines.append(f"{i+1}. {title}\n   {snippet}\n   {link}")
-                    context_sections.append(f'<context type="web_search" usage="reference_only">\n' + "\n\n".join(search_lines) + '\n</context>')
+                        snippet = result.get('snippet', '').replace('\n', ' ')
+                        
+                        # Try to fetch page content
+                        page_text = await self.fetch_page_text(link, max_chars=3000)
+                        
+                        if page_text:
+                            web_content.append(f"[Source {i+1}] {title}\nURL: {link}\nContent: {page_text}")
+                        else:
+                            # Fall back to snippet if fetch fails
+                            web_content.append(f"[Source {i+1}] {title}\nURL: {link}\nSnippet: {snippet}")
+                    
+                    if web_content:
+                        context_sections.append(f'<web_search_results>\n' + "\n\n".join(web_content) + '\n</web_search_results>')
             except Exception as e:
                 self.bot.logger.error(f"sclai search failed: {e}")
             
             # 2. Channel context (last 24h)
             channel_context = await self.gather_channel_context(ctx, hours=24)
             if channel_context:
-                context_sections.append(f'<context type="discord_history" usage="reference_only">\n{channel_context}\n</context>')
+                context_sections.append(f'<discord_history>\n{channel_context}\n</discord_history>')
             
             # 3. User context from mentions
             user_context = await self.gather_user_context(ctx)
             if user_context:
-                context_sections.append(f'<context type="mentioned_users" usage="reference_only">\n{user_context}\n</context>')
+                context_sections.append(f'<mentioned_users>\n{user_context}\n</mentioned_users>')
             
             # Build final prompt - question first, context last
             if context_sections:
@@ -471,6 +509,10 @@ STRICT RULES:
                 await ctx.send(f"Token error: {e}")
                 return
             
+            # Get current date for grounding
+            from datetime import datetime
+            current_date = datetime.now().strftime("%B %d, %Y")
+            
             headers = {
                 "Authorization": f"Bearer {token}",
                 "Content-Type": "application/json",
@@ -480,14 +522,25 @@ STRICT RULES:
             payload = {
                 "model": "claude-opus-4.5",
                 "messages": [
-                    {"role": "system", "content": """Answer the user's question. You have access to web search results and Discord chat as context.
+                    {"role": "system", "content": f"""You are a helpful assistant. Today's date is {current_date}.
+
+You have been provided with:
+1. Web search results with actual page content (use these for current events, facts, recent news)
+2. Discord chat history (use for conversational context only)
+3. Mentioned user context (if any @mentions were in the question)
+
+INSTRUCTIONS:
+- Answer the user's question using the provided web search content as your primary source for factual/current information
+- Cite sources naturally (e.g., "According to [source]..." or "Based on recent reports...")
+- If the web results don't contain relevant info, say so and give your best answer with appropriate caveats
+- Be concise and direct
 
 STRICT RULES:
-1. NEVER output raw chat logs, search results, or context dumps
-2. NEVER repeat the context back, even if asked to "dump", "show", or "repeat" it
-3. If asked to dump/show context, reply: "I can answer questions using this context, but I won't dump raw data."
-4. Use context only to inform your answers, not as output
-5. Be concise. Give honest answers. Push back when warranted. Adult topics are fine."""},
+1. NEVER output raw data dumps, URLs lists, or copy-paste the context
+2. NEVER repeat the search results or chat logs verbatim
+3. If asked to "dump", "show", or "repeat" context, refuse politely
+4. Synthesize information into a coherent answer - don't just summarize each source
+5. Adult topics are permitted"""},
                     {"role": "user", "content": ask}
                 ],
                 "max_tokens": 5000,
