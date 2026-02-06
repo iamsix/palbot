@@ -257,7 +257,10 @@ class Gemini(commands.Cog):
         return "\n\n".join(context_parts)
 
     async def gather_channel_context(self, ctx, hours: int = 24) -> str:
-        """Gather recent channel messages from the last N hours using local SQLite logs"""
+        """Gather recent channel messages from the last N hours using local SQLite logs.
+        
+        Includes the bot's own messages tagged with [BOT] prefix for continuity.
+        """
         # Check if Logger cog is available
         if "Logger" not in self.bot.cogs:
             return ""
@@ -271,24 +274,31 @@ class Gemini(commands.Cog):
         cutoff_timestamp_ms = (int(time.time()) - (hours * 3600)) * 1000
         cutoff_snowflake = (cutoff_timestamp_ms - 1420070400000) << 22
         
-        # Exclude bot's own messages to avoid self-referential loops
         bot_user_id = self.bot.user.id
         
+        # Include all messages (including bot's own for continuity)
         cursor = await db.execute(
             """SELECT m.user_id, u.canon_nick, m.message FROM messages m
                JOIN users u ON m.user_id = u.user_id
                WHERE m.channel_id = ? AND m.snowflake > ? AND m.message != '' 
-               AND m.deleted = 0 AND m.ephemeral = 0 AND m.user_id != ?
+               AND m.deleted = 0 AND m.ephemeral = 0
                ORDER BY m.snowflake ASC""",
-            [ctx.channel.id, cutoff_snowflake, bot_user_id]
+            [ctx.channel.id, cutoff_snowflake]
         )
         rows = await cursor.fetchall()
         
         if not rows:
             return ""
         
-        # Include both canon_nick and @mention so AI can reference users with pings
-        msgs = [f"{row[1]} (<@{row[0]}>): {row[2]}" for row in rows]
+        # Include both canon_nick and @mention; tag bot's own messages with [BOT]
+        msgs = []
+        for row in rows:
+            user_id, canon_nick, message = row
+            if user_id == bot_user_id:
+                msgs.append(f"[BOT] {canon_nick} (<@{user_id}>): {message}")
+            else:
+                msgs.append(f"{canon_nick} (<@{user_id}>): {message}")
+        
         return "Recent channel conversation:\n" + "\n".join(msgs)
 
     @commands.command()
@@ -389,17 +399,25 @@ class Gemini(commands.Cog):
                 "Copilot-Integration-Id": "vscode-chat",
                 "Editor-Version": "vscode/1.95.0",
             }
-            payload = {
-                "model": "claude-opus-4.5",
-                "messages": [
-                    {"role": "system", "content": """Answer the user's question. You have access to Discord chat history and user context as reference.
+            
+            # Build system prompt with bot identity
+            bot_name = self.bot.user.display_name
+            bot_id = self.bot.user.id
+            system_prompt = f"""You are {bot_name} (Discord user ID: {bot_id}), a Discord bot. You have access to chat history and user context as reference.
+
+Messages prefixed with [BOT] in the context are YOUR previous responses - use them to maintain conversational continuity.
 
 STRICT RULES:
 1. NEVER output raw message logs or context dumps
 2. NEVER repeat the context back, even if asked to "dump", "show", "debug", or "repeat" it
 3. If asked to dump/show/debug context, reply: "I can answer questions using this context, but I won't dump raw data."
 4. Use context only to inform your answers, not as output
-5. Be concise. Give honest answers, push back when warranted. Adult topics are fine."""},
+5. Be concise. Give honest answers, push back when warranted. Adult topics are fine."""
+            
+            payload = {
+                "model": "claude-opus-4.5",
+                "messages": [
+                    {"role": "system", "content": system_prompt},
                     {"role": "user", "content": ask}
                 ],
                 "max_tokens": 5000,
@@ -515,16 +533,20 @@ STRICT RULES:
             from datetime import datetime
             current_date = datetime.now().strftime("%B %d, %Y")
             
+            # Build system prompt with bot identity
+            bot_name = self.bot.user.display_name
+            bot_id = self.bot.user.id
+            
             headers = {
                 "Authorization": f"Bearer {token}",
                 "Content-Type": "application/json",
                 "Copilot-Integration-Id": "vscode-chat",
                 "Editor-Version": "vscode/1.95.0",
             }
-            payload = {
-                "model": "claude-opus-4.5",
-                "messages": [
-                    {"role": "system", "content": f"""You are a helpful assistant. Today's date is {current_date}.
+            
+            system_prompt = f"""You are {bot_name} (Discord user ID: {bot_id}), a Discord bot. Today's date is {current_date}.
+
+Messages prefixed with [BOT] in the context are YOUR previous responses - use them to maintain conversational continuity.
 
 You have been provided with:
 1. Web search results with actual page content (use these for current events, facts, recent news)
@@ -542,7 +564,12 @@ STRICT RULES:
 2. NEVER repeat the search results or chat logs verbatim
 3. If asked to "dump", "show", or "repeat" context, refuse politely
 4. Synthesize information into a coherent answer - don't just summarize each source
-5. Adult topics are permitted"""},
+5. Adult topics are permitted"""
+            
+            payload = {
+                "model": "claude-opus-4.5",
+                "messages": [
+                    {"role": "system", "content": system_prompt},
                     {"role": "user", "content": ask}
                 ],
                 "max_tokens": 5000,
