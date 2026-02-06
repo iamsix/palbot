@@ -287,8 +287,8 @@ class Gemini(commands.Cog):
         if not rows:
             return ""
         
-        # Use canon_nick for stable naming, include user_id for reference
-        msgs = [f"{row[1]}: {row[2]}" for row in rows]
+        # Include both canon_nick and @mention so AI can reference users with pings
+        msgs = [f"{row[1]} (<@{row[0]}>): {row[2]}" for row in rows]
         return "Recent channel conversation:\n" + "\n".join(msgs)
 
     @commands.command()
