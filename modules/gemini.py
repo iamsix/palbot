@@ -236,18 +236,21 @@ class Gemini(commands.Cog):
         context_parts = []
         for user in mentioned:
             cursor = await db.execute(
-                """SELECT message FROM messages 
-                   WHERE user_id = ? AND channel_id = ? AND message != '' AND deleted = 0
-                   ORDER BY snowflake DESC 
+                """SELECT u.canon_nick, m.message FROM messages m
+                   JOIN users u ON m.user_id = u.user_id
+                   WHERE m.user_id = ? AND m.channel_id = ? AND m.message != '' AND m.deleted = 0
+                   ORDER BY m.snowflake DESC 
                    LIMIT ?""",
                 [user.id, ctx.channel.id, max_msgs_per_user]
             )
             rows = await cursor.fetchall()
             
             if rows:
+                # Use canon_nick from DB, rows are (canon_nick, message)
+                canon_nick = rows[0][0] or user.display_name
                 # Reverse to get chronological order (oldest first)
-                msgs = [f"{user.display_name}: {row[0]}" for row in reversed(rows)]
-                context_parts.append(f"Recent messages from {user.display_name}:\n" + "\n".join(msgs))
+                msgs = [f"{canon_nick}: {row[1]}" for row in reversed(rows)]
+                context_parts.append(f"Recent messages from {canon_nick}:\n" + "\n".join(msgs))
             else:
                 context_parts.append(f"No recent messages found for {user.display_name} in this channel.")
         
@@ -284,8 +287,8 @@ class Gemini(commands.Cog):
         if not rows:
             return ""
         
-        # Use @mentions so AI output references real users
-        msgs = [f"<@{row[0]}>: {row[2]}" for row in rows]
+        # Use canon_nick for stable naming, include user_id for reference
+        msgs = [f"{row[1]}: {row[2]}" for row in rows]
         return "Recent channel conversation:\n" + "\n".join(msgs)
 
     @commands.command()
