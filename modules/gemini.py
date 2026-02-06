@@ -146,6 +146,20 @@ class Gemini(commands.Cog):
             text = text.replace(user.display_name, f'<@{user.id}>')
         return text
 
+    def restore_mentions_from_lookup(self, text: str, user_lookup: dict) -> str:
+        """Replace canon_nicks with Discord mentions using a lookup dict.
+        
+        Args:
+            text: The text to process
+            user_lookup: dict mapping canon_nick -> user_id
+        """
+        # Sort by length descending to avoid partial replacements
+        # e.g., "Ryan" shouldn't match inside "RyanTheGreat"
+        for canon_nick in sorted(user_lookup.keys(), key=len, reverse=True):
+            user_id = user_lookup[canon_nick]
+            text = text.replace(canon_nick, f'<@{user_id}>')
+        return text
+
     async def get_copilot_token(self):
         """Get a valid GitHub Copilot API token, refreshing if needed.
         
@@ -236,28 +250,36 @@ class Gemini(commands.Cog):
         context_parts = []
         for user in mentioned:
             cursor = await db.execute(
-                """SELECT message FROM messages 
-                   WHERE user_id = ? AND channel_id = ? AND message != '' AND deleted = 0
-                   ORDER BY snowflake DESC 
+                """SELECT u.canon_nick, m.message FROM messages m
+                   JOIN users u ON m.user_id = u.user_id
+                   WHERE m.user_id = ? AND m.channel_id = ? AND m.message != '' AND m.deleted = 0
+                   ORDER BY m.snowflake DESC 
                    LIMIT ?""",
                 [user.id, ctx.channel.id, max_msgs_per_user]
             )
             rows = await cursor.fetchall()
             
             if rows:
+                # Use canon_nick from DB, rows are (canon_nick, message)
+                canon_nick = rows[0][0] or user.display_name
                 # Reverse to get chronological order (oldest first)
-                msgs = [f"{user.display_name}: {row[0]}" for row in reversed(rows)]
-                context_parts.append(f"Recent messages from {user.display_name}:\n" + "\n".join(msgs))
+                msgs = [f"{canon_nick}: {row[1]}" for row in reversed(rows)]
+                context_parts.append(f"Recent messages from {canon_nick}:\n" + "\n".join(msgs))
             else:
                 context_parts.append(f"No recent messages found for {user.display_name} in this channel.")
         
         return "\n\n".join(context_parts)
 
-    async def gather_channel_context(self, ctx, hours: int = 24) -> str:
-        """Gather recent channel messages from the last N hours using local SQLite logs"""
+    async def gather_channel_context(self, ctx, hours: int = 24) -> tuple[str, dict]:
+        """Gather recent channel messages from the last N hours using local SQLite logs.
+        
+        Returns:
+            tuple of (context_string, user_lookup_dict)
+            user_lookup_dict maps canon_nick -> user_id for mention restoration
+        """
         # Check if Logger cog is available
         if "Logger" not in self.bot.cogs:
-            return ""
+            return "", {}
         
         logger_cog = self.bot.cogs['Logger']
         db = await logger_cog.get_db(ctx.guild)
@@ -282,11 +304,18 @@ class Gemini(commands.Cog):
         rows = await cursor.fetchall()
         
         if not rows:
-            return ""
+            return "", {}
         
-        # Use @mentions so AI output references real users
-        msgs = [f"<@{row[0]}>: {row[2]}" for row in rows]
-        return "Recent channel conversation:\n" + "\n".join(msgs)
+        # Build user lookup: canon_nick -> user_id
+        user_lookup = {}
+        for row in rows:
+            user_id, canon_nick, _ = row
+            if canon_nick and canon_nick not in user_lookup:
+                user_lookup[canon_nick] = user_id
+        
+        # Use canon_nick for stable naming
+        msgs = [f"{row[1]}: {row[2]}" for row in rows]
+        return "Recent channel conversation:\n" + "\n".join(msgs), user_lookup
 
     @commands.command()
     async def sai(self, ctx, *, ask: str):
@@ -353,11 +382,13 @@ class Gemini(commands.Cog):
             ask = self.resolve_mentions(ctx, ask)
             
             context_sections = []
+            user_lookup = {}
             
             # Gather last 24 hours of channel messages
-            channel_context = await self.gather_channel_context(ctx, hours=24)
+            channel_context, channel_users = await self.gather_channel_context(ctx, hours=24)
             if channel_context:
                 context_sections.append(f'<context type="discord_history" usage="internal_reference_only">\n{channel_context}\n</context>')
+                user_lookup.update(channel_users)
             
             # Gather context from mentioned users
             user_context = await self.gather_user_context(ctx)
@@ -416,8 +447,9 @@ STRICT RULES:
                     data = await resp.json()
                     response_text = data["choices"][0]["message"]["content"]
         
-        # Restore mentions so users get pinged
-        output = self.restore_mentions(ctx, response_text)
+        # Restore mentions from context user lookup, then from direct mentions
+        output = self.restore_mentions_from_lookup(response_text, user_lookup)
+        output = self.restore_mentions(ctx, output)
         await ctx.send(output[:1980])
 
     async def fetch_page_text(self, url: str, max_chars: int = 4000) -> str:
@@ -455,6 +487,7 @@ STRICT RULES:
             ask = self.resolve_mentions(ctx, ask)
             
             context_sections = []
+            user_lookup = {}
             
             # 1. Web search for current info (use original question)
             try:
@@ -483,9 +516,10 @@ STRICT RULES:
                 self.bot.logger.error(f"sclai search failed: {e}")
             
             # 2. Channel context (last 24h)
-            channel_context = await self.gather_channel_context(ctx, hours=24)
+            channel_context, channel_users = await self.gather_channel_context(ctx, hours=24)
             if channel_context:
                 context_sections.append(f'<discord_history>\n{channel_context}\n</discord_history>')
+                user_lookup.update(channel_users)
             
             # 3. User context from mentions
             user_context = await self.gather_user_context(ctx)
@@ -559,8 +593,9 @@ STRICT RULES:
                     data = await resp.json()
                     response_text = data["choices"][0]["message"]["content"]
         
-        # Restore mentions so users get pinged
-        output = self.restore_mentions(ctx, response_text)
+        # Restore mentions from context user lookup, then from direct mentions
+        output = self.restore_mentions_from_lookup(response_text, user_lookup)
+        output = self.restore_mentions(ctx, output)
         await ctx.send(output[:1980])
 
     @commands.command(hidden=True)
