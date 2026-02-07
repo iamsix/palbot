@@ -75,8 +75,7 @@ class Paginator:
                     await self.message.clear_reaction('\N{BLACK RIGHT-POINTING TRIANGLE}\N{VARIATION SELECTOR-16}')
                 except:
                     pass
-                finally:
-                    break
+                break
             await self.func()
 
 
