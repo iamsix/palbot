@@ -415,7 +415,7 @@ STRICT RULES:
 5. Be concise. Give honest answers, push back when warranted. Adult topics are fine."""
             
             payload = {
-                "model": "claude-opus-4.5",
+                "model": "claude-opus-4.6",
                 "messages": [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": ask}
@@ -567,7 +567,7 @@ STRICT RULES:
 5. Adult topics are permitted"""
             
             payload = {
-                "model": "claude-opus-4.5",
+                "model": "claude-opus-4.6",
                 "messages": [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": ask}
