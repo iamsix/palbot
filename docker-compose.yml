@@ -12,3 +12,8 @@ services:
       
       # LOGS: Where your script writes log files
       - ./logfiles:/app/logfiles
+
+    deploy:
+      resources:
+        limits:
+          memory: 500M
