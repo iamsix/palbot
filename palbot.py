@@ -69,7 +69,7 @@ class PalBot(commands.Bot):
                 print(f'Failed to load cog {module}', file=sys.stderr)
                 traceback.print_exception(type(e), e, e.__traceback__, file=sys.stderr)
         if 'Chat' in self.cogs:
-            self.cc_conn = await aiosqlite.connect("customcommands.sqlite")
+            self.cc_conn = await aiosqlite.connect("data/customcommands.sqlite")
 
     async def on_command_error(self, ctx, error):
         if isinstance(error, commands.CommandNotFound) and self.cc_conn:
