@@ -3,7 +3,7 @@ from aiohttp import ClientSession, ClientTimeout, TCPConnector
 
 import discord
 from discord.ext import commands
-import config
+import config.config as config
 
 from pathlib import Path
 
@@ -15,7 +15,7 @@ from collections import deque
 
 
 FORMAT = "[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s"
-logging.basicConfig(filename='debug.log',level=logging.INFO, format=FORMAT)
+logging.basicConfig(filename='logfiles/debug.log',level=logging.INFO, format=FORMAT)
 
 intents = discord.Intents.all()
 intents.members = True
@@ -34,7 +34,8 @@ class PalBot(commands.Bot):
         
         self.logger = logging.getLogger("palbot")
         self.moddir = "modules"
-        self.config = __import__('config')
+        # self.config = __import__('config.config')
+        self.config = config
         self.utils = __import__('utils')
         # for the custom commands so I don't need to reopen the db each time
         self.cc_conn = None

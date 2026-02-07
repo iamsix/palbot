@@ -51,12 +51,12 @@ class Trivia(commands.Cog):
         self.question_channel = None
 
     async def cog_load(self):
-        self.clues_conn = await aiosqlite.connect("clues.db")
+        self.clues_conn = await aiosqlite.connect("data/clues.db")
         async with self.clues_conn.execute("SELECT Count(*) FROM clues") as c:
             res = await c.fetchone()
             self.clue_count = int(res[0])
 
-        self.scores_conn = await aiosqlite.connect("triviascores.sqlite")
+        self.scores_conn = await aiosqlite.connect("data/triviascores.sqlite")
         q = '''CREATE TABLE IF NOT EXISTS 'scores' (
                 "dateid" date NOT NULL UNIQUE, 
                 numqs integer, "scores" text

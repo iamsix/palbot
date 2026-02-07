@@ -1,0 +1,14 @@
+services:
+  palbot:
+    build: .
+    container_name: palbot_app
+    restart: always
+    volumes:
+      # CONFIG: Mount a single file or a folder
+      - ./config:/app/config:ro
+      
+      # DATA: Where your SQLite db lives
+      - ./data:/app/data
+      
+      # LOGS: Where your script writes log files
+      - ./logfiles:/app/logfiles

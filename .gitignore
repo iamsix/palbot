@@ -54,10 +54,9 @@ Temporary Items
 *.sqlite
 *.sqlite3
 *.sqlite-journal
-clues.db
-palbot.cfg
-config.py
 debug.log
 __pycache__
 logfiles/
+config/config.py
+data/
 modules/disabled

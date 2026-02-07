@@ -95,7 +95,7 @@ class Reminder(commands.Cog):
         self.bot = bot
 
     async def cog_load(self):
-        self.conn = await aiosqlite.connect("reminders.sqlite")
+        self.conn = await aiosqlite.connect("data/reminders.sqlite")
 
         q = '''CREATE TABLE IF NOT EXISTS 'reminders' (
                 "timestamp" integer, "channel" integer, 

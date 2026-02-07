@@ -149,7 +149,7 @@ class AuthorInfo:
         self.user_id = user.id
         self.user = user
 
-        self.conn = sqlite3.connect('userinfo.sqlite')
+        self.conn = sqlite3.connect('data/userinfo.sqlite')
         self.c = self.conn.cursor()
         # username field is never queried, just exists for convenient lookup when manually checking db entries
         self.c.execute('''CREATE TABLE IF NOT EXISTS userinfo (user integer, username text, field text, data text);''')

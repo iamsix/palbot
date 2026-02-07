@@ -24,7 +24,7 @@ class Stars(commands.Cog):
         self.bot = bot
 
     async def cog_load(self):
-        self.conn = await aiosqlite.connect("stars.sqlite3")
+        self.conn = await aiosqlite.connect("data/stars.sqlite3")
         await self.conn.execute("""CREATE TABLE IF NOT EXISTS 'posts' (
             'original' INTEGER UNIQUE ON CONFLICT REPLACE, 'starpost' INTEGER );""")
         await self.conn.execute("""CREATE TABLE IF NOT EXISTS 'settings' (

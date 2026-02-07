@@ -55,7 +55,7 @@ class Chat(commands.Cog):
         self.bot.tree.add_command(self.cmd_menu)
 
     async def cog_load(self):
-        self.tags_conn = await aiosqlite.connect("tags.sqlite")
+        self.tags_conn = await aiosqlite.connect("data/tags.sqlite")
         q = '''CREATE TABLE IF NOT EXISTS 'tags' (
             "untag_timestamp" integer, 
             "guild" integer, 
@@ -64,7 +64,7 @@ class Chat(commands.Cog):
             "plaintext" text);'''
         await self.tags_conn.execute(q)
         
-        self.custom_command_conn = await aiosqlite.connect("customcommands.sqlite")
+        self.custom_command_conn = await aiosqlite.connect("data/customcommands.sqlite")
         await self.custom_command_conn.execute(
             "CREATE TABLE IF NOT EXISTS 'commands' ("
             "'cmd' TEXT UNIQUE ON CONFLICT REPLACE, "

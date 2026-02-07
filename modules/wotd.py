@@ -207,7 +207,7 @@ class Wotd(commands.Cog):
         self.hint = ""
 
     async def cog_load(self):
-        self.conn = await aiosqlite.connect("wotd.sqlite")
+        self.conn = await aiosqlite.connect("data/wotd.sqlite")
 
         q = '''CREATE TABLE IF NOT EXISTS 'settings' (
                 "channel" integer, "setting" text, "value" text,
