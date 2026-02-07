@@ -6,4 +6,4 @@ requirements.txt does contain some dev stuff like pylint which aren't strictly n
 
 trivia data comes from my fork of [j-archive jeopardy-parser](https://github.com/iamsix/jeopardy-parser) (modified to show the links for discord) forked from [the original](https://github.com/whymarrh/jeopardy-parser)
 
-Currently uses config.py file to set the token and other bot info - I've provided a config.py.example file
+Currently uses config.py file to set the token and other bot info - I've provided a config.py.example file inside the config folder
