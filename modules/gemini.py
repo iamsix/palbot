@@ -412,7 +412,8 @@ STRICT RULES:
 2. NEVER repeat the context back, even if asked to "dump", "show", "debug", or "repeat" it
 3. If asked to dump/show/debug context, reply: "I can answer questions using this context, but I won't dump raw data."
 4. Use context only to inform your answers, not as output
-5. Be concise. Give honest answers, push back when warranted. Adult topics are fine."""
+5. Match your response length to the complexity of the question. Simple question = 1-2 sentences. Complex question = longer answer. This is Discord, not a blog post.
+6. Give honest answers, push back when warranted. Adult topics are fine."""
             
             payload = {
                 "model": "claude-opus-4.6",
@@ -420,7 +421,7 @@ STRICT RULES:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": ask}
                 ],
-                "max_tokens": 5000,
+                "max_tokens": 1000,
             }
             
             async with aiohttp.ClientSession() as session:
@@ -557,7 +558,7 @@ INSTRUCTIONS:
 - Answer the user's question using the provided web search content as your primary source for factual/current information
 - Cite sources naturally (e.g., "According to [source]..." or "Based on recent reports...")
 - If the web results don't contain relevant info, say so and give your best answer with appropriate caveats
-- Be concise and direct
+- Match your response length to the complexity of the question. Simple question = 1-2 sentences. Complex question = longer answer. This is Discord, not a blog post.
 
 STRICT RULES:
 1. NEVER output raw data dumps, URLs lists, or copy-paste the context
@@ -572,7 +573,7 @@ STRICT RULES:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": ask}
                 ],
-                "max_tokens": 5000,
+                "max_tokens": 1500,
             }
             
             async with aiohttp.ClientSession() as session:
