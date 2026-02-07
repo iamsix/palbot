@@ -1,6 +1,6 @@
 # Ignore local data and logs so they don't bloat the image
 data/
-logs/
+logfiles/
 config/
 venv/
 .git/
