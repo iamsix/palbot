@@ -8,6 +8,16 @@ from discord.ext import commands
 import discord
 from modules.ai_cache import AICache, estimate_tokens, calculate_cost, SETTINGS_SPEC
 
+BOT_ADMIN_ROLE = "Bot Admin"
+
+def is_bot_admin():
+    """Check: bot owner OR has the Bot Admin role."""
+    async def predicate(ctx):
+        if await ctx.bot.is_owner(ctx.author):
+            return True
+        return any(role.name == BOT_ADMIN_ROLE for role in ctx.author.roles)
+    return commands.check(predicate)
+
 
 class Copilot(commands.Cog):
     DISCORD_EPOCH = 1420070400000  # Jan 1, 2015 in ms
@@ -762,7 +772,7 @@ STRICT RULES:
         await ctx.send(output[:1980])
 
     @commands.command()
-    @commands.is_owner()
+    @is_bot_admin()
     async def claiconfig(self, ctx, key: str = None, value: str = None):
         """Show or change AI compaction settings (owner only)"""
         guild_id = ctx.guild.id
@@ -795,7 +805,7 @@ STRICT RULES:
             await ctx.send(f"❌ {err}")
 
     @commands.command()
-    @commands.is_owner()
+    @is_bot_admin()
     async def claireset(self, ctx, scope: str = None):
         """Nuke compaction cache and immediately rebuild (owner only)
 
