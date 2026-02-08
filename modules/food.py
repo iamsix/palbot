@@ -208,8 +208,8 @@ class Food(commands.Cog):
         if not url:
             await ctx.send(f"Unabled to find a wine named `{wine}` on Vivino")
             return
-        
-        winepage = await self.bot.utils.bs_from_url(self.bot, url[0])
+        headers = {'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:147.0) Gecko/20100101 Firefox/147.0"}
+        winepage = await self.bot.utils.bs_from_url(self.bot, url[0], headers=headers)
 
         script = winepage.find("script", text=self.wine_pat)
         js_data = None
