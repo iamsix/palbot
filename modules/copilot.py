@@ -308,8 +308,9 @@ Keep the summary under {compact_max_tokens} tokens."""
         usage = data.get("usage", {})
         input_tokens = usage.get("prompt_tokens", estimate_tokens(messages_text))
         output_tokens = usage.get("completion_tokens", estimate_tokens(summary))
+        cached_tokens = (usage.get("prompt_tokens_details") or {}).get("cached_tokens", 0)
 
-        return summary, input_tokens, output_tokens
+        return summary, input_tokens, output_tokens, cached_tokens
 
     def _trim_messages_to_budget(self, msgs: list, bot_user_id: int, max_tokens: int) -> list:
         """Trim oldest messages until formatted output fits within max_tokens.
@@ -405,13 +406,14 @@ Keep the summary under {compact_max_tokens} tokens."""
                         # Too small to bother compacting
                         return "Recent channel conversation:\n" + self._format_messages(all_msgs, bot_user_id)
 
-                    summary, in_tok, out_tok = await self._do_compaction(
+                    summary, in_tok, out_tok, cached_comp = await self._do_compaction(
                         ctx, older_text, compact_max_tokens, compact_model, token, base_url)
 
                     # Log compaction usage
                     await self.ai_cache.log_usage(
                         channel_id, guild_id, "compaction",
-                        in_tok, out_tok, compact_model)
+                        in_tok, out_tok, compact_model,
+                        cached_tokens=cached_comp)
 
                     # Update cache
                     newest_older = older_msgs[-1][3]
@@ -479,13 +481,14 @@ Keep the summary under {compact_max_tokens} tokens."""
                 return "Recent channel conversation:\n" + self._format_messages(all_msgs, bot_user_id)
 
             try:
-                summary, in_tok, out_tok = await self._do_compaction(
+                summary, in_tok, out_tok, cached_comp = await self._do_compaction(
                     ctx, older_text, compact_max_tokens, compact_model, token, base_url)
 
                 # Log compaction
                 await self.ai_cache.log_usage(
                     channel_id, guild_id, "compaction",
-                    in_tok, out_tok, compact_model)
+                    in_tok, out_tok, compact_model,
+                    cached_tokens=cached_comp)
 
                 # Store cache
                 newest_older = older_msgs[-1][3]
@@ -613,14 +616,18 @@ RULES:
                     usage = data.get("usage", {})
                     in_tok = usage.get("prompt_tokens", estimate_tokens(ask))
                     out_tok = usage.get("completion_tokens", estimate_tokens(response_text))
+                    cached_tok = (usage.get("prompt_tokens_details") or {}).get("cached_tokens", 0)
                     await self.ai_cache.log_usage(
                         ctx.channel.id, ctx.guild.id, "clai",
-                        in_tok, out_tok, answer_model)
+                        in_tok, out_tok, answer_model,
+                        cached_tokens=cached_tok)
 
                     if show_debug:
                         debug_parts.append(f"in={in_tok}")
+                        if cached_tok:
+                            debug_parts.append(f"cached={cached_tok}")
                         debug_parts.append(f"out={out_tok}")
-                        cost = calculate_cost(answer_model, in_tok, out_tok)
+                        cost = calculate_cost(answer_model, in_tok, out_tok, cached_tok)
                         debug_parts.append(f"${cost:.4f}")
                         debug_parts.append(answer_model.split("-")[1] if "-" in answer_model else answer_model)
 
@@ -815,14 +822,18 @@ RULES:
                     usage = data.get("usage", {})
                     in_tok = usage.get("prompt_tokens", estimate_tokens(ask))
                     out_tok = usage.get("completion_tokens", estimate_tokens(response_text))
+                    cached_tok = (usage.get("prompt_tokens_details") or {}).get("cached_tokens", 0)
                     await self.ai_cache.log_usage(
                         ctx.channel.id, ctx.guild.id, "sclai",
-                        in_tok, out_tok, answer_model)
+                        in_tok, out_tok, answer_model,
+                        cached_tokens=cached_tok)
 
                     if show_debug:
                         debug_parts.append(f"in={in_tok}")
+                        if cached_tok:
+                            debug_parts.append(f"cached={cached_tok}")
                         debug_parts.append(f"out={out_tok}")
-                        cost = calculate_cost(answer_model, in_tok, out_tok)
+                        cost = calculate_cost(answer_model, in_tok, out_tok, cached_tok)
                         debug_parts.append(f"${cost:.4f}")
                         debug_parts.append(answer_model.split("-")[1] if "-" in answer_model else answer_model)
 
@@ -998,13 +1009,14 @@ RULES:
             return f"{total_msgs} messages, older portion ({older_tokens} tokens) small enough — no compaction needed"
 
         # Compact
-        summary, in_tok, out_tok = await self._do_compaction(
+        summary, in_tok, out_tok, cached_comp = await self._do_compaction(
             ctx, older_text, compact_max_tokens, compact_model, token, base_url)
 
         # Log compaction usage
         await self.ai_cache.log_usage(
             channel.id, guild_id, "compaction",
-            in_tok, out_tok, compact_model)
+            in_tok, out_tok, compact_model,
+            cached_tokens=cached_comp)
 
         # Store cache
         newest_older = older_msgs[-1][3]

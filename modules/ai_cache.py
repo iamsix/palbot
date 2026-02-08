@@ -75,12 +75,12 @@ SETTINGS_HELP = {
     "system_prompt":      "Custom system prompt (replaces default when set)",
 }
 
-# Hardcoded model pricing: (input $/M tokens, output $/M tokens)
+# Hardcoded model pricing: (input $/M tokens, output $/M tokens, cache_read $/M tokens)
 MODEL_PRICING = {
-    "claude-opus-4.6":    (5.0,  25.0),
-    "claude-sonnet-4.5":  (3.0,  15.0),
+    "claude-opus-4.6":    (5.0,  25.0, 0.50),
+    "claude-sonnet-4.5":  (3.0,  15.0, 0.30),
 }
-DEFAULT_PRICING = (10.0, 30.0)
+DEFAULT_PRICING = (10.0, 30.0, 1.0)
 
 
 def estimate_tokens(text: str) -> int:
@@ -88,10 +88,16 @@ def estimate_tokens(text: str) -> int:
     return int(len(text) / 4)
 
 
-def calculate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
-    """Calculate USD cost for an API call."""
-    price_in, price_out = MODEL_PRICING.get(model, DEFAULT_PRICING)
-    return (input_tokens * price_in + output_tokens * price_out) / 1_000_000
+def calculate_cost(model: str, input_tokens: int, output_tokens: int,
+                   cached_tokens: int = 0) -> float:
+    """Calculate USD cost for an API call.
+    cached_tokens are subtracted from input_tokens and charged at the
+    discounted cache-read rate instead of the full input rate.
+    """
+    price_in, price_out, price_cache = MODEL_PRICING.get(model, DEFAULT_PRICING)
+    uncached_in = max(0, input_tokens - cached_tokens)
+    return (uncached_in * price_in + cached_tokens * price_cache +
+            output_tokens * price_out) / 1_000_000
 
 
 class AICache:
@@ -261,10 +267,11 @@ class AICache:
 
     async def log_usage(self, channel_id: int, guild_id: int,
                         command: str, input_tokens: int, output_tokens: int,
-                        model: str, cost_usd: float | None = None):
+                        model: str, cost_usd: float | None = None,
+                        cached_tokens: int = 0):
         """Log a single API call."""
         if cost_usd is None:
-            cost_usd = calculate_cost(model, input_tokens, output_tokens)
+            cost_usd = calculate_cost(model, input_tokens, output_tokens, cached_tokens)
         db = await self.get_db()
         await db.execute(
             """INSERT INTO usage_log
