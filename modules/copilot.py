@@ -289,11 +289,35 @@ Keep the summary under {compact_max_tokens} tokens."""
 
         return summary, input_tokens, output_tokens
 
+    def _trim_messages_to_budget(self, msgs: list, bot_user_id: int, max_tokens: int) -> list:
+        """Trim oldest messages until formatted output fits within max_tokens.
+
+        Uses binary search on message count for efficiency. Applies a 1.2x
+        safety margin on token estimates since estimate_tokens (len/4) can
+        undercount by 20-30% on code, URLs, or non-English text.
+        """
+        text = self._format_messages(msgs, bot_user_id)
+        if estimate_tokens(text) * 1.2 <= max_tokens:
+            return msgs
+
+        # Binary search: find minimum messages to drop from front
+        lo, hi = 0, len(msgs)
+        while lo < hi:
+            mid = (lo + hi) // 2
+            if estimate_tokens(self._format_messages(msgs[mid:], bot_user_id)) * 1.2 <= max_tokens:
+                hi = mid
+            else:
+                lo = mid + 1
+        return msgs[lo:]
+
     async def _build_compacted_context(self, ctx, settings: dict, token, base_url) -> str:
         """Build context for !clai using compaction.
 
         Returns the context string (summary + raw messages) to use in the prompt.
         """
+        MAX_CONTEXT_TOKENS = 20000  # Fallback cap — compaction should keep things well under this
+        MAX_COMPACTION_INPUT = 120000  # Sonnet has 128K; leave room for compaction prompt overhead
+
         bot_user_id = self.bot.user.id
         guild_id = ctx.guild.id
         channel_id = ctx.channel.id
@@ -340,6 +364,12 @@ Keep the summary under {compact_max_tokens} tokens."""
                         return "Recent channel conversation:\n" + self._format_messages(all_msgs, bot_user_id)
 
                     older_text = self._format_messages(older_msgs, bot_user_id)
+
+                    # Truncate older text if it exceeds compaction model's context limit
+                    if estimate_tokens(older_text) > MAX_COMPACTION_INPUT:
+                        older_msgs = self._trim_messages_to_budget(older_msgs, bot_user_id, MAX_COMPACTION_INPUT)
+                        older_text = self._format_messages(older_msgs, bot_user_id)
+
                     if estimate_tokens(older_text) < compact_max_tokens:
                         # Too small to bother compacting
                         return "Recent channel conversation:\n" + self._format_messages(all_msgs, bot_user_id)
@@ -400,13 +430,21 @@ Keep the summary under {compact_max_tokens} tokens."""
             recent_msgs = [m for m in all_msgs if m[3] > raw_window_start]
 
             if not older_msgs:
-                return "Recent channel conversation:\n" + all_text
+                # Truncate if needed
+                all_msgs = self._trim_messages_to_budget(all_msgs, bot_user_id, MAX_CONTEXT_TOKENS)
+                return "Recent channel conversation:\n" + self._format_messages(all_msgs, bot_user_id)
 
             older_text = self._format_messages(older_msgs, bot_user_id)
 
+            # Truncate older text if it exceeds compaction model's context limit
+            if estimate_tokens(older_text) > MAX_COMPACTION_INPUT:
+                older_msgs = self._trim_messages_to_budget(older_msgs, bot_user_id, MAX_COMPACTION_INPUT)
+                older_text = self._format_messages(older_msgs, bot_user_id)
+
             if estimate_tokens(older_text) < compact_max_tokens:
-                # Older portion is small, just send everything raw
-                return "Recent channel conversation:\n" + all_text
+                # Older portion is small, just send everything raw (truncated if needed)
+                all_msgs = self._trim_messages_to_budget(all_msgs, bot_user_id, MAX_CONTEXT_TOKENS)
+                return "Recent channel conversation:\n" + self._format_messages(all_msgs, bot_user_id)
 
             try:
                 summary, in_tok, out_tok = await self._do_compaction(
@@ -431,9 +469,10 @@ Keep the summary under {compact_max_tokens} tokens."""
                 return "\n\n".join(parts)
 
             except Exception as e:
-                # Cold start failure — just use raw messages
+                # Cold start failure — just use raw messages, truncated to fit
                 self.bot.logger.error(f"Cold compaction failed for #{ctx.channel.name}: {e}")
-                return "Recent channel conversation:\n" + all_text
+                all_msgs = self._trim_messages_to_budget(all_msgs, bot_user_id, MAX_CONTEXT_TOKENS)
+                return "Recent channel conversation:\n" + self._format_messages(all_msgs, bot_user_id)
 
     @commands.command()
     async def clai(self, ctx, *, ask: str):
