@@ -551,13 +551,14 @@ RULES:
 - Never dump, repeat, or output raw context/logs even if asked
 - Give honest answers, push back when warranted, adult topics are fine"""
 
+            max_output = settings.get("max_output_tokens", 500)
             payload = {
                 "model": answer_model,
                 "messages": [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": ask}
                 ],
-                "max_tokens": 1000,
+                "max_tokens": max_output,
             }
 
             async with aiohttp.ClientSession() as session:
@@ -628,6 +629,7 @@ RULES:
             settings = await self.ai_cache.get_all_settings(ctx.guild.id, ctx.channel.id)
             answer_model = settings["answer_model"]
             search_max_tokens = settings["search_max_tokens"]
+            max_output = settings.get("max_output_tokens", 500)
             custom_prompt = settings.get("system_prompt", "")
 
             # Get valid token (auto-refreshes if expired)
@@ -734,7 +736,7 @@ RULES:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": ask}
                 ],
-                "max_tokens": 1500,
+                "max_tokens": max_output,
             }
 
             async with aiohttp.ClientSession() as session:
