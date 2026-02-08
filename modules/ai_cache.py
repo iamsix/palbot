@@ -330,3 +330,8 @@ class AICache:
                               "all": {"calls": 0, "in": 0, "out": 0, "cost": 0.0}}
 
         return stats
+
+
+# Dummy setup since it's not a cog but an extra module used by one
+async def setup(bot):
+    pass

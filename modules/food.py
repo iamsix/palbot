@@ -203,7 +203,7 @@ class Food(commands.Cog):
         """Search vivino.com for a <wine> and return some information about it"""
         url = await self.bot.utils.google_for_urls(self.bot, 
                     "site:vivino.com {}".format(wine),
-                    url_regex="vivino.com/.*/w/\d+")
+                    url_regex="vivino.com/.*/w/\\d+")
         
         if not url:
             await ctx.send(f"Unabled to find a wine named `{wine}` on Vivino")
