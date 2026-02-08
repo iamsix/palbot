@@ -352,7 +352,6 @@ Be detailed — this summary replaces the original messages and is the only reco
         raw_hours = settings["raw_hours"]
         raw_max_tokens = settings.get("raw_max_tokens", 5000)
         compact_max_tokens = settings["compact_max_tokens"]
-        recompact_raw_hours = settings["recompact_raw_hours"]
         recompact_raw_tokens = settings["recompact_raw_tokens"]
         compact_model = settings["compact_model"]
 
@@ -372,16 +371,14 @@ Be detailed — this summary replaces the original messages and is the only reco
             raw_text = self._format_messages(raw_msgs, bot_user_id)
             raw_tokens = estimate_tokens(raw_text)
 
-            # Check re-compaction triggers
-            raw_age_hours = (now - self._snowflake_to_ts(newest_snowflake)) / 3600
+            # Check re-compaction trigger — token-only, no time component.
             # Only count tokens BEYOND the configured raw_hours window — the raw
             # window always stretches back to the compaction boundary, so in a busy
             # channel it can be large even right after compaction ran.
             overflow_msgs = [m for m in raw_msgs if m[3] <= raw_window_start]
             overflow_tokens = estimate_tokens(self._format_messages(overflow_msgs, bot_user_id)) if overflow_msgs else 0
-            # Only recompact if there's actually overflow content to fold in
-            needs_recompact = overflow_msgs and (raw_age_hours > recompact_raw_hours or
-                                                  overflow_tokens > recompact_raw_tokens)
+            # Recompact when overflow exceeds the token threshold
+            needs_recompact = overflow_tokens > recompact_raw_tokens
 
             if needs_recompact:
                 # Full re-summarization
@@ -1091,13 +1088,15 @@ RULES:
                 raw_hours_elapsed = (time.time() - self._snowflake_to_ts(cache["newest_snowflake"])) / 3600
 
                 settings = await self.ai_cache.get_all_settings(guild_id, channel.id)
-                recompact_hours = settings["recompact_raw_hours"]
-                next_recompact = max(0, recompact_hours - raw_hours_elapsed)
+                recompact_tokens = settings["recompact_raw_tokens"]
+                raw_window_start = self._ts_to_snowflake(time.time() - settings["raw_hours"] * 3600)
+                overflow_msgs = [m for m in raw_msgs if m[3] <= raw_window_start]
+                overflow_tokens = estimate_tokens(self._format_messages(overflow_msgs, self.bot.user.id)) if overflow_msgs else 0
 
                 lines.append(f"Cache: **warm** (built {age_hours:.1f}h ago)")
                 lines.append(f"  Summary: {summary_tokens:,} tokens covering {days_covered:.1f} days")
                 lines.append(f"  Raw window: {raw_hours_elapsed:.1f} hours ({raw_count} messages)")
-                lines.append(f"  Next re-compaction: ~{next_recompact:.1f}h")
+                lines.append(f"  Overflow: {overflow_tokens:,}/{recompact_tokens:,} tokens until re-compaction")
             else:
                 lines.append("Cache: **cold**")
 
