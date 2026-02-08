@@ -376,8 +376,9 @@ Keep the summary under {compact_max_tokens} tokens."""
             # channel it can be large even right after compaction ran.
             overflow_msgs = [m for m in raw_msgs if m[3] <= raw_window_start]
             overflow_tokens = estimate_tokens(self._format_messages(overflow_msgs, bot_user_id)) if overflow_msgs else 0
-            needs_recompact = (raw_age_hours > recompact_raw_hours or
-                               overflow_tokens > recompact_raw_tokens)
+            # Only recompact if there's actually overflow content to fold in
+            needs_recompact = overflow_msgs and (raw_age_hours > recompact_raw_hours or
+                                                  overflow_tokens > recompact_raw_tokens)
 
             if needs_recompact:
                 # Full re-summarization
@@ -530,6 +531,7 @@ Keep the summary under {compact_max_tokens} tokens."""
 
             context_sections = []
             stable_prefix_tokens = 0
+            t0 = time.monotonic()
 
             # Build compacted channel context
             channel_context = await self._build_compacted_context(ctx, settings, token, base_url)
@@ -597,7 +599,6 @@ RULES:
             }
 
             async with aiohttp.ClientSession() as session:
-                t0 = time.monotonic()
                 async with session.post(
                     f"{base_url}/chat/completions",
                     headers=headers,
@@ -701,6 +702,7 @@ RULES:
             stable_sections = []
             volatile_sections = []
             stable_prefix_tokens = 0
+            t0 = time.monotonic()
 
             # 1. Web search for current info (use original question)
             try:
@@ -816,7 +818,6 @@ RULES:
             }
 
             async with aiohttp.ClientSession() as session:
-                t0 = time.monotonic()
                 async with session.post(
                     f"{base_url}/chat/completions",
                     headers=headers,
