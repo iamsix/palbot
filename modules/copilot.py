@@ -938,48 +938,46 @@ STRICT RULES:
             await ctx.send("\n".join(lines))
 
     def _format_stats_table(self, stats: dict) -> str:
-        """Format usage stats dict into a Discord-friendly display."""
-        lines = ["**Usage (last 7d / all time):**"]
+        """Format usage stats dict into a Discord-friendly code block."""
+        def fmt_tokens(t):
+            if t >= 1_000_000:
+                return f"{t/1_000_000:.1f}M"
+            elif t >= 1000:
+                return f"{t/1000:.0f}K"
+            return str(t)
 
         total_7d = {"calls": 0, "tokens": 0, "cost": 0.0}
         total_all = {"calls": 0, "tokens": 0, "cost": 0.0}
 
+        rows = []
         for cmd in ("clai", "sclai", "compaction"):
             s = stats.get(cmd, {"7d": {"calls": 0, "tokens": 0, "cost": 0.0},
                                 "all": {"calls": 0, "tokens": 0, "cost": 0.0}})
             s7 = s["7d"]
             sa = s["all"]
-            label = f"!{cmd}" if cmd != "compaction" else "Compactions"
+            label = f"!{cmd}" if cmd != "compaction" else "compact"
 
-            def fmt_tokens(t):
-                if t >= 1_000_000:
-                    return f"{t/1_000_000:.2f}M"
-                elif t >= 1000:
-                    return f"{t/1000:.0f}K"
-                return str(t)
-
-            lines.append(
-                f"  {label}: {s7['calls']} / {sa['calls']} calls | "
-                f"{fmt_tokens(s7['tokens'])} / {fmt_tokens(sa['tokens'])} tokens | "
-                f"${s7['cost']:.2f} / ${sa['cost']:.2f}"
-            )
-
+            rows.append((label, s7, sa))
             for k in ("calls", "tokens", "cost"):
                 total_7d[k] += s7[k]
                 total_all[k] += sa[k]
 
-        def fmt_tokens(t):
-            if t >= 1_000_000:
-                return f"{t/1_000_000:.2f}M"
-            elif t >= 1000:
-                return f"{t/1000:.0f}K"
-            return str(t)
-
+        lines = ["```"]
+        lines.append(f"{'':9s} {'7d':>8s}  {'all':>8s}  {'7d tok':>8s}  {'all tok':>8s}  {'7d $':>7s}  {'all $':>7s}")
+        lines.append("─" * 62)
+        for label, s7, sa in rows:
+            lines.append(
+                f"{label:9s} {s7['calls']:>8d}  {sa['calls']:>8d}  "
+                f"{fmt_tokens(s7['tokens']):>8s}  {fmt_tokens(sa['tokens']):>8s}  "
+                f"${s7['cost']:>6.2f}  ${sa['cost']:>6.2f}"
+            )
+        lines.append("─" * 62)
         lines.append(
-            f"  **Total:** {total_7d['calls']} / {total_all['calls']} calls | "
-            f"{fmt_tokens(total_7d['tokens'])} / {fmt_tokens(total_all['tokens'])} tokens | "
-            f"${total_7d['cost']:.2f} / ${total_all['cost']:.2f}"
+            f"{'total':9s} {total_7d['calls']:>8d}  {total_all['calls']:>8d}  "
+            f"{fmt_tokens(total_7d['tokens']):>8s}  {fmt_tokens(total_all['tokens']):>8s}  "
+            f"${total_7d['cost']:>6.2f}  ${total_all['cost']:>6.2f}"
         )
+        lines.append("```")
         return "\n".join(lines)
 
 
