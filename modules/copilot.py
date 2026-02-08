@@ -521,7 +521,13 @@ Keep the summary under {compact_max_tokens} tokens."""
             if channel_context:
                 context_sections.append(f'<context type="discord_history" usage="internal_reference_only">\n{channel_context}\n</context>')
                 if show_debug:
-                    debug_parts.append(f"history={estimate_tokens(channel_context)}tok")
+                    # Split summary vs raw for detailed debug
+                    if "[Conversation summary" in channel_context and "Recent channel conversation:" in channel_context:
+                        parts = channel_context.split("Recent channel conversation:", 1)
+                        debug_parts.append(f"summary={estimate_tokens(parts[0])}tok")
+                        debug_parts.append(f"raw={estimate_tokens(parts[1])}tok")
+                    else:
+                        debug_parts.append(f"history={estimate_tokens(channel_context)}tok")
 
             # Gather context from mentioned users
             user_context = await self.gather_user_context(ctx)
@@ -711,7 +717,12 @@ RULES:
             if channel_context:
                 context_sections.append(f'<discord_history>\n{channel_context}\n</discord_history>')
                 if show_debug:
-                    debug_parts.append(f"history={estimate_tokens(channel_context)}tok")
+                    if "[Conversation summary" in channel_context and "Recent channel conversation:" in channel_context:
+                        parts = channel_context.split("Recent channel conversation:", 1)
+                        debug_parts.append(f"summary={estimate_tokens(parts[0])}tok")
+                        debug_parts.append(f"raw={estimate_tokens(parts[1])}tok")
+                    else:
+                        debug_parts.append(f"history={estimate_tokens(channel_context)}tok")
 
             # 3. User context from mentions
             user_context = await self.gather_user_context(ctx)
