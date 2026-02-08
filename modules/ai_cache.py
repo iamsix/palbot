@@ -115,12 +115,39 @@ class AICache:
             self._db.row_factory = aiosqlite.Row
             await self._db.executescript(SCHEMA)
             await self._db.commit()
+            await self._migrate_costs()
         return self._db
 
     async def close(self):
         if self._db is not None:
             await self._db.close()
             self._db = None
+
+    async def _migrate_costs(self):
+        """One-time migration: recalculate cost_usd using current MODEL_PRICING.
+        Fixes rows written with old Opus $15/$75 pricing (now $5/$25).
+        Runs once then marks itself done via a schema version table."""
+        db = self._db
+        await db.execute(
+            "CREATE TABLE IF NOT EXISTS migrations (name TEXT PRIMARY KEY)")
+        await db.commit()
+        cursor = await db.execute(
+            "SELECT 1 FROM migrations WHERE name = 'recalc_costs_v1'")
+        if await cursor.fetchone():
+            return  # Already migrated
+
+        cursor = await db.execute(
+            "SELECT id, model, input_tokens, output_tokens FROM usage_log")
+        rows = await cursor.fetchall()
+        for row in rows:
+            new_cost = calculate_cost(row["model"], row["input_tokens"],
+                                      row["output_tokens"])
+            await db.execute(
+                "UPDATE usage_log SET cost_usd = ? WHERE id = ?",
+                [new_cost, row["id"]])
+        await db.execute(
+            "INSERT INTO migrations (name) VALUES ('recalc_costs_v1')")
+        await db.commit()
 
     # ── Cache CRUD ──────────────────────────────────────────────
 
