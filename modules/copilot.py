@@ -620,6 +620,8 @@ RULES:
                     if show_debug:
                         debug_parts.append(f"in={in_tok}")
                         debug_parts.append(f"out={out_tok}")
+                        cost = calculate_cost(answer_model, in_tok, out_tok)
+                        debug_parts.append(f"${cost:.4f}")
                         debug_parts.append(answer_model.split("-")[1] if "-" in answer_model else answer_model)
 
         # Restore mentions so users get pinged
@@ -820,6 +822,8 @@ RULES:
                     if show_debug:
                         debug_parts.append(f"in={in_tok}")
                         debug_parts.append(f"out={out_tok}")
+                        cost = calculate_cost(answer_model, in_tok, out_tok)
+                        debug_parts.append(f"${cost:.4f}")
                         debug_parts.append(answer_model.split("-")[1] if "-" in answer_model else answer_model)
 
         # Restore mentions so users get pinged
