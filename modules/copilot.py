@@ -378,13 +378,6 @@ Keep the summary under {compact_max_tokens} tokens."""
                 # Warm cache, no re-compaction needed
                 summary = cache["summary_text"]
 
-                # Skip summary if raw tokens are small enough
-                if raw_tokens < compact_max_tokens:
-                    # Small enough — just use raw, no point in summary
-                    if raw_text:
-                        return "Recent channel conversation:\n" + raw_text
-                    return ""
-
                 parts = [f"[Conversation summary]\n{summary}"]
                 if raw_text:
                     parts.append(f"Recent channel conversation:\n{raw_text}")
