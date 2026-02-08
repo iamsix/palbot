@@ -283,7 +283,8 @@ class AICache:
             cursor = await db.execute(
                 f"""SELECT command,
                        COUNT(*) as calls,
-                       SUM(input_tokens + output_tokens) as total_tokens,
+                       SUM(input_tokens) as total_in,
+                       SUM(output_tokens) as total_out,
                        SUM(cost_usd) as total_cost
                    FROM usage_log
                    WHERE guild_id = ?{channel_filter}{ts_filter}
@@ -294,18 +295,19 @@ class AICache:
             for row in rows:
                 cmd = row["command"]
                 if cmd not in stats:
-                    stats[cmd] = {"7d": {"calls": 0, "tokens": 0, "cost": 0.0},
-                                  "all": {"calls": 0, "tokens": 0, "cost": 0.0}}
+                    stats[cmd] = {"7d": {"calls": 0, "in": 0, "out": 0, "cost": 0.0},
+                                  "all": {"calls": 0, "in": 0, "out": 0, "cost": 0.0}}
                 stats[cmd][period] = {
                     "calls": row["calls"] or 0,
-                    "tokens": row["total_tokens"] or 0,
+                    "in": row["total_in"] or 0,
+                    "out": row["total_out"] or 0,
                     "cost": row["total_cost"] or 0.0,
                 }
 
         # Ensure all commands exist in stats even if zero
         for cmd in ("clai", "sclai", "compaction"):
             if cmd not in stats:
-                stats[cmd] = {"7d": {"calls": 0, "tokens": 0, "cost": 0.0},
-                              "all": {"calls": 0, "tokens": 0, "cost": 0.0}}
+                stats[cmd] = {"7d": {"calls": 0, "in": 0, "out": 0, "cost": 0.0},
+                              "all": {"calls": 0, "in": 0, "out": 0, "cost": 0.0}}
 
         return stats
