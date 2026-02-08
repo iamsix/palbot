@@ -345,8 +345,13 @@ Keep the summary under {compact_max_tokens} tokens."""
 
             # Check re-compaction triggers
             raw_age_hours = (now - self._snowflake_to_ts(newest_snowflake)) / 3600
+            # Only count tokens BEYOND the configured raw_hours window — the raw
+            # window always stretches back to the compaction boundary, so in a busy
+            # channel it can be large even right after compaction ran.
+            overflow_msgs = [m for m in raw_msgs if m[3] <= raw_window_start]
+            overflow_tokens = estimate_tokens(self._format_messages(overflow_msgs, bot_user_id)) if overflow_msgs else 0
             needs_recompact = (raw_age_hours > recompact_raw_hours or
-                               raw_tokens > recompact_raw_tokens)
+                               overflow_tokens > recompact_raw_tokens)
 
             if needs_recompact:
                 # Full re-summarization
