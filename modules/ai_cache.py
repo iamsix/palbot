@@ -77,7 +77,7 @@ SETTINGS_HELP = {
 
 # Hardcoded model pricing: (input $/M tokens, output $/M tokens)
 MODEL_PRICING = {
-    "claude-opus-4.6":    (15.0, 75.0),
+    "claude-opus-4.6":    (5.0,  25.0),
     "claude-sonnet-4.5":  (3.0,  15.0),
 }
 DEFAULT_PRICING = (10.0, 30.0)
