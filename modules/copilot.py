@@ -246,6 +246,9 @@ class Copilot(commands.Cog):
         msgs = []
         for row in rows:
             user_id, canon_nick, message = row[0], row[1], row[2]
+            # Strip debug header from bot messages so it doesn't echo back
+            if user_id == bot_user_id and message.startswith("-# 🔧"):
+                message = message.split("\n", 1)[1] if "\n" in message else message
             if user_id == bot_user_id:
                 msgs.append(f"[BOT] {canon_nick} (<@{user_id}>): {message}")
             else:
