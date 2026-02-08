@@ -1006,40 +1006,44 @@ RULES:
                 return f"{t/1000:.0f}K"
             return str(t)
 
-        total_7d = {"calls": 0, "tokens": 0, "cost": 0.0}
-        total_all = {"calls": 0, "tokens": 0, "cost": 0.0}
+        total_7d = {"calls": 0, "in": 0, "out": 0, "cost": 0.0}
+        total_all = {"calls": 0, "in": 0, "out": 0, "cost": 0.0}
 
         rows = []
         for cmd in ("clai", "sclai", "compaction"):
-            s = stats.get(cmd, {"7d": {"calls": 0, "tokens": 0, "cost": 0.0},
-                                "all": {"calls": 0, "tokens": 0, "cost": 0.0}})
+            s = stats.get(cmd, {"7d": {"calls": 0, "in": 0, "out": 0, "cost": 0.0},
+                                "all": {"calls": 0, "in": 0, "out": 0, "cost": 0.0}})
             s7 = s["7d"]
             sa = s["all"]
             label = f"!{cmd}" if cmd != "compaction" else "compact"
 
             rows.append((label, s7, sa))
-            for k in ("calls", "tokens", "cost"):
+            for k in ("calls", "in", "out", "cost"):
                 total_7d[k] += s7[k]
                 total_all[k] += sa[k]
 
-        lines = ["```"]
-        lines.append(f"{'':9s} {'7d':>8s}  {'all':>8s}  {'7d tok':>8s}  {'all tok':>8s}  {'7d $':>7s}  {'all $':>7s}")
-        lines.append("─" * 62)
+        lines_out = ["```"]
+        lines_out.append(f"{'':9s} {'calls':>8s}  {'in':>8s}  {'out':>8s}  {'cost':>8s}")
+        lines_out.append("─" * 42)
         for label, s7, sa in rows:
-            lines.append(
-                f"{label:9s} {s7['calls']:>8d}  {sa['calls']:>8d}  "
-                f"{fmt_tokens(s7['tokens']):>8s}  {fmt_tokens(sa['tokens']):>8s}  "
-                f"${s7['cost']:>6.2f}  ${sa['cost']:>6.2f}"
+            lines_out.append(
+                f"{label:9s} {sa['calls']:>8d}  "
+                f"{fmt_tokens(sa['in']):>8s}  {fmt_tokens(sa['out']):>8s}  "
+                f"${sa['cost']:>7.2f}"
             )
-        lines.append("─" * 62)
-        lines.append(
-            f"{'total':9s} {total_7d['calls']:>8d}  {total_all['calls']:>8d}  "
-            f"{fmt_tokens(total_7d['tokens']):>8s}  {fmt_tokens(total_all['tokens']):>8s}  "
-            f"${total_7d['cost']:>6.2f}  ${total_all['cost']:>6.2f}"
+        lines_out.append("─" * 42)
+        lines_out.append(
+            f"{'total':9s} {total_all['calls']:>8d}  "
+            f"{fmt_tokens(total_all['in']):>8s}  {fmt_tokens(total_all['out']):>8s}  "
+            f"${total_all['cost']:>7.2f}"
         )
-        lines.append("```")
-        return "\n".join(lines)
-
+        if any(total_7d[k] for k in ("calls", "in", "out")):
+            lines_out.append("")
+            lines_out.append(f"{'7d':9s} {total_7d['calls']:>8d}  "
+                f"{fmt_tokens(total_7d['in']):>8s}  {fmt_tokens(total_7d['out']):>8s}  "
+                f"${total_7d['cost']:>7.2f}")
+        lines_out.append("```")
+        return "\n".join(lines_out)
 
 async def setup(bot):
     await bot.add_cog(Copilot(bot))
