@@ -337,7 +337,9 @@ Keep the summary under {compact_max_tokens} tokens."""
         """Build context for !clai using compaction.
 
         Returns the context string (summary + raw messages) to use in the prompt.
+        Sets self._last_compaction to 'recompact', 'cold', or None.
         """
+        self._last_compaction = None
         MAX_CONTEXT_TOKENS = 20000  # Fallback cap — compaction should keep things well under this
         MAX_COMPACTION_INPUT = 120000  # Sonnet has 128K; leave room for compaction prompt overhead
 
@@ -409,7 +411,7 @@ Keep the summary under {compact_max_tokens} tokens."""
 
                     summary, in_tok, out_tok, cached_comp = await self._do_compaction(
                         ctx, older_text, compact_max_tokens, compact_model, token, base_url)
-
+                    self._last_compaction = 'recompact'
                     # Log compaction usage
                     await self.ai_cache.log_usage(
                         channel_id, guild_id, "compaction",
@@ -484,7 +486,7 @@ Keep the summary under {compact_max_tokens} tokens."""
             try:
                 summary, in_tok, out_tok, cached_comp = await self._do_compaction(
                     ctx, older_text, compact_max_tokens, compact_model, token, base_url)
-
+                self._last_compaction = 'cold'
                 # Log compaction
                 await self.ai_cache.log_usage(
                     channel_id, guild_id, "compaction",
@@ -541,10 +543,15 @@ Keep the summary under {compact_max_tokens} tokens."""
                     parts = channel_context.split("Recent channel conversation:", 1)
                     stable_prefix_tokens += estimate_tokens(parts[0])
                     if show_debug:
+                        if self._last_compaction:
+                            debug_parts.append(f"⟳{self._last_compaction}")
                         debug_parts.append(f"summary={estimate_tokens(parts[0])}tok")
                         debug_parts.append(f"raw={estimate_tokens(parts[1])}tok")
-                elif show_debug:
-                    debug_parts.append(f"history={estimate_tokens(channel_context)}tok")
+                else:
+                    # No summary — entire history is the context prefix
+                    stable_prefix_tokens += estimate_tokens(channel_context)
+                    if show_debug:
+                        debug_parts.append(f"history={estimate_tokens(channel_context)}tok")
 
             # Gather context from mentioned users
             user_context = await self.gather_user_context(ctx)
@@ -634,7 +641,8 @@ RULES:
                     if show_debug:
                         debug_parts.append(f"in={in_tok}")
                         if cached_tok:
-                            debug_parts.append(f"cached≈{cached_tok}")
+                            tilde = "" if (usage.get("prompt_tokens_details") or {}).get("cached_tokens") else "≈"
+                            debug_parts.append(f"cached{tilde}{cached_tok}")
                         debug_parts.append(f"out={out_tok}")
                         cost = calculate_cost(answer_model, in_tok, out_tok, cached_tok)
                         debug_parts.append(f"${cost:.4f}")
@@ -754,10 +762,14 @@ RULES:
                     parts = channel_context.split("Recent channel conversation:", 1)
                     stable_prefix_tokens += estimate_tokens(parts[0])
                     if show_debug:
+                        if self._last_compaction:
+                            debug_parts.append(f"⟳{self._last_compaction}")
                         debug_parts.append(f"summary={estimate_tokens(parts[0])}tok")
                         debug_parts.append(f"raw={estimate_tokens(parts[1])}tok")
-                elif show_debug:
-                    debug_parts.append(f"history={estimate_tokens(channel_context)}tok")
+                else:
+                    stable_prefix_tokens += estimate_tokens(channel_context)
+                    if show_debug:
+                        debug_parts.append(f"history={estimate_tokens(channel_context)}tok")
 
             # 3. User context from mentions
             user_context = await self.gather_user_context(ctx)
@@ -853,7 +865,8 @@ RULES:
                     if show_debug:
                         debug_parts.append(f"in={in_tok}")
                         if cached_tok:
-                            debug_parts.append(f"cached≈{cached_tok}")
+                            tilde = "" if (usage.get("prompt_tokens_details") or {}).get("cached_tokens") else "≈"
+                            debug_parts.append(f"cached{tilde}{cached_tok}")
                         debug_parts.append(f"out={out_tok}")
                         cost = calculate_cost(answer_model, in_tok, out_tok, cached_tok)
                         debug_parts.append(f"${cost:.4f}")
