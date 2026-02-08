@@ -6,7 +6,7 @@ import time
 from datetime import datetime
 from discord.ext import commands
 import discord
-from modules.ai_cache import AICache, estimate_tokens, calculate_cost, SETTINGS_SPEC
+from modules.ai_cache import AICache, estimate_tokens, calculate_cost, SETTINGS_SPEC, SETTINGS_HELP
 
 BOT_ADMIN_ROLE = "Bot Admin"
 
@@ -346,6 +346,7 @@ Keep the summary under {compact_max_tokens} tokens."""
 
         compact_days = settings["compact_days"]
         raw_hours = settings["raw_hours"]
+        raw_max_tokens = settings.get("raw_max_tokens", 5000)
         compact_max_tokens = settings["compact_max_tokens"]
         recompact_raw_hours = settings["recompact_raw_hours"]
         recompact_raw_tokens = settings["recompact_raw_tokens"]
@@ -362,6 +363,8 @@ Keep the summary under {compact_max_tokens} tokens."""
             newest_snowflake = cache["newest_snowflake"]
             # Raw window stretches back to compaction boundary (never gaps)
             raw_msgs = await self._fetch_messages_range(ctx, newest_snowflake)
+            # Trim raw messages to token budget
+            raw_msgs = self._trim_messages_to_budget(raw_msgs, bot_user_id, raw_max_tokens)
             raw_text = self._format_messages(raw_msgs, bot_user_id)
             raw_tokens = estimate_tokens(raw_text)
 
@@ -384,7 +387,8 @@ Keep the summary under {compact_max_tokens} tokens."""
 
                     # Split: older portion for compaction, recent for raw
                     older_msgs = [m for m in all_msgs if m[3] <= raw_window_start]
-                    recent_msgs = [m for m in all_msgs if m[3] > raw_window_start]
+                    recent_msgs = self._trim_messages_to_budget(
+                        [m for m in all_msgs if m[3] > raw_window_start], bot_user_id, raw_max_tokens)
 
                     if not older_msgs:
                         # Nothing old enough to compact
@@ -454,7 +458,8 @@ Keep the summary under {compact_max_tokens} tokens."""
 
             # Split for compaction
             older_msgs = [m for m in all_msgs if m[3] <= raw_window_start]
-            recent_msgs = [m for m in all_msgs if m[3] > raw_window_start]
+            recent_msgs = self._trim_messages_to_budget(
+                [m for m in all_msgs if m[3] > raw_window_start], bot_user_id, raw_max_tokens)
 
             if not older_msgs:
                 # Truncate if needed
@@ -832,6 +837,21 @@ RULES:
         guild_id = ctx.guild.id
         channel_id = ctx.channel.id
 
+        if key == "help":
+            lines = ["📖 **AI Settings Help**\n"]
+            for k, spec in SETTINGS_SPEC.items():
+                desc = SETTINGS_HELP.get(k, "")
+                default = spec[0]
+                if spec[1] is not None:
+                    lines.append(f"**`{k}`** — {desc}\n  Default: {default}, range: {spec[1]}-{spec[2]}")
+                elif k == "system_prompt":
+                    lines.append(f"**`{k}`** — {desc}\n  Default: *(built-in)*. Set to override, `none` to reset")
+                else:
+                    lines.append(f"**`{k}`** — {desc}\n  Default: {default}")
+            lines.append(f"\nSettings are per-channel. Run `!claiconfig` in the channel you want to configure.")
+            await ctx.send("\n".join(lines))
+            return
+
         if key is None:
             # Show all settings
             settings = await self.ai_cache.get_all_settings(guild_id, channel_id)
@@ -846,7 +866,7 @@ RULES:
                         preview = v[:80] + ("..." if len(v) > 80 else "")
                         lines.append(f"  `{k}`: {preview}")
                     else:
-                        lines.append(f"  `{k}`: *(not set)*")
+                        lines.append(f"  `{k}`: *(default — built-in)*")
                 elif spec[1] is not None:
                     lines.append(f"  `{k}`: **{v}** (range: {spec[1]}-{spec[2]}){marker}")
                 else:

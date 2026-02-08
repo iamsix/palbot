@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS usage_log (
 SETTINGS_SPEC = {
     "compact_days":       (7,    1,    30),
     "raw_hours":          (6,    1,    48),
+    "raw_max_tokens":     (5000, 500,  50000),
     "compact_max_tokens": (2000, 500,  10000),
     "recompact_raw_hours": (12,  2,    72),
     "recompact_raw_tokens": (15000, 2000, 100000),
@@ -57,6 +58,21 @@ SETTINGS_SPEC = {
     "answer_model":       ("claude-opus-4.6", None, None),
     "compact_model":      ("claude-sonnet-4.5", None, None),
     "system_prompt":      ("", None, None),
+}
+
+SETTINGS_HELP = {
+    "compact_days":       "How many days of history to summarize (older is discarded)",
+    "raw_hours":          "Hours of recent chat kept as raw messages (not summarized)",
+    "raw_max_tokens":     "Max tokens for the raw message window — trims oldest if exceeded",
+    "compact_max_tokens": "Target size for the compaction summary",
+    "recompact_raw_hours":"Hours before re-compaction triggers (must be > raw_hours)",
+    "recompact_raw_tokens":"Token threshold for overflow re-compaction trigger",
+    "search_max_tokens":  "Max tokens for web search results (!sclai)",
+    "max_output_tokens":  "Max tokens the bot can generate per response",
+    "debug":              "Show token debug info to bot admins (on/off)",
+    "answer_model":       "Model used for answering questions",
+    "compact_model":      "Model used for compaction/summarization",
+    "system_prompt":      "Custom system prompt (replaces default when set)",
 }
 
 # Hardcoded model pricing: (input $/M tokens, output $/M tokens)
