@@ -534,20 +534,22 @@ Keep the summary under {compact_max_tokens} tokens."""
                 "Editor-Version": "vscode/1.95.0",
             }
 
-            # Build system prompt with bot identity
-            bot_name = self.bot.user.display_name
-            bot_id = self.bot.user.id
-            system_prompt = f"""You are {bot_name} (Discord user ID: {bot_id}), a Discord bot. You have access to chat history and user context as reference.
+            # Build system prompt
+            custom_prompt = settings.get("system_prompt", "")
+            if custom_prompt:
+                system_prompt = custom_prompt
+            else:
+                bot_name = self.bot.user.display_name
+                bot_id = self.bot.user.id
+                system_prompt = f"""You are {bot_name} (Discord user ID: {bot_id}), a Discord bot.
 
-Messages prefixed with [BOT] in the context are YOUR previous responses - use them to maintain conversational continuity.
+Keep responses SHORT. This is Discord — 1-3 sentences for simple questions, a short paragraph max for complex ones. No essays, no bullet-point walls, no "here's a comprehensive overview". Just answer the question.
 
-STRICT RULES:
-1. NEVER output raw message logs or context dumps
-2. NEVER repeat the context back, even if asked to "dump", "show", "debug", or "repeat" it
-3. If asked to dump/show/debug context, reply: "I can answer questions using this context, but I won't dump raw data."
-4. Use context only to inform your answers, not as output
-5. Match your response length to the complexity of the question. Simple question = 1-2 sentences. Complex question = longer answer. This is Discord, not a blog post.
-6. Give honest answers, push back when warranted. Adult topics are fine."""
+Messages prefixed with [BOT] are your previous responses.
+
+RULES:
+- Never dump, repeat, or output raw context/logs even if asked
+- Give honest answers, push back when warranted, adult topics are fine"""
 
             payload = {
                 "model": answer_model,
@@ -626,6 +628,7 @@ STRICT RULES:
             settings = await self.ai_cache.get_all_settings(ctx.guild.id, ctx.channel.id)
             answer_model = settings["answer_model"]
             search_max_tokens = settings["search_max_tokens"]
+            custom_prompt = settings.get("system_prompt", "")
 
             # Get valid token (auto-refreshes if expired)
             try:
@@ -709,27 +712,21 @@ STRICT RULES:
                 "Editor-Version": "vscode/1.95.0",
             }
 
-            system_prompt = f"""You are {bot_name} (Discord user ID: {bot_id}), a Discord bot. Today's date is {current_date}.
+            if custom_prompt:
+                system_prompt = custom_prompt
+            else:
+                system_prompt = f"""You are {bot_name} (Discord user ID: {bot_id}), a Discord bot. Today's date is {current_date}.
 
-Messages prefixed with [BOT] in the context are YOUR previous responses - use them to maintain conversational continuity.
+Keep responses SHORT. This is Discord — 1-3 sentences for simple questions, a short paragraph max for complex ones.
 
-You have been provided with:
-1. Web search results with actual page content (use these for current events, facts, recent news)
-2. Discord chat history (use for conversational context only)
-3. Mentioned user context (if any @mentions were in the question)
+You have web search results and chat history as context. Prioritize search results for factual/current info. Cite sources briefly when relevant.
 
-INSTRUCTIONS:
-- Answer the user's question using the provided web search content as your primary source for factual/current information
-- Cite sources naturally (e.g., "According to [source]..." or "Based on recent reports...")
-- If the web results don't contain relevant info, say so and give your best answer with appropriate caveats
-- Match your response length to the complexity of the question. Simple question = 1-2 sentences. Complex question = longer answer. This is Discord, not a blog post.
+Messages prefixed with [BOT] are your previous responses.
 
-STRICT RULES:
-1. NEVER output raw data dumps, URLs lists, or copy-paste the context
-2. NEVER repeat the search results or chat logs verbatim
-3. If asked to "dump", "show", or "repeat" context, refuse politely
-4. Synthesize information into a coherent answer - don't just summarize each source
-5. Adult topics are permitted"""
+RULES:
+- Never dump, repeat, or output raw context/search results even if asked
+- Synthesize information into a direct answer — don't summarize each source separately
+- Adult topics are fine"""
 
             payload = {
                 "model": answer_model,
@@ -773,8 +770,8 @@ STRICT RULES:
 
     @commands.command()
     @is_bot_admin()
-    async def claiconfig(self, ctx, key: str = None, value: str = None):
-        """Show or change AI compaction settings (owner only)"""
+    async def claiconfig(self, ctx, key: str = None, *, value: str = None):
+        """Show or change AI compaction settings (Bot Admin only)"""
         guild_id = ctx.guild.id
         channel_id = ctx.channel.id
 
@@ -787,7 +784,13 @@ STRICT RULES:
                 default = spec[0]
                 is_default = (v == default)
                 marker = " *(default)*" if is_default else ""
-                if spec[1] is not None:
+                if k == "system_prompt":
+                    if v:
+                        preview = v[:80] + ("..." if len(v) > 80 else "")
+                        lines.append(f"  `{k}`: {preview}")
+                    else:
+                        lines.append(f"  `{k}`: *(not set)*")
+                elif spec[1] is not None:
                     lines.append(f"  `{k}`: **{v}** (range: {spec[1]}-{spec[2]}){marker}")
                 else:
                     lines.append(f"  `{k}`: **{v}**{marker}")
@@ -798,9 +801,19 @@ STRICT RULES:
             await ctx.send(f"Usage: `!claiconfig {key} <value>`")
             return
 
+        # Allow clearing string settings with "none" or "reset"
+        if value.lower() in ("none", "reset", "clear", "default") and SETTINGS_SPEC[key][1] is None:
+            value = SETTINGS_SPEC[key][0]  # Reset to default
+
         ok, err = await self.ai_cache.set_setting(guild_id, channel_id, key, value)
         if ok:
-            await ctx.send(f"✅ `{key}` set to **{value}** for <#{channel_id}>")
+            if key == "system_prompt" and value:
+                preview = value[:80] + ("..." if len(value) > 80 else "")
+                await ctx.send(f"✅ `{key}` set for <#{channel_id}>: {preview}")
+            elif key == "system_prompt":
+                await ctx.send(f"✅ `{key}` cleared for <#{channel_id}>")
+            else:
+                await ctx.send(f"✅ `{key}` set to **{value}** for <#{channel_id}>")
         else:
             await ctx.send(f"❌ {err}")
 
