@@ -519,8 +519,13 @@ STRICT RULES:
                 ) as resp:
                     if resp.status != 200:
                         error_text = await resp.text()
-                        await ctx.send(f"API error: {resp.status}")
-                        self.bot.logger.error(f"GitHub Copilot API error: {resp.status} - {error_text}")
+                        try:
+                            error_json = json.loads(error_text)
+                            error_msg = error_json.get('error', {}).get('message', error_text[:300])
+                        except (json.JSONDecodeError, AttributeError):
+                            error_msg = error_text[:300]
+                        await ctx.send(f"❌ API error {resp.status}: {error_msg}")
+                        self.bot.logger.error(f"Copilot API error: {resp.status} - {error_text}")
                         return
                     data = await resp.json()
                     response_text = data["choices"][0]["message"]["content"]
@@ -696,8 +701,13 @@ STRICT RULES:
                 ) as resp:
                     if resp.status != 200:
                         error_text = await resp.text()
-                        await ctx.send(f"API error: {resp.status}")
-                        self.bot.logger.error(f"GitHub Copilot API error: {resp.status} - {error_text}")
+                        try:
+                            error_json = json.loads(error_text)
+                            error_msg = error_json.get('error', {}).get('message', error_text[:300])
+                        except (json.JSONDecodeError, AttributeError):
+                            error_msg = error_text[:300]
+                        await ctx.send(f"❌ API error {resp.status}: {error_msg}")
+                        self.bot.logger.error(f"Copilot API error: {resp.status} - {error_text}")
                         return
                     data = await resp.json()
                     response_text = data["choices"][0]["message"]["content"]
