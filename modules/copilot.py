@@ -18,6 +18,12 @@ def is_bot_admin():
         return any(role.name == BOT_ADMIN_ROLE for role in ctx.author.roles)
     return commands.check(predicate)
 
+async def _check_bot_admin(ctx) -> bool:
+    """Inline check: bot owner OR has the Bot Admin role."""
+    if await ctx.bot.is_owner(ctx.author):
+        return True
+    return any(role.name == BOT_ADMIN_ROLE for role in ctx.author.roles)
+
 
 class Copilot(commands.Cog):
     DISCORD_EPOCH = 1420070400000  # Jan 1, 2015 in ms
@@ -498,6 +504,8 @@ Keep the summary under {compact_max_tokens} tokens."""
             # Get settings for this channel
             settings = await self.ai_cache.get_all_settings(ctx.guild.id, ctx.channel.id)
             answer_model = settings["answer_model"]
+            show_debug = settings.get("debug", "off") == "on" and await _check_bot_admin(ctx)
+            debug_parts = []
 
             # Get valid token (auto-refreshes if expired)
             try:
@@ -512,11 +520,15 @@ Keep the summary under {compact_max_tokens} tokens."""
             channel_context = await self._build_compacted_context(ctx, settings, token, base_url)
             if channel_context:
                 context_sections.append(f'<context type="discord_history" usage="internal_reference_only">\n{channel_context}\n</context>')
+                if show_debug:
+                    debug_parts.append(f"history={estimate_tokens(channel_context)}tok")
 
             # Gather context from mentioned users
             user_context = await self.gather_user_context(ctx)
             if user_context:
                 context_sections.append(f'<context type="mentioned_users" usage="internal_reference_only">\n{user_context}\n</context>')
+                if show_debug:
+                    debug_parts.append(f"users={estimate_tokens(user_context)}tok")
 
             # Build prompt with context
             if context_sections:
@@ -588,9 +600,18 @@ RULES:
                         ctx.channel.id, ctx.guild.id, "clai",
                         in_tok, out_tok, answer_model)
 
+                    if show_debug:
+                        debug_parts.append(f"in={in_tok}")
+                        debug_parts.append(f"out={out_tok}")
+                        debug_parts.append(answer_model.split("-")[1] if "-" in answer_model else answer_model)
+
         # Restore mentions so users get pinged
         output = self.restore_mentions(ctx, response_text)
-        await ctx.send(output[:1980])
+        if show_debug and debug_parts:
+            debug_line = f"-# 🔧 {' | '.join(debug_parts)}"
+            await ctx.send(f"{debug_line}\n{output}"[:1980])
+        else:
+            await ctx.send(output[:1980])
 
     async def fetch_page_text(self, url: str, max_chars: int = 4000) -> str:
         """Fetch a URL and extract readable text content"""
@@ -631,6 +652,8 @@ RULES:
             search_max_tokens = settings["search_max_tokens"]
             max_output = settings.get("max_output_tokens", 500)
             custom_prompt = settings.get("system_prompt", "")
+            show_debug = settings.get("debug", "off") == "on" and await _check_bot_admin(ctx)
+            debug_parts = []
 
             # Get valid token (auto-refreshes if expired)
             try:
@@ -678,6 +701,8 @@ RULES:
                             combined_web = "\n\n".join(truncated) if truncated else web_content[0][:search_max_tokens * 4]
 
                         context_sections.append(f'<web_search_results>\n{combined_web}\n</web_search_results>')
+                        if show_debug:
+                            debug_parts.append(f"search={estimate_tokens(combined_web)}tok")
             except Exception as e:
                 self.bot.logger.error(f"sclai search failed: {e}")
 
@@ -685,11 +710,15 @@ RULES:
             channel_context = await self._build_compacted_context(ctx, settings, token, base_url)
             if channel_context:
                 context_sections.append(f'<discord_history>\n{channel_context}\n</discord_history>')
+                if show_debug:
+                    debug_parts.append(f"history={estimate_tokens(channel_context)}tok")
 
             # 3. User context from mentions
             user_context = await self.gather_user_context(ctx)
             if user_context:
                 context_sections.append(f'<mentioned_users>\n{user_context}\n</mentioned_users>')
+                if show_debug:
+                    debug_parts.append(f"users={estimate_tokens(user_context)}tok")
 
             # Build final prompt - question first, context last
             if context_sections:
@@ -766,9 +795,18 @@ RULES:
                         ctx.channel.id, ctx.guild.id, "sclai",
                         in_tok, out_tok, answer_model)
 
+                    if show_debug:
+                        debug_parts.append(f"in={in_tok}")
+                        debug_parts.append(f"out={out_tok}")
+                        debug_parts.append(answer_model.split("-")[1] if "-" in answer_model else answer_model)
+
         # Restore mentions so users get pinged
         output = self.restore_mentions(ctx, response_text)
-        await ctx.send(output[:1980])
+        if show_debug and debug_parts:
+            debug_line = f"-# 🔧 {' | '.join(debug_parts)}"
+            await ctx.send(f"{debug_line}\n{output}"[:1980])
+        else:
+            await ctx.send(output[:1980])
 
     @commands.command()
     @is_bot_admin()

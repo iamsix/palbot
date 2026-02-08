@@ -53,6 +53,7 @@ SETTINGS_SPEC = {
     "recompact_raw_tokens": (15000, 2000, 100000),
     "search_max_tokens":  (8000, 1000, 50000),
     "max_output_tokens":  (500,  100,  4000),
+    "debug":              ("off", None, None),
     "answer_model":       ("claude-opus-4.6", None, None),
     "compact_model":      ("claude-sonnet-4.5", None, None),
     "system_prompt":      ("", None, None),
