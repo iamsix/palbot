@@ -267,11 +267,13 @@ class AICache:
 
         channel_filter = ""
         params_all = [guild_id]
-        params_7d = [guild_id, seven_days_ago]
+        params_7d = [guild_id]
         if channel_id is not None:
             channel_filter = " AND channel_id = ?"
             params_all.append(channel_id)
             params_7d.append(channel_id)
+        # timestamp filter goes LAST (after channel filter)
+        params_7d.append(seven_days_ago)
 
         stats = {}
         for period, ts_filter, params in [
