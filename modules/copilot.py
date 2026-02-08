@@ -264,8 +264,9 @@ class Copilot(commands.Cog):
 
         Returns (summary_text, input_tokens, output_tokens) or raises on failure.
         """
-        system_prompt = f"""Summarize the following Discord conversation concisely. Preserve:
+        system_prompt = f"""Summarize the following Discord conversation thoroughly. Aim for around {compact_max_tokens} tokens. Preserve:
 - Key facts, decisions, and conclusions
+- Specific names, numbers, dates, URLs, and technical details
 - Important context about users and their preferences
 - Any ongoing topics or threads of discussion
 - Your own previous responses and positions (marked with [BOT])
@@ -275,7 +276,7 @@ Omit:
 - Redundant back-and-forth
 - Messages with no informational value
 
-Keep the summary under {compact_max_tokens} tokens."""
+Be detailed — this summary replaces the original messages and is the only record of what was discussed."""
 
         headers = {
             "Authorization": f"Bearer {token}",
