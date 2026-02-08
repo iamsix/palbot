@@ -54,6 +54,7 @@ SETTINGS_SPEC = {
     "search_max_tokens":  (8000, 1000, 50000),
     "answer_model":       ("claude-opus-4.6", None, None),
     "compact_model":      ("claude-sonnet-4.5", None, None),
+    "system_prompt":      ("", None, None),
 }
 
 # Hardcoded model pricing: (input $/M tokens, output $/M tokens)
