@@ -341,20 +341,25 @@ class Copilot(commands.Cog):
             # Embed images (link previews, etc.)
             for embed in msg.embeds:
                 for img_obj in (embed.image, embed.thumbnail):
-                    if img_obj and img_obj.url and img_obj.url.startswith("http"):
-                        try:
-                            img_bytes, mime = await self._download_url(img_obj.url)
-                            if img_bytes and mime:
-                                img_bytes, mime = self._process_image_bytes(img_bytes, mime)
-                                b64 = base64.b64encode(img_bytes).decode("ascii")
-                                images.append({
-                                    "url": f"data:{mime};base64,{b64}",
-                                    "sender": msg.author.display_name,
-                                    "filename": img_obj.url.split("/")[-1].split("?")[0] or "embed",
-                                })
-                                break  # one image per embed is enough
-                        except Exception:
-                            continue
+                    if not img_obj:
+                        continue
+                    # Prefer Discord's proxy URL (works reliably) over original
+                    img_url = getattr(img_obj, 'proxy_url', None) or img_obj.url
+                    if not img_url or not img_url.startswith("http"):
+                        continue
+                    try:
+                        img_bytes, mime = await self._download_url(img_url)
+                        if img_bytes and mime:
+                            img_bytes, mime = self._process_image_bytes(img_bytes, mime)
+                            b64 = base64.b64encode(img_bytes).decode("ascii")
+                            images.append({
+                                "url": f"data:{mime};base64,{b64}",
+                                "sender": msg.author.display_name,
+                                "filename": (img_obj.url or img_url).split("/")[-1].split("?")[0] or "embed",
+                            })
+                            break  # one image per embed is enough
+                    except Exception:
+                        continue
 
         async for msg in ctx.channel.history(limit=lookback, before=ctx.message):
             await _add_from_message(msg)
