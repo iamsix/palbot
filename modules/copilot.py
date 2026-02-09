@@ -213,6 +213,19 @@ class Copilot(commands.Cog):
 
     IMAGE_CONTENT_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
 
+    @staticmethod
+    def _sniff_mime(data: bytes) -> str | None:
+        """Detect image MIME type from magic bytes."""
+        if data[:8] == b'\x89PNG\r\n\x1a\n':
+            return "image/png"
+        if data[:3] == b'\xff\xd8\xff':
+            return "image/jpeg"
+        if data[:4] == b'RIFF' and data[8:12] == b'WEBP':
+            return "image/webp"
+        if data[:6] in (b'GIF87a', b'GIF89a'):
+            return "image/gif"
+        return None
+
     async def _collect_recent_images(self, ctx, lookback: int) -> list:
         """Scan the last `lookback` messages for image attachments.
 
@@ -229,8 +242,8 @@ class Copilot(commands.Cog):
                 if ct.split(";")[0].strip() in self.IMAGE_CONTENT_TYPES:
                     try:
                         img_bytes = await att.read()
+                        mime = self._sniff_mime(img_bytes) or ct.split(";")[0].strip()
                         b64 = base64.b64encode(img_bytes).decode("ascii")
-                        mime = ct.split(";")[0].strip()
                         images.append({
                             "url": f"data:{mime};base64,{b64}",
                             "sender": msg.author.display_name,
@@ -245,8 +258,8 @@ class Copilot(commands.Cog):
             if ct.split(";")[0].strip() in self.IMAGE_CONTENT_TYPES:
                 try:
                     img_bytes = await att.read()
+                    mime = self._sniff_mime(img_bytes) or ct.split(";")[0].strip()
                     b64 = base64.b64encode(img_bytes).decode("ascii")
-                    mime = ct.split(";")[0].strip()
                     images.append({
                         "url": f"data:{mime};base64,{b64}",
                         "sender": ctx.message.author.display_name,
