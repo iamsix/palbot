@@ -188,9 +188,8 @@ class VoiceTTS(commands.Cog):
         # Collapse whitespace
         text = re.sub(r'\s+', ' ', text).strip()
 
-        # Skip if nothing meaningful left (empty, or just a name/mention
-        # e.g. bot reposts a Reddit link with just "@user" + embed)
-        if not text or len(text.split()) <= 1:
+        # Skip if nothing left after cleaning
+        if not text:
             return ""
 
         # Truncate
