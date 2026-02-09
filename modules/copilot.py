@@ -398,14 +398,15 @@ class Copilot(commands.Cog):
                     if url_count >= 3:  # cap probing to avoid excessive requests
                         break
                     raw_url = url_match.group(0).strip("<>)\"'")  # strip wrapping chars
+                    url_label = raw_url.split("//")[-1].split("?")[0][:40]
                     if raw_url in embed_urls:
-                        self._img_diag.append(f"url:dup")
+                        self._img_diag.append(f"url:dup({url_label})")
                         continue
                     url_count += 1
                     try:
                         img_bytes, mime = await self._download_url(raw_url, probe=True)
                         if img_bytes and mime:
-                            self._img_diag.append(f"url:ok({mime},{len(img_bytes)}B)")
+                            self._img_diag.append(f"url:ok({url_label},{len(img_bytes)}B)")
                             img_bytes, mime = self._process_image_bytes(img_bytes, mime)
                             b64 = base64.b64encode(img_bytes).decode("ascii")
                             images.append({
@@ -414,9 +415,9 @@ class Copilot(commands.Cog):
                                 "filename": raw_url.split("/")[-1].split("?")[0] or "url",
                             })
                         else:
-                            self._img_diag.append(f"url:skip")
+                            self._img_diag.append(f"url:skip({url_label})")
                     except Exception as e:
-                        self._img_diag.append(f"url:err({type(e).__name__})")
+                        self._img_diag.append(f"url:err({url_label},{type(e).__name__})")
                         continue
 
         async for msg in ctx.channel.history(limit=lookback, before=ctx.message):
