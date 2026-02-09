@@ -1158,6 +1158,11 @@ RULES:
         if older_tokens < compact_max_tokens:
             return f"{total_msgs} messages, older portion ({older_tokens} tokens) small enough — no compaction needed"
 
+        # Cap input to avoid exceeding model context limit
+        if older_tokens > self.MAX_COMPACTION_INPUT:
+            older_msgs = self._trim_messages_to_budget(older_msgs, bot_user_id, self.MAX_COMPACTION_INPUT)
+            older_text = self._format_messages(older_msgs, bot_user_id)
+
         # Compact
         summary, in_tok, out_tok, cached_comp = await self._do_compaction(
             ctx, older_text, compact_max_tokens, compact_model, token, base_url)
