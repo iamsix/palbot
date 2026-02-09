@@ -122,6 +122,16 @@ class VoiceTTS(commands.Cog):
         text = CODE_BLOCK_PATTERN.sub("code block", text)
         text = INLINE_CODE_PATTERN.sub("code", text)
 
+        # Strip URLs from mixed messages (keep surrounding text)
+        text = re.sub(r'https?://\S+', '', text)
+
+        # Strip markdown formatting
+        text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)  # bold
+        text = re.sub(r'\*(.+?)\*', r'\1', text)      # italic
+        text = re.sub(r'__(.+?)__', r'\1', text)       # underline
+        text = re.sub(r'~~(.+?)~~', r'\1', text)       # strikethrough
+        text = re.sub(r'^>\s?', '', text, flags=re.MULTILINE)  # block quotes
+
         # Replace user mentions with display names
         def replace_mention(m):
             uid = int(m.group(1))
@@ -145,6 +155,9 @@ class VoiceTTS(commands.Cog):
 
         # Replace custom emoji with names
         text = EMOJI_PATTERN.sub(r'\1', text)
+
+        # Strip remaining Discord markdown artifacts
+        text = re.sub(r'[*_~`|>]', '', text)
 
         # Collapse whitespace
         text = re.sub(r'\s+', ' ', text).strip()
