@@ -156,8 +156,8 @@ class VoiceTTS(commands.Cog):
             return role.name if role else "a role"
         text = ROLE_MENTION_PATTERN.sub(replace_role, text)
 
-        # Replace custom emoji with names
-        text = EMOJI_PATTERN.sub(r'\1', text)
+        # Strip custom Discord emoji entirely
+        text = EMOJI_PATTERN.sub('', text)
 
         # Strip remaining Discord markdown artifacts
         text = re.sub(r'[*_~`|>]', '', text)
