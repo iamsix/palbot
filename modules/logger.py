@@ -137,7 +137,7 @@ class Logger(commands.Cog):
         else:
             chname = "None"
 
-        if tchan.guild:
+        if tchan and tchan.guild:
             gid = tchan.guild.id
         else:
             gid = "None"
