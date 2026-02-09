@@ -341,6 +341,7 @@ class Copilot(commands.Cog):
             return []
 
         images = []
+        self._img_diag = []  # diagnostics for debug output
 
         async def _add_from_message(msg):
             # Direct attachments
@@ -363,6 +364,7 @@ class Copilot(commands.Cog):
             # Embed images (link previews, etc.)
             embed_urls = set()  # track URLs already handled by embeds
             for embed in msg.embeds:
+                self._img_diag.append(f"embed:{embed.type}({'img' if embed.image else ''}{'thumb' if embed.thumbnail else ''})")
                 for img_obj in (embed.image, embed.thumbnail):
                     if not img_obj:
                         continue
@@ -395,13 +397,15 @@ class Copilot(commands.Cog):
                 for url_match in self.IMAGE_URL_PATTERN.finditer(msg.content):
                     if url_count >= 3:  # cap probing to avoid excessive requests
                         break
-                    raw_url = url_match.group(0).rstrip(")")  # strip trailing parens from markdown
+                    raw_url = url_match.group(0).strip("<>)\"'")  # strip wrapping chars
                     if raw_url in embed_urls:
+                        self._img_diag.append(f"url:dup")
                         continue
                     url_count += 1
                     try:
                         img_bytes, mime = await self._download_url(raw_url, probe=True)
                         if img_bytes and mime:
+                            self._img_diag.append(f"url:ok({mime},{len(img_bytes)}B)")
                             img_bytes, mime = self._process_image_bytes(img_bytes, mime)
                             b64 = base64.b64encode(img_bytes).decode("ascii")
                             images.append({
@@ -409,7 +413,10 @@ class Copilot(commands.Cog):
                                 "sender": msg.author.display_name,
                                 "filename": raw_url.split("/")[-1].split("?")[0] or "url",
                             })
-                    except Exception:
+                        else:
+                            self._img_diag.append(f"url:skip")
+                    except Exception as e:
+                        self._img_diag.append(f"url:err({type(e).__name__})")
                         continue
 
         async for msg in ctx.channel.history(limit=lookback, before=ctx.message):
@@ -793,8 +800,11 @@ Be detailed — this summary replaces the original messages and is the only reco
             # Collect recent images
             image_lookback = settings.get("image_lookback", 10)
             images = await self._collect_recent_images(ctx, image_lookback)
-            if images and show_debug:
-                debug_parts.append(f"imgs={len(images)}")
+            if show_debug:
+                img_debug = f"imgs={len(images)}"
+                if hasattr(self, '_img_diag') and self._img_diag:
+                    img_debug += f"[{','.join(self._img_diag)}]"
+                debug_parts.append(img_debug)
 
             # Build prompt with context — context first for prefix caching
             if context_sections:
@@ -1020,8 +1030,11 @@ RULES:
             # 4. Collect recent images
             image_lookback = settings.get("image_lookback", 10)
             images = await self._collect_recent_images(ctx, image_lookback)
-            if images and show_debug:
-                debug_parts.append(f"imgs={len(images)}")
+            if show_debug:
+                img_debug = f"imgs={len(images)}"
+                if hasattr(self, '_img_diag') and self._img_diag:
+                    img_debug += f"[{','.join(self._img_diag)}]"
+                debug_parts.append(img_debug)
 
             # Build final prompt — stable context first for prefix caching
             context_sections = stable_sections + volatile_sections
