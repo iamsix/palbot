@@ -951,6 +951,37 @@ RULES:
 
     @commands.command()
     @is_bot_admin()
+    async def claisummary(self, ctx, channel: discord.TextChannel = None):
+        """Show the current compaction summary for a channel.
+
+        !claisummary          — this channel
+        !claisummary #channel — specific channel
+        """
+        target = channel or ctx.channel
+        cache = await self.ai_cache.get_cache(target.id)
+        if not cache or not cache.get("summary_text"):
+            await ctx.send(f"No compaction summary for <#{target.id}>.")
+            return
+
+        summary = cache["summary_text"]
+        token_count = cache["token_count"] or estimate_tokens(summary)
+        age_hours = (time.time() - cache["updated_at"]) / 3600
+        days_covered = (self._snowflake_to_ts(cache["newest_snowflake"]) -
+                        self._snowflake_to_ts(cache["oldest_snowflake"])) / 86400
+
+        header = f"📝 **Compaction Summary — <#{target.id}>**\n"
+        header += f"*{token_count:,} tokens | {days_covered:.1f} days | built {age_hours:.1f}h ago*\n\n"
+
+        full = header + summary
+
+        # Discord max message is 2000 chars — split if needed
+        if len(full) <= 2000:
+            await ctx.send(full)
+        else:
+            await ctx.send(header + summary[:2000 - len(header) - 20] + "\n\n*(truncated)*")
+
+    @commands.command()
+    @is_bot_admin()
     async def claireset(self, ctx, scope: str = None):
         """Nuke compaction cache and immediately rebuild (owner only)
 
