@@ -1,5 +1,6 @@
 import aiohttp
 import asyncio
+import base64
 import json
 import re
 import time
@@ -209,6 +210,70 @@ class Copilot(commands.Cog):
     def _snowflake_to_ts(self, snowflake: int) -> float:
         """Convert a Discord snowflake to a Unix timestamp (seconds)."""
         return ((snowflake >> 22) + self.DISCORD_EPOCH) / 1000.0
+
+    IMAGE_CONTENT_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
+
+    async def _collect_recent_images(self, ctx, lookback: int) -> list:
+        """Scan the last `lookback` messages for image attachments.
+
+        Returns list of {"url": data_uri, "sender": name, "filename": name}
+        dicts, oldest first.  Skips images that fail to download.
+        """
+        if lookback <= 0:
+            return []
+
+        images = []
+        async for msg in ctx.channel.history(limit=lookback, before=ctx.message):
+            for att in msg.attachments:
+                ct = att.content_type or ""
+                if ct.split(";")[0].strip() in self.IMAGE_CONTENT_TYPES:
+                    try:
+                        img_bytes = await att.read()
+                        b64 = base64.b64encode(img_bytes).decode("ascii")
+                        mime = ct.split(";")[0].strip()
+                        images.append({
+                            "url": f"data:{mime};base64,{b64}",
+                            "sender": msg.author.display_name,
+                            "filename": att.filename,
+                        })
+                    except Exception:
+                        continue  # skip failed downloads
+
+        # Also check the trigger message itself
+        for att in ctx.message.attachments:
+            ct = att.content_type or ""
+            if ct.split(";")[0].strip() in self.IMAGE_CONTENT_TYPES:
+                try:
+                    img_bytes = await att.read()
+                    b64 = base64.b64encode(img_bytes).decode("ascii")
+                    mime = ct.split(";")[0].strip()
+                    images.append({
+                        "url": f"data:{mime};base64,{b64}",
+                        "sender": ctx.message.author.display_name,
+                        "filename": att.filename,
+                    })
+                except Exception:
+                    continue
+
+        return images  # oldest first from history, trigger msg last
+
+    def _build_user_content(self, ask: str, images: list) -> str | list:
+        """Build user message content — plain string or multimodal array.
+
+        If images are present, returns a list of content parts (OpenAI vision
+        format).  Otherwise returns the plain ask string.
+        """
+        if not images:
+            return ask
+
+        parts = []
+        for img in images:
+            parts.append({
+                "type": "image_url",
+                "image_url": {"url": img["url"]},
+            })
+        parts.append({"type": "text", "text": ask})
+        return parts
 
     async def _fetch_messages_range(self, ctx, start_snowflake: int, end_snowflake: int | None = None) -> list:
         """Fetch messages from Logger DB between two snowflakes.
@@ -562,6 +627,12 @@ Be detailed — this summary replaces the original messages and is the only reco
                 if show_debug:
                     debug_parts.append(f"users={estimate_tokens(user_context)}tok")
 
+            # Collect recent images
+            image_lookback = settings.get("image_lookback", 10)
+            images = await self._collect_recent_images(ctx, image_lookback)
+            if images and show_debug:
+                debug_parts.append(f"imgs={len(images)}")
+
             # Build prompt with context — context first for prefix caching
             if context_sections:
                 combined_context = "\n\n".join(context_sections)
@@ -598,11 +669,12 @@ RULES:
             stable_prefix_tokens += estimate_tokens(system_prompt)
 
             max_output = settings.get("max_output_tokens", 500)
+            user_content = self._build_user_content(ask, images)
             payload = {
                 "model": answer_model,
                 "messages": [
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": ask}
+                    {"role": "user", "content": user_content}
                 ],
                 "max_tokens": max_output,
             }
@@ -782,6 +854,12 @@ RULES:
                 if show_debug:
                     debug_parts.append(f"users={estimate_tokens(user_context)}tok")
 
+            # 4. Collect recent images
+            image_lookback = settings.get("image_lookback", 10)
+            images = await self._collect_recent_images(ctx, image_lookback)
+            if images and show_debug:
+                debug_parts.append(f"imgs={len(images)}")
+
             # Build final prompt — stable context first for prefix caching
             context_sections = stable_sections + volatile_sections
             if context_sections:
@@ -824,11 +902,12 @@ RULES:
 
             stable_prefix_tokens += estimate_tokens(system_prompt)
 
+            user_content = self._build_user_content(ask, images)
             payload = {
                 "model": answer_model,
                 "messages": [
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": ask}
+                    {"role": "user", "content": user_content}
                 ],
                 "max_tokens": max_output,
             }
