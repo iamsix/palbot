@@ -13,7 +13,9 @@ try:
     HAS_PIL = True
 except ImportError:
     HAS_PIL = False
-from modules.ai_cache import AICache, estimate_tokens, calculate_cost, SETTINGS_SPEC, SETTINGS_HELP
+from modules.ai_cache import (AICache, estimate_tokens, calculate_cost,
+                              SETTINGS_SPEC, SETTINGS_HELP,
+                              GLOBAL_SETTINGS, SECRET_SETTINGS)
 
 BOT_ADMIN_ROLE = "Bot Admin"
 
@@ -932,6 +934,28 @@ RULES:
         else:
             await ctx.send(output[:1980])
 
+    async def brave_search(self, query: str, api_key: str, count: int = 5) -> list:
+        """Search using Brave Search API. Returns list of {title, link, snippet, page_text}."""
+        url = "https://api.search.brave.com/res/v1/web/search"
+        headers = {"Accept": "application/json", "X-Subscription-Token": api_key}
+        params = {"q": query, "count": count}
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=headers, params=params,
+                                   timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                if resp.status != 200:
+                    return []
+                data = await resp.json()
+
+        results = []
+        for item in (data.get("web", {}).get("results", []))[:count]:
+            results.append({
+                "title": item.get("title", ""),
+                "link": item.get("url", ""),
+                "snippet": item.get("description", ""),
+            })
+        return results
+
     async def fetch_page_text(self, url: str, max_chars: int = 4000) -> str:
         """Fetch a URL and extract readable text content"""
         try:
@@ -989,11 +1013,15 @@ RULES:
 
             # 1. Web search for current info (use original question)
             try:
-                search_results = await self.bot.utils.google_for_urls(
-                    self.bot, original_ask, return_full_data=True
-                )
+                brave_key = await self.ai_cache.get_setting(guild_id, None, "brave_api_key")
+                if brave_key:
+                    search_results = await self.brave_search(original_ask, brave_key, count=5)
+                else:
+                    search_results = await self.bot.utils.google_for_urls(
+                        self.bot, original_ask, return_full_data=True
+                    )
                 if search_results:
-                    # Fetch content from top 3 results in parallel
+                    # Fetch content from top results in parallel
                     async def fetch_result(i, result):
                         title = result.get('title', '')
                         link = result.get('link', '')
@@ -1004,7 +1032,8 @@ RULES:
                         else:
                             return f"[Source {i+1}] {title}\nURL: {link}\nSnippet: {snippet}"
 
-                    tasks = [fetch_result(i, r) for i, r in enumerate(search_results[:3])]
+                    top_n = 5 if brave_key else 3
+                    tasks = [fetch_result(i, r) for i, r in enumerate(search_results[:top_n])]
                     web_content = await asyncio.gather(*tasks)
 
                     if web_content:
@@ -1197,7 +1226,13 @@ RULES:
                 default = spec[0]
                 is_default = (v == default)
                 marker = " *(default)*" if is_default else ""
-                if k == "system_prompt":
+                global_tag = " 🌐" if k in GLOBAL_SETTINGS else ""
+                if k in SECRET_SETTINGS:
+                    if v:
+                        lines.append(f"  `{k}`: ✓ set{global_tag}")
+                    else:
+                        lines.append(f"  `{k}`: ✗ not set{global_tag}")
+                elif k == "system_prompt":
                     if v:
                         preview = v[:80] + ("..." if len(v) > 80 else "")
                         lines.append(f"  `{k}`: {preview}")
@@ -1220,13 +1255,19 @@ RULES:
 
         ok, err = await self.ai_cache.set_setting(guild_id, channel_id, key, value)
         if ok:
-            if key == "system_prompt" and value:
+            scope = "server" if key in GLOBAL_SETTINGS else f"<#{channel_id}>"
+            if key in SECRET_SETTINGS:
+                if value:
+                    await ctx.send(f"✅ `{key}` set for {scope}")
+                else:
+                    await ctx.send(f"✅ `{key}` cleared for {scope}")
+            elif key == "system_prompt" and value:
                 preview = value[:80] + ("..." if len(value) > 80 else "")
-                await ctx.send(f"✅ `{key}` set for <#{channel_id}>: {preview}")
+                await ctx.send(f"✅ `{key}` set for {scope}: {preview}")
             elif key == "system_prompt":
-                await ctx.send(f"✅ `{key}` cleared for <#{channel_id}>")
+                await ctx.send(f"✅ `{key}` cleared for {scope}")
             else:
-                await ctx.send(f"✅ `{key}` set to **{value}** for <#{channel_id}>")
+                await ctx.send(f"✅ `{key}` set to **{value}** for {scope}")
         else:
             await ctx.send(f"❌ {err}")
 

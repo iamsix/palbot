@@ -58,7 +58,14 @@ SETTINGS_SPEC = {
     "answer_model":       ("claude-opus-4.6", None, None),
     "compact_model":      ("claude-sonnet-4.5", None, None),
     "system_prompt":      ("", None, None),
+    "brave_api_key":      ("", None, None),
 }
+
+# Settings that are stored guild-wide (channel_id=NULL), not per-channel
+GLOBAL_SETTINGS = {"brave_api_key"}
+
+# Settings whose values should be hidden in !claiconfig output
+SECRET_SETTINGS = {"brave_api_key"}
 
 SETTINGS_HELP = {
     "compact_days":       "How many days of history to summarize (older is discarded)",
@@ -73,6 +80,7 @@ SETTINGS_HELP = {
     "answer_model":       "Model used for answering questions",
     "compact_model":      "Model used for compaction/summarization",
     "system_prompt":      "Custom system prompt (replaces default when set)",
+    "brave_api_key":      "Brave Search API key for !sclai (global, falls back to Google if unset)",
 }
 
 # Hardcoded model pricing: (input $/M tokens, output $/M tokens, cache_read $/M tokens)
@@ -248,6 +256,10 @@ class AICache:
         """Validate and store a setting. Returns (success, error_msg)."""
         if key not in SETTINGS_SPEC:
             return False, f"Unknown setting `{key}`. Valid: {', '.join(SETTINGS_SPEC.keys())}"
+
+        # Global settings are always stored guild-wide
+        if key in GLOBAL_SETTINGS:
+            channel_id = None
 
         default_val, min_val, max_val = SETTINGS_SPEC[key]
 
