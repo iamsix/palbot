@@ -32,6 +32,7 @@ Levenshtein==0.27.3
 lxml==6.0.2
 multidict==6.7.0
 parsedatetime==2.6
+Pillow==12.1.0
 propcache==0.4.1
 pyasn1==0.6.2
 pyasn1_modules==0.4.2
