@@ -162,8 +162,25 @@ class VoiceTTS(commands.Cog):
         # Strip remaining Discord markdown artifacts
         text = re.sub(r'[*_~`|>]', '', text)
 
-        # Strip misc emoji/symbols that TTS reads weirdly
-        text = re.sub(r'[🔧⚙️🔍📊📋🗜️🧹⏭️🔊🔇👋🗣️📝]', '', text)
+        # Strip ALL unicode emoji (covers every emoji, not just a hardcoded list)
+        text = re.sub(
+            r'[\U0001F600-\U0001F64F'   # emoticons
+            r'\U0001F300-\U0001F5FF'     # symbols & pictographs
+            r'\U0001F680-\U0001F6FF'     # transport & map
+            r'\U0001F700-\U0001F77F'     # alchemical
+            r'\U0001F780-\U0001F7FF'     # geometric shapes ext
+            r'\U0001F800-\U0001F8FF'     # supplemental arrows
+            r'\U0001F900-\U0001F9FF'     # supplemental symbols
+            r'\U0001FA00-\U0001FA6F'     # chess symbols
+            r'\U0001FA70-\U0001FAFF'     # symbols ext-A
+            r'\U00002702-\U000027B0'     # dingbats
+            r'\U0000FE00-\U0000FE0F'     # variation selectors
+            r'\U000024C2-\U0001F251'     # enclosed chars
+            r'\U0000200D'                # zero width joiner
+            r'\U00002600-\U000026FF'     # misc symbols
+            r'\U00002300-\U000023FF'     # misc technical
+            r'\U0000203C-\U00003299'     # CJK symbols + misc
+            r']+', '', text)
 
         # Collapse whitespace
         text = re.sub(r'\s+', ' ', text).strip()
