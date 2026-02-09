@@ -1,12 +1,14 @@
 import aiohttp
 import asyncio
 import base64
+import io
 import json
 import re
 import time
 from datetime import datetime
 from discord.ext import commands
 import discord
+from PIL import Image
 from modules.ai_cache import AICache, estimate_tokens, calculate_cost, SETTINGS_SPEC, SETTINGS_HELP
 
 BOT_ADMIN_ROLE = "Bot Admin"
@@ -212,6 +214,8 @@ class Copilot(commands.Cog):
         return ((snowflake >> 22) + self.DISCORD_EPOCH) / 1000.0
 
     IMAGE_CONTENT_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
+    MAX_IMAGE_BYTES = 3_500_000  # ~3.5MB raw; base64 is ~33% larger → ~4.7MB (API limit ~5MB)
+    MAX_IMAGE_DIMENSION = 2048   # max width or height in pixels
 
     @staticmethod
     def _sniff_mime(data: bytes) -> str | None:
@@ -225,6 +229,52 @@ class Copilot(commands.Cog):
         if data[:6] in (b'GIF87a', b'GIF89a'):
             return "image/gif"
         return None
+
+    @staticmethod
+    def _downscale_image(data: bytes, max_bytes: int, max_dim: int) -> tuple[bytes, str]:
+        """Downscale image if too large. Returns (bytes, mime_type).
+
+        Converts to JPEG for efficiency. Progressively reduces size until
+        it fits within max_bytes.
+        """
+        img = Image.open(io.BytesIO(data))
+
+        # Convert to RGB (handles RGBA PNGs, palette images, etc.)
+        if img.mode in ("RGBA", "P", "LA"):
+            bg = Image.new("RGB", img.size, (255, 255, 255))
+            if img.mode == "P":
+                img = img.convert("RGBA")
+            bg.paste(img, mask=img.split()[-1] if img.mode == "RGBA" else None)
+            img = bg
+        elif img.mode != "RGB":
+            img = img.convert("RGB")
+
+        # Downscale if dimensions exceed max
+        w, h = img.size
+        if w > max_dim or h > max_dim:
+            ratio = min(max_dim / w, max_dim / h)
+            img = img.resize((int(w * ratio), int(h * ratio)), Image.LANCZOS)
+
+        # Encode as JPEG, reduce quality until it fits
+        for quality in (85, 70, 50, 30):
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=quality, optimize=True)
+            result = buf.getvalue()
+            if len(result) <= max_bytes:
+                return result, "image/jpeg"
+
+        # Last resort: shrink dimensions further
+        w, h = img.size
+        for scale in (0.5, 0.25):
+            small = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+            buf = io.BytesIO()
+            small.save(buf, format="JPEG", quality=50, optimize=True)
+            result = buf.getvalue()
+            if len(result) <= max_bytes:
+                return result, "image/jpeg"
+
+        # Give up and return whatever we have
+        return result, "image/jpeg"
 
     async def _collect_recent_images(self, ctx, lookback: int) -> list:
         """Scan the last `lookback` messages for image attachments.
@@ -243,6 +293,9 @@ class Copilot(commands.Cog):
                     try:
                         img_bytes = await att.read()
                         mime = self._sniff_mime(img_bytes) or ct.split(";")[0].strip()
+                        if len(img_bytes) > self.MAX_IMAGE_BYTES:
+                            img_bytes, mime = self._downscale_image(
+                                img_bytes, self.MAX_IMAGE_BYTES, self.MAX_IMAGE_DIMENSION)
                         b64 = base64.b64encode(img_bytes).decode("ascii")
                         images.append({
                             "url": f"data:{mime};base64,{b64}",
@@ -259,6 +312,9 @@ class Copilot(commands.Cog):
                 try:
                     img_bytes = await att.read()
                     mime = self._sniff_mime(img_bytes) or ct.split(";")[0].strip()
+                    if len(img_bytes) > self.MAX_IMAGE_BYTES:
+                        img_bytes, mime = self._downscale_image(
+                            img_bytes, self.MAX_IMAGE_BYTES, self.MAX_IMAGE_DIMENSION)
                     b64 = base64.b64encode(img_bytes).decode("ascii")
                     images.append({
                         "url": f"data:{mime};base64,{b64}",
