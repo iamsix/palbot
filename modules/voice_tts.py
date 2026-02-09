@@ -46,11 +46,9 @@ VOICE_POOL = [
     "en-CA-LiamNeural",          # Male, Canadian
 ]
 
-# Max queued messages before we start dropping
-MAX_QUEUE_SIZE = 5
-
-# Max message length to TTS (chars) — longer messages get truncated
-MAX_MSG_LENGTH = 1500
+# Default settings
+DEFAULT_QUEUE_SIZE = 5
+DEFAULT_MSG_LENGTH = 1500
 
 # Skip URL-only messages
 URL_PATTERN = re.compile(r'^https?://\S+$')
@@ -83,6 +81,11 @@ class VoiceTTS(commands.Cog):
         self.voice_pool_index = defaultdict(int)
         # guild_id -> bool (is currently speaking)
         self.speaking = {}
+        # guild_id -> settings dict
+        self.settings = defaultdict(lambda: {
+            "queue_size": DEFAULT_QUEUE_SIZE,
+            "max_length": DEFAULT_MSG_LENGTH,
+        })
 
     def cog_unload(self):
         for task in self.consumers.values():
@@ -156,26 +159,42 @@ class VoiceTTS(commands.Cog):
             return role.name if role else "a role"
         text = ROLE_MENTION_PATTERN.sub(replace_role, text)
 
-        # Replace custom emoji with names
-        text = EMOJI_PATTERN.sub(r'\1', text)
+        # Strip custom Discord emoji entirely
+        text = EMOJI_PATTERN.sub('', text)
 
         # Strip remaining Discord markdown artifacts
         text = re.sub(r'[*_~`|>]', '', text)
 
-        # Strip misc emoji/symbols that TTS reads weirdly
-        text = re.sub(r'[🔧⚙️🔍📊📋🗜️🧹⏭️🔊🔇👋🗣️📝]', '', text)
+        # Strip ALL unicode emoji (covers every emoji, not just a hardcoded list)
+        text = re.sub(
+            r'[\U0001F600-\U0001F64F'   # emoticons
+            r'\U0001F300-\U0001F5FF'     # symbols & pictographs
+            r'\U0001F680-\U0001F6FF'     # transport & map
+            r'\U0001F700-\U0001F77F'     # alchemical
+            r'\U0001F780-\U0001F7FF'     # geometric shapes ext
+            r'\U0001F800-\U0001F8FF'     # supplemental arrows
+            r'\U0001F900-\U0001F9FF'     # supplemental symbols
+            r'\U0001FA00-\U0001FA6F'     # chess symbols
+            r'\U0001FA70-\U0001FAFF'     # symbols ext-A
+            r'\U00002702-\U000027B0'     # dingbats
+            r'\U0000FE00-\U0000FE0F'     # variation selectors
+            r'\U000024C2-\U0001F251'     # enclosed chars
+            r'\U0000200D'                # zero width joiner
+            r'\U00002600-\U000026FF'     # misc symbols
+            r'\U00002300-\U000023FF'     # misc technical
+            r'\U0000203C-\U00003299'     # CJK symbols + misc
+            r']+', '', text)
 
         # Collapse whitespace
         text = re.sub(r'\s+', ' ', text).strip()
 
-        # Skip if nothing meaningful left (empty, or just a name/mention
-        # e.g. bot reposts a Reddit link with just "@user" + embed)
-        if not text or len(text.split()) <= 1:
+        # Skip if nothing left after cleaning
+        if not text:
             return ""
 
         # Truncate
-        if len(text) > MAX_MSG_LENGTH:
-            text = text[:MAX_MSG_LENGTH] + "... message truncated"
+        if len(text) > self.settings[message.guild.id]["max_length"]:
+            text = text[:self.settings[message.guild.id]["max_length"]] + "... message truncated"
 
         return text
 
@@ -274,7 +293,8 @@ class VoiceTTS(commands.Cog):
             return
 
         # Drop if queue is full
-        if queue.qsize() >= MAX_QUEUE_SIZE:
+        max_q = self.settings[guild_id]["queue_size"]
+        if queue.qsize() >= max_q:
             log.warning(f"TTS queue full for guild {guild_id}, dropping message from {message.author}")
             return
 
@@ -292,6 +312,7 @@ class VoiceTTS(commands.Cog):
             "`!tts voice <name>` — Force one voice for all\n"
             "`!tts voice auto` — Per-user voices (default)\n"
             "`!tts voices` — List voices\n"
+            "`!tts set` — View/change settings (queue size, max length)\n"
             "`!tts status` — Show status + voice assignments"
         )
 
@@ -509,9 +530,43 @@ class VoiceTTS(commands.Cog):
             f"📝 Text channel: **#{config.get('text_channel_name', '?')}**\n"
             f"{voice_info}\n"
             f"{'🔈 Currently speaking' if is_speaking else '🔇 Idle'}\n"
-            f"📋 Queue: {queue_size}/{MAX_QUEUE_SIZE} messages"
+            f"📋 Queue: {queue_size}/{self.settings[guild_id]['queue_size']} messages"
         )
         await ctx.send(status)
+
+    @tts_group.command(name="set")
+    async def tts_set(self, ctx, key: str = None, value: int = None):
+        """Adjust TTS settings.
+
+        Usage:
+            !tts set                    — Show current settings
+            !tts set queue_size 10      — Max queued messages (1-50)
+            !tts set max_length 2000    — Max message length in chars (100-4000)
+        """
+        guild_id = ctx.guild.id
+        s = self.settings[guild_id]
+
+        if key is None:
+            await ctx.send(
+                f"**TTS Settings:**\n"
+                f"`queue_size` = {s['queue_size']} (max queued messages, 1-50)\n"
+                f"`max_length` = {s['max_length']} (max chars per message, 100-4000)"
+            )
+            return
+
+        key = key.lower()
+        if key == "queue_size":
+            if value is None or not (1 <= value <= 50):
+                return await ctx.send("`queue_size` must be between 1 and 50")
+            s["queue_size"] = value
+            await ctx.send(f"✅ `queue_size` set to **{value}**")
+        elif key == "max_length":
+            if value is None or not (100 <= value <= 4000):
+                return await ctx.send("`max_length` must be between 100 and 4000")
+            s["max_length"] = value
+            await ctx.send(f"✅ `max_length` set to **{value}**")
+        else:
+            await ctx.send(f"Unknown setting `{key}`. Options: `queue_size`, `max_length`")
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
