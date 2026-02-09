@@ -280,8 +280,37 @@ class Copilot(commands.Cog):
         # Give up and return whatever we have
         return result, "image/jpeg"
 
+    async def _download_url(self, url: str) -> tuple[bytes | None, str | None]:
+        """Download an image URL and return (bytes, mime_type) or (None, None)."""
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                    if resp.status != 200:
+                        return None, None
+                    data = await resp.read()
+                    if len(data) < 100:  # too small to be a real image
+                        return None, None
+                    mime = self._sniff_mime(data)
+                    if not mime:
+                        ct = resp.content_type or ""
+                        ct_clean = ct.split(";")[0].strip()
+                        if ct_clean in self.IMAGE_CONTENT_TYPES:
+                            mime = ct_clean
+                    if not mime:
+                        return None, None
+                    return data, mime
+        except Exception:
+            return None, None
+
+    def _process_image_bytes(self, img_bytes: bytes, mime: str) -> tuple[bytes, str]:
+        """Downscale if needed, return (bytes, mime)."""
+        if len(img_bytes) > self.MAX_IMAGE_BYTES and HAS_PIL:
+            img_bytes, mime = self._downscale_image(
+                img_bytes, self.MAX_IMAGE_BYTES, self.MAX_IMAGE_DIMENSION)
+        return img_bytes, mime
+
     async def _collect_recent_images(self, ctx, lookback: int) -> list:
-        """Scan the last `lookback` messages for image attachments.
+        """Scan the last `lookback` messages for image attachments and embeds.
 
         Returns list of {"url": data_uri, "sender": name, "filename": name}
         dicts, oldest first.  Skips images that fail to download.
@@ -290,16 +319,16 @@ class Copilot(commands.Cog):
             return []
 
         images = []
-        async for msg in ctx.channel.history(limit=lookback, before=ctx.message):
+
+        async def _add_from_message(msg):
+            # Direct attachments
             for att in msg.attachments:
                 ct = att.content_type or ""
                 if ct.split(";")[0].strip() in self.IMAGE_CONTENT_TYPES:
                     try:
                         img_bytes = await att.read()
                         mime = self._sniff_mime(img_bytes) or ct.split(";")[0].strip()
-                        if len(img_bytes) > self.MAX_IMAGE_BYTES and HAS_PIL:
-                            img_bytes, mime = self._downscale_image(
-                                img_bytes, self.MAX_IMAGE_BYTES, self.MAX_IMAGE_DIMENSION)
+                        img_bytes, mime = self._process_image_bytes(img_bytes, mime)
                         b64 = base64.b64encode(img_bytes).decode("ascii")
                         images.append({
                             "url": f"data:{mime};base64,{b64}",
@@ -307,26 +336,31 @@ class Copilot(commands.Cog):
                             "filename": att.filename,
                         })
                     except Exception:
-                        continue  # skip failed downloads
+                        continue
+
+            # Embed images (link previews, etc.)
+            for embed in msg.embeds:
+                for img_obj in (embed.image, embed.thumbnail):
+                    if img_obj and img_obj.url and img_obj.url.startswith("http"):
+                        try:
+                            img_bytes, mime = await self._download_url(img_obj.url)
+                            if img_bytes and mime:
+                                img_bytes, mime = self._process_image_bytes(img_bytes, mime)
+                                b64 = base64.b64encode(img_bytes).decode("ascii")
+                                images.append({
+                                    "url": f"data:{mime};base64,{b64}",
+                                    "sender": msg.author.display_name,
+                                    "filename": img_obj.url.split("/")[-1].split("?")[0] or "embed",
+                                })
+                                break  # one image per embed is enough
+                        except Exception:
+                            continue
+
+        async for msg in ctx.channel.history(limit=lookback, before=ctx.message):
+            await _add_from_message(msg)
 
         # Also check the trigger message itself
-        for att in ctx.message.attachments:
-            ct = att.content_type or ""
-            if ct.split(";")[0].strip() in self.IMAGE_CONTENT_TYPES:
-                try:
-                    img_bytes = await att.read()
-                    mime = self._sniff_mime(img_bytes) or ct.split(";")[0].strip()
-                    if len(img_bytes) > self.MAX_IMAGE_BYTES and HAS_PIL:
-                        img_bytes, mime = self._downscale_image(
-                            img_bytes, self.MAX_IMAGE_BYTES, self.MAX_IMAGE_DIMENSION)
-                    b64 = base64.b64encode(img_bytes).decode("ascii")
-                    images.append({
-                        "url": f"data:{mime};base64,{b64}",
-                        "sender": ctx.message.author.display_name,
-                        "filename": att.filename,
-                    })
-                except Exception:
-                    continue
+        await _add_from_message(ctx.message)
 
         return images  # oldest first from history, trigger msg last
 
