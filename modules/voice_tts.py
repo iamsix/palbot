@@ -50,7 +50,7 @@ VOICE_POOL = [
 MAX_QUEUE_SIZE = 5
 
 # Max message length to TTS (chars) — longer messages get truncated
-MAX_MSG_LENGTH = 500
+MAX_MSG_LENGTH = 1500
 
 # Skip URL-only messages
 URL_PATTERN = re.compile(r'^https?://\S+$')
