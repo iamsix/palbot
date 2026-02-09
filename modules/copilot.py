@@ -935,7 +935,10 @@ RULES:
             await ctx.send(output[:1980])
 
     async def brave_search(self, query: str, api_key: str, count: int = 5) -> list:
-        """Search using Brave Search API. Returns list of {title, link, snippet, page_text}."""
+        """Search using Brave Search API. Returns list of {title, link, snippet}.
+
+        Raises on non-200 so caller can log the error and fall back to Google.
+        """
         url = "https://api.search.brave.com/res/v1/web/search"
         headers = {"Accept": "application/json", "X-Subscription-Token": api_key}
         params = {"q": query, "count": count}
@@ -944,7 +947,8 @@ RULES:
             async with session.get(url, headers=headers, params=params,
                                    timeout=aiohttp.ClientTimeout(total=10)) as resp:
                 if resp.status != 200:
-                    return []
+                    body = await resp.text()
+                    raise RuntimeError(f"Brave HTTP {resp.status}: {body[:200]}")
                 data = await resp.json()
 
         results = []
