@@ -218,6 +218,7 @@ class Copilot(commands.Cog):
         return ((snowflake >> 22) + self.DISCORD_EPOCH) / 1000.0
 
     IMAGE_CONTENT_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
+    IMAGE_URL_PATTERN = re.compile(r'https?://\S+', re.IGNORECASE)
     MAX_IMAGE_BYTES = 3_500_000  # ~3.5MB raw; base64 is ~33% larger → ~4.7MB (API limit ~5MB)
     MAX_IMAGE_DIMENSION = 2048   # max width or height in pixels
 
@@ -280,12 +281,33 @@ class Copilot(commands.Cog):
         # Give up and return whatever we have
         return result, "image/jpeg"
 
-    async def _download_url(self, url: str) -> tuple[bytes | None, str | None]:
-        """Download an image URL and return (bytes, mime_type) or (None, None)."""
+    async def _download_url(self, url: str, probe: bool = False) -> tuple[bytes | None, str | None]:
+        """Download an image URL and return (bytes, mime_type) or (None, None).
+
+        When probe=True, sends a HEAD request first to check content-type
+        before downloading. Use for URLs found in message text where we
+        don't know if they're images.
+        """
         try:
             async with aiohttp.ClientSession() as session:
+                if probe:
+                    async with session.head(url, timeout=aiohttp.ClientTimeout(total=5),
+                                            allow_redirects=True) as head_resp:
+                        if head_resp.status != 200:
+                            return None, None
+                        ct = head_resp.content_type or ""
+                        ct_clean = ct.split(";")[0].strip()
+                        if not ct_clean.startswith("image/"):
+                            return None, None
+                        cl = head_resp.content_length
+                        if cl and cl > 20_000_000:
+                            return None, None
+
                 async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
                     if resp.status != 200:
+                        return None, None
+                    cl = resp.content_length
+                    if cl and cl > 20_000_000:  # 20MB cap
                         return None, None
                     data = await resp.read()
                     if len(data) < 100:  # too small to be a real image
@@ -339,6 +361,7 @@ class Copilot(commands.Cog):
                         continue
 
             # Embed images (link previews, etc.)
+            embed_urls = set()  # track URLs already handled by embeds
             for embed in msg.embeds:
                 for img_obj in (embed.image, embed.thumbnail):
                     if not img_obj:
@@ -357,7 +380,35 @@ class Copilot(commands.Cog):
                                 "sender": msg.author.display_name,
                                 "filename": (img_obj.url or img_url).split("/")[-1].split("?")[0] or "embed",
                             })
+                            # Track both URLs so we don't re-download from text
+                            if img_obj.url:
+                                embed_urls.add(img_obj.url)
+                            if getattr(img_obj, 'proxy_url', None):
+                                embed_urls.add(img_obj.proxy_url)
                             break  # one image per embed is enough
+                    except Exception:
+                        continue
+
+            # Raw URLs in message text — probe for images (not already covered by embeds)
+            if msg.content:
+                url_count = 0
+                for url_match in self.IMAGE_URL_PATTERN.finditer(msg.content):
+                    if url_count >= 3:  # cap probing to avoid excessive requests
+                        break
+                    raw_url = url_match.group(0).rstrip(")")  # strip trailing parens from markdown
+                    if raw_url in embed_urls:
+                        continue
+                    url_count += 1
+                    try:
+                        img_bytes, mime = await self._download_url(raw_url, probe=True)
+                        if img_bytes and mime:
+                            img_bytes, mime = self._process_image_bytes(img_bytes, mime)
+                            b64 = base64.b64encode(img_bytes).decode("ascii")
+                            images.append({
+                                "url": f"data:{mime};base64,{b64}",
+                                "sender": msg.author.display_name,
+                                "filename": raw_url.split("/")[-1].split("?")[0] or "url",
+                            })
                     except Exception:
                         continue
 
