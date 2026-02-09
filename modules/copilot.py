@@ -8,7 +8,11 @@ import time
 from datetime import datetime
 from discord.ext import commands
 import discord
-from PIL import Image
+try:
+    from PIL import Image
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
 from modules.ai_cache import AICache, estimate_tokens, calculate_cost, SETTINGS_SPEC, SETTINGS_HELP
 
 BOT_ADMIN_ROLE = "Bot Admin"
@@ -293,7 +297,7 @@ class Copilot(commands.Cog):
                     try:
                         img_bytes = await att.read()
                         mime = self._sniff_mime(img_bytes) or ct.split(";")[0].strip()
-                        if len(img_bytes) > self.MAX_IMAGE_BYTES:
+                        if len(img_bytes) > self.MAX_IMAGE_BYTES and HAS_PIL:
                             img_bytes, mime = self._downscale_image(
                                 img_bytes, self.MAX_IMAGE_BYTES, self.MAX_IMAGE_DIMENSION)
                         b64 = base64.b64encode(img_bytes).decode("ascii")
@@ -312,7 +316,7 @@ class Copilot(commands.Cog):
                 try:
                     img_bytes = await att.read()
                     mime = self._sniff_mime(img_bytes) or ct.split(";")[0].strip()
-                    if len(img_bytes) > self.MAX_IMAGE_BYTES:
+                    if len(img_bytes) > self.MAX_IMAGE_BYTES and HAS_PIL:
                         img_bytes, mime = self._downscale_image(
                             img_bytes, self.MAX_IMAGE_BYTES, self.MAX_IMAGE_DIMENSION)
                     b64 = base64.b64encode(img_bytes).decode("ascii")
