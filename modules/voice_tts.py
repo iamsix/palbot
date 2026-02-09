@@ -125,6 +125,9 @@ class VoiceTTS(commands.Cog):
         # Strip URLs from mixed messages (keep surrounding text)
         text = re.sub(r'https?://\S+', '', text)
 
+        # Strip bot debug lines (🔧 ... | ... | ...)
+        text = re.sub(r'🔧[^\n]*', '', text)
+
         # Strip markdown formatting
         text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)  # bold
         text = re.sub(r'\*(.+?)\*', r'\1', text)      # italic
@@ -159,8 +162,16 @@ class VoiceTTS(commands.Cog):
         # Strip remaining Discord markdown artifacts
         text = re.sub(r'[*_~`|>]', '', text)
 
+        # Strip misc emoji/symbols that TTS reads weirdly
+        text = re.sub(r'[🔧⚙️🔍📊📋🗜️🧹⏭️🔊🔇👋🗣️📝]', '', text)
+
         # Collapse whitespace
         text = re.sub(r'\s+', ' ', text).strip()
+
+        # Skip if nothing meaningful left (empty, or just a name/mention
+        # e.g. bot reposts a Reddit link with just "@user" + embed)
+        if not text or len(text.split()) <= 1:
+            return ""
 
         # Truncate
         if len(text) > MAX_MSG_LENGTH:
