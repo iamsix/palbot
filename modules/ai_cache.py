@@ -277,8 +277,22 @@ class AICache:
             value = str(value)
 
         db = await self.get_db()
+        # DELETE + INSERT instead of INSERT OR REPLACE because
+        # PRIMARY KEY (guild_id, channel_id, key) doesn't match on
+        # NULL channel_id (NULL != NULL in SQL), causing duplicates
+        # for global settings.
+        if channel_id is None:
+            await db.execute(
+                "DELETE FROM settings WHERE guild_id = ? AND channel_id IS NULL AND key = ?",
+                [guild_id, key],
+            )
+        else:
+            await db.execute(
+                "DELETE FROM settings WHERE guild_id = ? AND channel_id = ? AND key = ?",
+                [guild_id, channel_id, key],
+            )
         await db.execute(
-            """INSERT OR REPLACE INTO settings (guild_id, channel_id, key, value, updated_at)
+            """INSERT INTO settings (guild_id, channel_id, key, value, updated_at)
                VALUES (?, ?, ?, ?, ?)""",
             [guild_id, channel_id, key, str(value), time.time()],
         )
