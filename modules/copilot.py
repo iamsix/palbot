@@ -1255,11 +1255,14 @@ RULES:
 
         full = header + summary
 
-        # Discord max message is 2000 chars — split if needed
+        # Discord max message is 2000 chars — paginate if needed
         if len(full) <= 2000:
             await ctx.send(full)
         else:
-            await ctx.send(header + summary[:2000 - len(header) - 20] + "\n\n*(truncated)*")
+            # Send header first, then summary in 2000-char chunks
+            await ctx.send(header)
+            for i in range(0, len(summary), 2000):
+                await ctx.send(summary[i:i + 2000])
 
     @commands.command()
     @is_bot_admin()
