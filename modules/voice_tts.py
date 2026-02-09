@@ -46,11 +46,9 @@ VOICE_POOL = [
     "en-CA-LiamNeural",          # Male, Canadian
 ]
 
-# Max queued messages before we start dropping
-MAX_QUEUE_SIZE = 5
-
-# Max message length to TTS (chars) — longer messages get truncated
-MAX_MSG_LENGTH = 1500
+# Default settings
+DEFAULT_QUEUE_SIZE = 5
+DEFAULT_MSG_LENGTH = 1500
 
 # Skip URL-only messages
 URL_PATTERN = re.compile(r'^https?://\S+$')
@@ -83,6 +81,11 @@ class VoiceTTS(commands.Cog):
         self.voice_pool_index = defaultdict(int)
         # guild_id -> bool (is currently speaking)
         self.speaking = {}
+        # guild_id -> settings dict
+        self.settings = defaultdict(lambda: {
+            "queue_size": DEFAULT_QUEUE_SIZE,
+            "max_length": DEFAULT_MSG_LENGTH,
+        })
 
     def cog_unload(self):
         for task in self.consumers.values():
@@ -191,8 +194,8 @@ class VoiceTTS(commands.Cog):
             return ""
 
         # Truncate
-        if len(text) > MAX_MSG_LENGTH:
-            text = text[:MAX_MSG_LENGTH] + "... message truncated"
+        if len(text) > self.settings[message.guild.id]["max_length"]:
+            text = text[:self.settings[message.guild.id]["max_length"]] + "... message truncated"
 
         return text
 
@@ -291,7 +294,8 @@ class VoiceTTS(commands.Cog):
             return
 
         # Drop if queue is full
-        if queue.qsize() >= MAX_QUEUE_SIZE:
+        max_q = self.settings[guild_id]["queue_size"]
+        if queue.qsize() >= max_q:
             log.warning(f"TTS queue full for guild {guild_id}, dropping message from {message.author}")
             return
 
@@ -309,6 +313,7 @@ class VoiceTTS(commands.Cog):
             "`!tts voice <name>` — Force one voice for all\n"
             "`!tts voice auto` — Per-user voices (default)\n"
             "`!tts voices` — List voices\n"
+            "`!tts set` — View/change settings (queue size, max length)\n"
             "`!tts status` — Show status + voice assignments"
         )
 
@@ -526,9 +531,43 @@ class VoiceTTS(commands.Cog):
             f"📝 Text channel: **#{config.get('text_channel_name', '?')}**\n"
             f"{voice_info}\n"
             f"{'🔈 Currently speaking' if is_speaking else '🔇 Idle'}\n"
-            f"📋 Queue: {queue_size}/{MAX_QUEUE_SIZE} messages"
+            f"📋 Queue: {queue_size}/{self.settings[guild_id]['queue_size']} messages"
         )
         await ctx.send(status)
+
+    @tts_group.command(name="set")
+    async def tts_set(self, ctx, key: str = None, value: int = None):
+        """Adjust TTS settings.
+
+        Usage:
+            !tts set                    — Show current settings
+            !tts set queue_size 10      — Max queued messages (1-50)
+            !tts set max_length 2000    — Max message length in chars (100-4000)
+        """
+        guild_id = ctx.guild.id
+        s = self.settings[guild_id]
+
+        if key is None:
+            await ctx.send(
+                f"**TTS Settings:**\n"
+                f"`queue_size` = {s['queue_size']} (max queued messages, 1-50)\n"
+                f"`max_length` = {s['max_length']} (max chars per message, 100-4000)"
+            )
+            return
+
+        key = key.lower()
+        if key == "queue_size":
+            if value is None or not (1 <= value <= 50):
+                return await ctx.send("`queue_size` must be between 1 and 50")
+            s["queue_size"] = value
+            await ctx.send(f"✅ `queue_size` set to **{value}**")
+        elif key == "max_length":
+            if value is None or not (100 <= value <= 4000):
+                return await ctx.send("`max_length` must be between 100 and 4000")
+            s["max_length"] = value
+            await ctx.send(f"✅ `max_length` set to **{value}**")
+        else:
+            await ctx.send(f"Unknown setting `{key}`. Options: `queue_size`, `max_length`")
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
