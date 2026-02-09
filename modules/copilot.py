@@ -1025,7 +1025,7 @@ RULES:
                         search_results = await self.brave_search(original_ask, brave_key, count=5)
                     except Exception as e:
                         if show_debug:
-                            debug_parts.append(f"search:brave_err({type(e).__name__})")
+                            debug_parts.append(f"search:brave_err({e})")
                         search_results = None
                         # Fall back to Google
                         search_engine = "google"
@@ -1076,7 +1076,7 @@ RULES:
                     debug_parts.append(f"search:{search_engine}=0")
             except Exception as e:
                 if show_debug:
-                    debug_parts.append(f"search:{search_engine or '?'}_err({type(e).__name__})")
+                    debug_parts.append(f"search:{search_engine or '?'}_err({e})")
                 self.bot.logger.error(f"sclai search failed: {e}")
 
             # 2. Compacted channel context
