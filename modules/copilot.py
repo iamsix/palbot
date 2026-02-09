@@ -284,32 +284,38 @@ class Copilot(commands.Cog):
     async def _download_url(self, url: str, probe: bool = False) -> tuple[bytes | None, str | None]:
         """Download an image URL and return (bytes, mime_type) or (None, None).
 
-        When probe=True, sends a HEAD request first to check content-type
-        before downloading. Use for URLs found in message text where we
-        don't know if they're images.
+        When probe=True, checks content-type and sniffs the first bytes
+        before downloading the full body. Use for URLs found in message
+        text where we don't know if they're images.
         """
         try:
             async with aiohttp.ClientSession() as session:
-                if probe:
-                    async with session.head(url, timeout=aiohttp.ClientTimeout(total=5),
-                                            allow_redirects=True) as head_resp:
-                        if head_resp.status != 200:
-                            return None, None
-                        ct = head_resp.content_type or ""
-                        ct_clean = ct.split(";")[0].strip()
-                        if not ct_clean.startswith("image/"):
-                            return None, None
-                        cl = head_resp.content_length
-                        if cl and cl > 20_000_000:
-                            return None, None
-
                 async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
                     if resp.status != 200:
                         return None, None
-                    cl = resp.content_length
-                    if cl and cl > 20_000_000:  # 20MB cap
-                        return None, None
-                    data = await resp.read()
+                    if probe:
+                        # Check content-length before downloading
+                        cl = resp.content_length
+                        if cl and cl > 20_000_000:
+                            return None, None
+                        # Check content-type hint (but don't trust it blindly)
+                        ct = resp.content_type or ""
+                        ct_clean = ct.split(";")[0].strip()
+                        if ct_clean and not ct_clean.startswith("image/") and ct_clean != "application/octet-stream":
+                            # Content-type says non-image — read first 16 bytes
+                            # and check magic bytes as final arbiter
+                            head = await resp.content.read(16)
+                            if not self._sniff_mime(head):
+                                return None, None
+                            # Magic bytes say it IS an image despite content-type
+                            data = head + await resp.content.read()
+                        else:
+                            data = await resp.read()
+                    else:
+                        cl = resp.content_length
+                        if cl and cl > 20_000_000:
+                            return None, None
+                        data = await resp.read()
                     if len(data) < 100:  # too small to be a real image
                         return None, None
                     mime = self._sniff_mime(data)
