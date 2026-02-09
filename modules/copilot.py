@@ -377,6 +377,8 @@ Be detailed — this summary replaces the original messages and is the only reco
             # channel it can be large even right after compaction ran.
             overflow_msgs = [m for m in raw_msgs if m[3] <= raw_window_start]
             overflow_tokens = estimate_tokens(self._format_messages(overflow_msgs, bot_user_id)) if overflow_msgs else 0
+            self._overflow_tokens = overflow_tokens
+            self._recompact_threshold = recompact_raw_tokens
             # Recompact when overflow exceeds the token threshold
             needs_recompact = overflow_tokens > recompact_raw_tokens
 
@@ -545,6 +547,8 @@ Be detailed — this summary replaces the original messages and is the only reco
                             debug_parts.append(f"⟳{self._last_compaction}")
                         debug_parts.append(f"summary={estimate_tokens(parts[0])}tok")
                         debug_parts.append(f"raw={estimate_tokens(parts[1])}tok")
+                        if hasattr(self, '_overflow_tokens'):
+                            debug_parts.append(f"overflow={self._overflow_tokens}/{self._recompact_threshold}")
                 else:
                     # No summary — entire history is the context prefix
                     stable_prefix_tokens += estimate_tokens(channel_context)
@@ -764,6 +768,8 @@ RULES:
                             debug_parts.append(f"⟳{self._last_compaction}")
                         debug_parts.append(f"summary={estimate_tokens(parts[0])}tok")
                         debug_parts.append(f"raw={estimate_tokens(parts[1])}tok")
+                        if hasattr(self, '_overflow_tokens'):
+                            debug_parts.append(f"overflow={self._overflow_tokens}/{self._recompact_threshold}")
                 else:
                     stable_prefix_tokens += estimate_tokens(channel_context)
                     if show_debug:
