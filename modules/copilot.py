@@ -337,6 +337,25 @@ class Copilot(commands.Cog):
                 img_bytes, self.MAX_IMAGE_BYTES, self.MAX_IMAGE_DIMENSION)
         return img_bytes, mime
 
+    @staticmethod
+    def _estimate_image_tokens(img_bytes: bytes) -> int:
+        """Estimate API token cost for an image.
+
+        Anthropic: tokens = (width * height) / 750
+        Falls back to rough estimate from file size if PIL unavailable.
+        """
+        if HAS_PIL:
+            try:
+                from PIL import Image
+                img = Image.open(io.BytesIO(img_bytes))
+                w, h = img.size
+                return max(100, (w * h) // 750)
+            except Exception:
+                pass
+        # Rough fallback: typical JPEG is ~10 bytes/pixel,
+        # so pixels ≈ size/10, tokens ≈ pixels/750
+        return max(100, len(img_bytes) // 7500)
+
     async def _collect_recent_images(self, ctx, lookback: int) -> list:
         """Scan the last `lookback` messages for image attachments and embeds.
 
@@ -348,6 +367,7 @@ class Copilot(commands.Cog):
 
         images = []
         self._img_diag = []  # diagnostics for debug output
+        self._img_tokens = 0  # estimated image token cost
 
         async def _add_from_message(msg):
             # Direct attachments
@@ -358,6 +378,7 @@ class Copilot(commands.Cog):
                         img_bytes = await att.read()
                         mime = self._sniff_mime(img_bytes) or ct.split(";")[0].strip()
                         img_bytes, mime = self._process_image_bytes(img_bytes, mime)
+                        self._img_tokens += self._estimate_image_tokens(img_bytes)
                         b64 = base64.b64encode(img_bytes).decode("ascii")
                         images.append({
                             "url": f"data:{mime};base64,{b64}",
@@ -382,6 +403,7 @@ class Copilot(commands.Cog):
                         img_bytes, mime = await self._download_url(img_url)
                         if img_bytes and mime:
                             img_bytes, mime = self._process_image_bytes(img_bytes, mime)
+                            self._img_tokens += self._estimate_image_tokens(img_bytes)
                             b64 = base64.b64encode(img_bytes).decode("ascii")
                             images.append({
                                 "url": f"data:{mime};base64,{b64}",
@@ -414,6 +436,7 @@ class Copilot(commands.Cog):
                         if img_bytes and mime:
                             self._img_diag.append(f"url:ok({url_label},{len(img_bytes)}B)")
                             img_bytes, mime = self._process_image_bytes(img_bytes, mime)
+                            self._img_tokens += self._estimate_image_tokens(img_bytes)
                             b64 = base64.b64encode(img_bytes).decode("ascii")
                             images.append({
                                 "url": f"data:{mime};base64,{b64}",
@@ -807,11 +830,9 @@ Be detailed — this summary replaces the original messages and is the only reco
             # Collect recent images
             image_lookback = settings.get("image_lookback", 10)
             images = await self._collect_recent_images(ctx, image_lookback)
-            if show_debug:
-                img_debug = f"imgs={len(images)}"
-                if hasattr(self, '_img_diag') and self._img_diag:
-                    img_debug += f"[{','.join(self._img_diag)}]"
-                debug_parts.append(img_debug)
+            if images and show_debug:
+                img_tok = getattr(self, '_img_tokens', 0)
+                debug_parts.append(f"imgs={len(images)}(~{img_tok}tok)")
 
             # Build prompt with context — context first for prefix caching
             if context_sections:
@@ -1037,11 +1058,9 @@ RULES:
             # 4. Collect recent images
             image_lookback = settings.get("image_lookback", 10)
             images = await self._collect_recent_images(ctx, image_lookback)
-            if show_debug:
-                img_debug = f"imgs={len(images)}"
-                if hasattr(self, '_img_diag') and self._img_diag:
-                    img_debug += f"[{','.join(self._img_diag)}]"
-                debug_parts.append(img_debug)
+            if images and show_debug:
+                img_tok = getattr(self, '_img_tokens', 0)
+                debug_parts.append(f"imgs={len(images)}(~{img_tok}tok)")
 
             # Build final prompt — stable context first for prefix caching
             context_sections = stable_sections + volatile_sections
