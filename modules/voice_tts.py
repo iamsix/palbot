@@ -228,8 +228,7 @@ class VoiceTTS(commands.Cog):
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         """Listen for messages in monitored channels."""
-        if message.author.bot:
-            return
+        # All messages get TTS'd, including bot responses
         if not message.guild:
             return
 
