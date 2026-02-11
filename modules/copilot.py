@@ -333,8 +333,9 @@ class Copilot(commands.Cog):
             return None, None
 
     def _process_image_bytes(self, img_bytes: bytes, mime: str) -> tuple[bytes, str]:
-        """Downscale if needed, return (bytes, mime)."""
-        if len(img_bytes) > self.MAX_IMAGE_BYTES and HAS_PIL:
+        """Downscale if needed, convert GIFs to JPEG, return (bytes, mime)."""
+        needs_convert = len(img_bytes) > self.MAX_IMAGE_BYTES or mime == "image/gif"
+        if needs_convert and HAS_PIL:
             img_bytes, mime = self._downscale_image(
                 img_bytes, self.MAX_IMAGE_BYTES, self.MAX_IMAGE_DIMENSION)
         return img_bytes, mime
