@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS usage_log (
 # Settings defaults and validation bounds
 # key: (default, min, max)  — min/max are None for string settings
 SETTINGS_SPEC = {
+    "enabled":            ("on",  None, None),
     "compact_days":       (7,    1,    30),
     "raw_hours":          (6,    1,    48),
     "raw_max_tokens":     (5000, 500,  50000),
@@ -68,6 +69,7 @@ GLOBAL_SETTINGS = {"brave_api_key"}
 SECRET_SETTINGS = {"brave_api_key"}
 
 SETTINGS_HELP = {
+    "enabled":            "Enable/disable !clai and !sclai in this channel (on/off)",
     "compact_days":       "How many days of history to summarize (older is discarded)",
     "raw_hours":          "Hours of recent chat kept as raw messages (not summarized)",
     "raw_max_tokens":     "Max tokens for the raw message window — trims oldest if exceeded",
