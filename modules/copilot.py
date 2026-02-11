@@ -782,6 +782,11 @@ Be detailed — this summary replaces the original messages and is the only reco
     @commands.command()
     async def clai(self, ctx, *, ask: str):
         """Ask Claude Opus 4.5 via GitHub Copilot API (with compacted channel + user context)"""
+        # Check if AI commands are enabled in this channel
+        enabled = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "enabled")
+        if enabled == "off":
+            return
+
         async with ctx.channel.typing():
             ask = self.resolve_mentions(ctx, ask)
 
@@ -989,6 +994,11 @@ RULES:
     @commands.command()
     async def sclai(self, ctx, *, ask: str):
         """Ask Claude Opus 4.5 with web search + compacted channel context for current events"""
+        # Check if AI commands are enabled in this channel
+        enabled = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "enabled")
+        if enabled == "off":
+            return
+
         async with ctx.channel.typing():
             original_ask = ask
             ask = self.resolve_mentions(ctx, ask)
