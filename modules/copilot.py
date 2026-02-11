@@ -808,7 +808,11 @@ Be detailed — this summary replaces the original messages and is the only reco
             t0 = time.monotonic()
 
             # Build compacted channel context
-            channel_context = await self._build_compacted_context(ctx, settings, token, base_url)
+            use_context = settings.get("context", "on") != "off"
+            if use_context:
+                channel_context = await self._build_compacted_context(ctx, settings, token, base_url)
+            else:
+                channel_context = ""
             if channel_context:
                 context_sections.append(f'<context type="discord_history" usage="internal_reference_only">\n{channel_context}\n</context>')
                 if "[Conversation summary" in channel_context and "Recent channel conversation:" in channel_context:
@@ -1090,7 +1094,11 @@ RULES:
                 self.bot.logger.error(f"sclai search failed: {e}")
 
             # 2. Compacted channel context
-            channel_context = await self._build_compacted_context(ctx, settings, token, base_url)
+            use_context = settings.get("context", "on") != "off"
+            if use_context:
+                channel_context = await self._build_compacted_context(ctx, settings, token, base_url)
+            else:
+                channel_context = ""
             if channel_context:
                 stable_sections.append(f'<discord_history>\n{channel_context}\n</discord_history>')
                 if "[Conversation summary" in channel_context and "Recent channel conversation:" in channel_context:
