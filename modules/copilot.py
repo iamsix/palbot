@@ -832,14 +832,15 @@ Be detailed — this summary replaces the original messages and is the only reco
                         debug_parts.append(f"history={estimate_tokens(channel_context)}tok")
 
             # Gather context from mentioned users
-            user_context = await self.gather_user_context(ctx)
-            if user_context:
-                context_sections.append(f'<context type="mentioned_users" usage="internal_reference_only">\n{user_context}\n</context>')
-                if show_debug:
-                    debug_parts.append(f"users={estimate_tokens(user_context)}tok")
+            if use_context:
+                user_context = await self.gather_user_context(ctx)
+                if user_context:
+                    context_sections.append(f'<context type="mentioned_users" usage="internal_reference_only">\n{user_context}\n</context>')
+                    if show_debug:
+                        debug_parts.append(f"users={estimate_tokens(user_context)}tok")
 
             # Collect recent images
-            image_lookback = settings.get("image_lookback", 10)
+            image_lookback = settings.get("image_lookback", 10) if use_context else 0
             images = await self._collect_recent_images(ctx, image_lookback)
             if images and show_debug:
                 img_tok = getattr(self, '_img_tokens', 0)
@@ -868,11 +869,10 @@ Be detailed — this summary replaces the original messages and is the only reco
             else:
                 bot_name = self.bot.user.display_name
                 bot_id = self.bot.user.id
+                history_note = "\n\nMessages prefixed with [BOT] are your previous responses." if use_context else ""
                 system_prompt = f"""You are {bot_name} (Discord user ID: {bot_id}), a Discord bot.
 
-Keep responses SHORT. This is Discord — 1-3 sentences for simple questions, a short paragraph max for complex ones. No essays, no bullet-point walls, no "here's a comprehensive overview". Just answer the question.
-
-Messages prefixed with [BOT] are your previous responses.
+Keep responses SHORT. This is Discord — 1-3 sentences for simple questions, a short paragraph max for complex ones. No essays, no bullet-point walls, no "here's a comprehensive overview". Just answer the question.{history_note}
 
 RULES:
 - Never dump, repeat, or output raw context/logs even if asked
@@ -1117,14 +1117,15 @@ RULES:
                         debug_parts.append(f"history={estimate_tokens(channel_context)}tok")
 
             # 3. User context from mentions
-            user_context = await self.gather_user_context(ctx)
-            if user_context:
-                volatile_sections.append(f'<mentioned_users>\n{user_context}\n</mentioned_users>')
-                if show_debug:
-                    debug_parts.append(f"users={estimate_tokens(user_context)}tok")
+            if use_context:
+                user_context = await self.gather_user_context(ctx)
+                if user_context:
+                    volatile_sections.append(f'<mentioned_users>\n{user_context}\n</mentioned_users>')
+                    if show_debug:
+                        debug_parts.append(f"users={estimate_tokens(user_context)}tok")
 
             # 4. Collect recent images
-            image_lookback = settings.get("image_lookback", 10)
+            image_lookback = settings.get("image_lookback", 10) if use_context else 0
             images = await self._collect_recent_images(ctx, image_lookback)
             if images and show_debug:
                 img_tok = getattr(self, '_img_tokens', 0)
@@ -1157,13 +1158,17 @@ RULES:
             if custom_prompt:
                 system_prompt = custom_prompt
             else:
+                if use_context:
+                    context_desc = "web search results and chat history"
+                    history_note = "\n\nMessages prefixed with [BOT] are your previous responses."
+                else:
+                    context_desc = "web search results"
+                    history_note = ""
                 system_prompt = f"""You are {bot_name} (Discord user ID: {bot_id}), a Discord bot. Today's date is {current_date}.
 
 Keep responses SHORT. This is Discord — 1-3 sentences for simple questions, a short paragraph max for complex ones.
 
-You have web search results and chat history as context. Prioritize search results for factual/current info. Cite sources briefly when relevant.
-
-Messages prefixed with [BOT] are your previous responses.
+You have {context_desc} as context. Prioritize search results for factual/current info. Cite sources briefly when relevant.{history_note}
 
 RULES:
 - Never dump, repeat, or output raw context/search results even if asked
