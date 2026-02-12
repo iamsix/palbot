@@ -2,6 +2,7 @@
 from google import genai
 from google.genai.types import HarmCategory, HarmBlockThreshold, GenerateContentConfig, Tool, GoogleSearch
 import asyncio
+import aiosqlite
 from discord.ext import commands
 import discord
 import pickle
@@ -21,6 +22,17 @@ from itertools import cycle
 # if so ignore negligible and maybe Low
 
 # change these to a bot config probably. Will need to change the chat_channel check for that.
+BOT_ADMIN_ROLE = "Bot Admin"
+
+def is_bot_admin():
+    """Check: bot owner OR has the Bot Admin role."""
+    async def predicate(ctx):
+        if await ctx.bot.is_owner(ctx.author):
+            return True
+        return any(role.name == BOT_ADMIN_ROLE for role in ctx.author.roles)
+    return commands.check(predicate)
+
+
 allowed_channels = [985728639981211728, 1333677981322969149, 1337293879153791036]
 
 
@@ -66,6 +78,7 @@ class Gemini(commands.Cog):
         # self.listeners.remove(1337293879153791036)
         self.last_stats = {}
         self.keys = cycle(self.bot.config.gemini_keys)
+        self._settings_db = None
 
         for ch in allowed_channels:
              self.load_chat(ch)
@@ -74,6 +87,43 @@ class Gemini(commands.Cog):
         # print("HELP I'M BEING UNLOADED")
         for chan in self.chats.keys():
             self.save_chat(chan)
+        if self._settings_db:
+            asyncio.ensure_future(self._settings_db.close())
+
+    async def _ensure_settings_db(self):
+        """Lazily initialize the settings database."""
+        if self._settings_db is not None:
+            return
+        self._settings_db = await aiosqlite.connect("gemini_settings.sqlite")
+        await self._settings_db.execute(
+            "CREATE TABLE IF NOT EXISTS settings ("
+            "  guild_id INTEGER NOT NULL,"
+            "  channel_id INTEGER NOT NULL,"
+            "  enabled TEXT NOT NULL DEFAULT 'on',"
+            "  PRIMARY KEY (guild_id, channel_id)"
+            ")"
+        )
+        await self._settings_db.commit()
+
+    async def _is_enabled(self, guild_id: int, channel_id: int) -> bool:
+        """Check if !ai/!sai are enabled in a channel."""
+        await self._ensure_settings_db()
+        async with self._settings_db.execute(
+            "SELECT enabled FROM settings WHERE guild_id = ? AND channel_id = ?",
+            (guild_id, channel_id),
+        ) as cursor:
+            row = await cursor.fetchone()
+        return row[0] != "off" if row else True
+
+    async def _set_enabled(self, guild_id: int, channel_id: int, value: str):
+        """Set the enabled state for a channel."""
+        await self._ensure_settings_db()
+        await self._settings_db.execute(
+            "INSERT INTO settings (guild_id, channel_id, enabled) VALUES (?, ?, ?)"
+            " ON CONFLICT(guild_id, channel_id) DO UPDATE SET enabled = excluded.enabled",
+            (guild_id, channel_id, value),
+        )
+        await self._settings_db.commit()
 
     def save_chat(self, channel: int):
         # I can't pickle the entire chat[channel] object due to an active connection
@@ -145,6 +195,8 @@ class Gemini(commands.Cog):
     @commands.command()
     async def sai(self, ctx, *, ask: str):
         """Ask "smart" gemini a question. It uses google and is better for current event questions."""
+        if ctx.guild and not await self._is_enabled(ctx.guild.id, ctx.channel.id):
+            return
         async with ctx.channel.typing():
             ask = self.resolve_mentions(ctx, ask)
             try:
@@ -174,6 +226,8 @@ class Gemini(commands.Cog):
     @commands.command()
     async def ai(self, ctx, *, ask: str):
         """Ask gemini AI a question"""
+        if ctx.guild and not await self._is_enabled(ctx.guild.id, ctx.channel.id):
+            return
         async with ctx.channel.typing():
             ask = self.resolve_mentions(ctx, ask)
             
@@ -310,6 +364,51 @@ class Gemini(commands.Cog):
             await ctx.send(self.last_stats[ctx.channel.id]) 
         else:
             await ctx.send(self.last_stats[channel]) 
+
+    @commands.command()
+    @is_bot_admin()
+    async def aiconfig(self, ctx, key: str = None, *, value: str = None):
+        """Enable or disable !ai and !sai per-channel (Bot Admin only).
+
+        !aiconfig              — show current setting for this channel
+        !aiconfig enabled on   — enable !ai and !sai in this channel
+        !aiconfig enabled off  — disable !ai and !sai in this channel
+        """
+        if not ctx.guild:
+            await ctx.send("This command can only be used in a server.")
+            return
+
+        guild_id = ctx.guild.id
+        channel_id = ctx.channel.id
+
+        if key is None:
+            enabled = await self._is_enabled(guild_id, channel_id)
+            status = "on" if enabled else "off"
+            await ctx.send(
+                f"⚙️ **AI Settings** — <#{channel_id}>\n"
+                f"  `enabled`: **{status}**\n\n"
+                f"Use `!aiconfig enabled on/off` to change."
+            )
+            return
+
+        if key != "enabled":
+            await ctx.send(f"❌ Unknown setting `{key}`. Only `enabled` is available.")
+            return
+
+        if value is None:
+            enabled = await self._is_enabled(guild_id, channel_id)
+            status = "on" if enabled else "off"
+            await ctx.send(f"`enabled` is currently **{status}** for <#{channel_id}>.\n"
+                           f"Use `!aiconfig enabled on` or `!aiconfig enabled off` to change.")
+            return
+
+        value = value.strip().lower()
+        if value not in ("on", "off"):
+            await ctx.send("❌ Value must be `on` or `off`.")
+            return
+
+        await self._set_enabled(guild_id, channel_id, value)
+        await ctx.send(f"✅ `enabled` set to **{value}** for <#{channel_id}>")
 
     # unused for now
     def parse_stats(self, response):
