@@ -94,7 +94,7 @@ class Gemini(commands.Cog):
         """Lazily initialize the settings database."""
         if self._settings_db is not None:
             return
-        self._settings_db = await aiosqlite.connect("gemini_settings.sqlite")
+        self._settings_db = await aiosqlite.connect("data/gemini_settings.sqlite")
         await self._settings_db.execute(
             "CREATE TABLE IF NOT EXISTS settings ("
             "  guild_id INTEGER NOT NULL,"
