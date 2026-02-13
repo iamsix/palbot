@@ -29,7 +29,7 @@ async def google_for_urls(bot, search_term, *, url_regex=None, return_full_data=
         json = await resp.json()
         bot.logger.debug(json)
         if resp.status != 200:
-            print(resp, json)
+            print(f"g_4_url: {search_term}", resp, json)
             return
         if return_full_data:
             return json['items']
