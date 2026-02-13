@@ -41,7 +41,7 @@ class Finance(commands.Cog):
                     crumb = resp.text
                     self.yahoo_crumb = crumb
                 else:
-                    print(resp.status_code)
+                    print("y stock lookup", resp.status_code)
                     print(await resp.text)
 
             url = f'https://query1.finance.yahoo.com/v1/finance/search?q={uriquote(name)}&lang=en-US&region=US&newsCount=0'
