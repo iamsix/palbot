@@ -8,6 +8,9 @@ gsearchcx = "abc123"
 gsearchapi = "abc123"
 gsearch2 = "abc123"
 
+# https://brave.com/search/api/
+bravesearch = "abc123"
+
 # https://timezonedb.com/
 timezonedb = "abc123"
 

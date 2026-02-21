@@ -22,15 +22,26 @@ class Pics(commands.Cog):
         if ctx.invoked_with.lower() == "gif":
             search += " gif -site:tiktok.com"
 
-        url = 'https://www.googleapis.com/customsearch/v1'
-        params = {'key': self.bot.config.gsearch2, 'cx': self.bot.config.gsearchcx,
-                   'q': search, 'searchType': 'image'}
-        if not ctx.channel.is_nsfw():
-            params['safe'] = "medium"
+        url = "https://api.search.brave.com/res/v1/images/search"
         
-        async with self.bot.session.get(url, params=params) as resp:
+        params = {
+            "q": search,
+            "count": 10,
+        }
+
+        headers = {
+            "Accept": "application/json",
+            "Accept-Encoding": "gzip",
+            "X-Subscription-Token": self.bot.config.bravesearch
+        }
+
+        if ctx.channel.is_nsfw():
+            params['safesearch'] = "off"
+
+        
+        async with self.bot.session.get(url, params=params, headers=headers) as resp:
             if resp.status != 200:
-                print(f"google image search ", resp.status)
+                print(f"brave image search ", resp.status)
                 print(await resp.read())
                 return
 
@@ -38,20 +49,17 @@ class Pics(commands.Cog):
             data = await resp.json()
 #            print(data)
             if 'items' not in data:
-                await ctx.send(f"There are no images of `{search}` on Google Image Search")
+                await ctx.send(f"There are no images of `{search}` on Brave Image Search")
                 return
 
-            data = data['items']
+            data = data['results']
             pages = self.bot.utils.Paginator(ctx, data, self.image_callback)
             await pages.paginate()
 
     async def image_callback(self, data, pg):
         title = f"{pg + 1}. {data[pg]['title']}"
-        e = discord.Embed(title=title, url=data[pg]['image']['contextLink'])
-        if 'x-raw-image' not in data[pg]['link']:
-            e.set_image(url=data[pg]['link'])
-        else:
-            e.set_image(url=data[pg]['image']['thumbnailLink'])
+        e = discord.Embed(title=title, url=data[pg]['url'])
+        e.set_image(url=data[pg]['thumbnail']['src'])
         return None, e
 
 
