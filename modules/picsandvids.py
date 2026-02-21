@@ -48,7 +48,7 @@ class Pics(commands.Cog):
 #            print(resp.url)
             data = await resp.json()
 #            print(data)
-            if 'items' not in data:
+            if 'results' not in data:
                 await ctx.send(f"There are no images of `{search}` on Brave Image Search")
                 return
 
