@@ -58,7 +58,7 @@ class Pics(commands.Cog):
 
     async def image_callback(self, data, pg):
         title = f"{pg + 1}. {data[pg]['title']}"
-        title = [:255]
+        title = title[:255]
         e = discord.Embed(title=title, url=data[pg]['url'])
         e.set_image(url=data[pg]['thumbnail']['src'])
         return None, e
