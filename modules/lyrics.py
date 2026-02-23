@@ -70,7 +70,8 @@ class Lyrics(commands.Cog):
                 return
 
             # Get the first result
-            song_url = data['response']['hits'][0]['result']['url']
+            song_path = data['response']['hits'][0]['result']['path']
+            song_url = f"https://genius.com{song_path}"
 
             # Scrape lyrics from the Genius page
             headers = {
@@ -87,28 +88,28 @@ class Lyrics(commands.Cog):
             # Parse HTML and extract lyrics
             soup = BeautifulSoup(html, 'html.parser')
 
-            # Find the lyrics container
-            lyrics_div = soup.find('div', class_='lyrics')
-            if not lyrics_div:
-                lyrics_div = soup.find('div', class_='lyrics__content')
+            # Find all lyrics containers
+            lyrics_divs = soup.find_all('div', {'data-lyrics-container': 'true'})
 
-            if not lyrics_div:
-                lyrics_div = soup.find('div', {'data-lyrics-container': 'true'})
-
-            if not lyrics_div:
-                # Fallback: find all p tags directly
-                paragraphs = soup.find_all('p')
-            else:
-                # Extract lyrics from paragraphs
-                paragraphs = lyrics_div.find_all('p')
+            if not lyrics_divs:
+                await ctx.send("Could not find lyrics container in the page.")
+                return
 
             lines = []
 
-            for p in paragraphs:
-                p_text = p.get_text(strip=True)
-                if p_text and not p_text.startswith('[') and not p_text.startswith('**'):
-                    if not any(marker in p_text for marker in ['Contributors', 'Translations', 'Read More', 'Lyrics', 'Instrumental']):
-                        lines.append(p_text)
+            for div in lyrics_divs:
+                # Find all ReferentFragment links with lyrics
+                lyric_links = div.find_all('a', class_='ReferentFragment-desktop__ClickTarget')
+
+                for link in lyric_links:
+                    # Get the text from the Highlight span
+                    highlight = link.find('span', class_='ReferentFragment-desktop__Highlight')
+                    if highlight:
+                        text = highlight.get_text(strip=True)
+                        # Filter out metadata markers
+                        if text and not text.startswith('[') and not text.startswith('**'):
+                            if not any(marker in text for marker in ['Contributors', 'Translations', 'Read More', 'Instrumental']):
+                                lines.append(text)
 
             lines = [line.strip() for line in lines if line.strip()]
 
