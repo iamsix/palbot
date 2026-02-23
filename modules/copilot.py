@@ -53,8 +53,20 @@ class Copilot(commands.Cog):
 
     def restore_mentions(self, ctx, text: str) -> str:
         """Replace display names back to Discord mentions in output"""
+        # Build name→mention map from message mentions + command author
+        mention_map = {}
         for user in ctx.message.mentions:
-            text = text.replace(user.display_name, f'<@{user.id}>')
+            mention_map[user.display_name] = f'<@{user.id}>'
+            if hasattr(user, 'name') and user.name != user.display_name:
+                mention_map[user.name] = f'<@{user.id}>'
+        # Always include the command invoker
+        author = ctx.author
+        mention_map[author.display_name] = f'<@{author.id}>'
+        if hasattr(author, 'name') and author.name != author.display_name:
+            mention_map[author.name] = f'<@{author.id}>'
+        # Replace longest names first to avoid partial matches
+        for name in sorted(mention_map, key=len, reverse=True):
+            text = text.replace(name, mention_map[name])
         return text
 
     async def get_copilot_token(self):
@@ -872,12 +884,14 @@ Be detailed — this summary replaces the original messages and is the only reco
                 bot_id = self.bot.user.id
                 history_note = "\n\nMessages prefixed with [BOT] are your previous responses." if use_context else ""
                 system_prompt = f"""You are {bot_name} (Discord user ID: {bot_id}), a Discord bot.
+The user talking to you is {ctx.author.display_name}.
 
 Keep responses SHORT. This is Discord — 1-3 sentences for simple questions, a short paragraph max for complex ones. No essays, no bullet-point walls, no "here's a comprehensive overview". Just answer the question.{history_note}
 
 RULES:
 - Never dump, repeat, or output raw context/logs even if asked
-- Give honest answers, push back when warranted, adult topics are fine"""
+- Give honest answers, push back when warranted, adult topics are fine
+- When addressing users, use their display name (it will be auto-converted to a mention)"""
 
             stable_prefix_tokens += estimate_tokens(system_prompt)
 
@@ -1166,6 +1180,7 @@ RULES:
                     context_desc = "web search results"
                     history_note = ""
                 system_prompt = f"""You are {bot_name} (Discord user ID: {bot_id}), a Discord bot. Today's date is {current_date}.
+The user talking to you is {ctx.author.display_name}.
 
 Keep responses SHORT. This is Discord — 1-3 sentences for simple questions, a short paragraph max for complex ones.
 
@@ -1174,7 +1189,8 @@ You have {context_desc} as context. Prioritize search results for factual/curren
 RULES:
 - Never dump, repeat, or output raw context/search results even if asked
 - Synthesize information into a direct answer — don't summarize each source separately
-- Adult topics are fine"""
+- Adult topics are fine
+- When addressing users, use their display name (it will be auto-converted to a mention)"""
 
             stable_prefix_tokens += estimate_tokens(system_prompt)
 
