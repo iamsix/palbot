@@ -72,8 +72,7 @@ class Lyrics(commands.Cog):
             # Get the first result
             song_url = data['response']['hits'][0]['result']['url']
 
-            # Step 2: Scrape lyrics from the Genius page
-            # Use a User-Agent to avoid being blocked
+            # Scrape lyrics from the Genius page
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             }
@@ -89,47 +88,36 @@ class Lyrics(commands.Cog):
             soup = BeautifulSoup(html, 'html.parser')
 
             # Genius lyrics are typically in a div with class "lyrics" or "lyrics__content"
-            # Also need to remove any ad/script elements
             lyrics_div = soup.find('div', class_='lyrics')
             if not lyrics_div:
                 lyrics_div = soup.find('div', class_='lyrics__content')
 
             if not lyrics_div:
-                # Try to find the lyrics container more generally
                 lyrics_div = soup.find('div', {'data-lyrics-container': 'true'})
 
             if not lyrics_div:
-                # Fallback: try to find all p tags that look like lyrics
                 lyrics_div = soup.find('div', class_='lyrics-regular')
                 if not lyrics_div:
-                    # Last resort: get all text from the main content area
                     lyrics_div = soup.find('div', class_='lyrics-widget')
 
             if not lyrics_div:
                 await ctx.send("Could not extract lyrics from the page.")
                 return
 
-            # Clean up lyrics: remove script and style tags
-            for element in lyrics_div.find_all(['script', 'style', 'div', 'span']):
+            # Clean up: remove script and style tags
+            for element in lyrics_div.find_all(['script', 'style']):
                 element.decompose()
 
-            # Find all paragraph tags that might contain lyrics
+            # Extract lyrics from paragraphs
             paragraphs = lyrics_div.find_all('p')
+            lines = []
 
-            # If no paragraphs found, get all text from the div
-            if not paragraphs:
-                lyrics_text = lyrics_div.get_text(separator='\n', strip=True)
-            else:
-                # Extract text from paragraphs, filtering out empty ones
-                lines = []
-                for p in paragraphs:
-                    p_text = p.get_text(strip=True)
-                    if p_text and not p_text.startswith('[') and not p_text.startswith('**'):
-                        # Skip headers, metadata, instrumental markers
-                        if not any(marker in p_text for marker in ['Contributors', 'Translations', 'Read More', 'Lyrics', 'Instrumental']):
-                            lines.append(p_text)
+            for p in paragraphs:
+                p_text = p.get_text(strip=True)
+                if p_text and not p_text.startswith('[') and not p_text.startswith('**'):
+                    if not any(marker in p_text for marker in ['Contributors', 'Translations', 'Read More', 'Lyrics', 'Instrumental']):
+                        lines.append(p_text)
 
-            # Split into lines and remove empty lines
             lines = [line.strip() for line in lines if line.strip()]
 
             # Truncate to ~15 lines
