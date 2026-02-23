@@ -1,5 +1,6 @@
 import aiohttp
 import re
+from discord.ext import commands
 from bs4 import BeautifulSoup
 from urllib.parse import quote as uriquote
 import html2text
@@ -102,8 +103,8 @@ class Lyrics(commands.Cog):
                 await ctx.send("Could not extract lyrics from the page.")
                 return
 
-            # Clean up lyrics: remove script tags, ads, and other non-lyric content
-            for element in lyrics_div.find_all(['script', 'style', 'div', 'span']):
+            # Clean up lyrics: remove script and style tags
+            for element in lyrics_div.find_all(['script', 'style']):
                 element.decompose()
 
             # Get text content
@@ -116,7 +117,9 @@ class Lyrics(commands.Cog):
             max_lines = 15
             if len(lines) > max_lines:
                 lines = lines[:max_lines]
-                lines.append(f"... ({len(lines) - max_lines} more lines)")
+                extra = len(lines) - max_lines
+                if extra > 0:
+                    lines.append(f"... ({extra} more lines)")
                 lines.append(f"Full lyrics: {song_url}")
 
             # Format output
