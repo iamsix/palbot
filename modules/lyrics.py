@@ -9,6 +9,28 @@ class Lyrics(commands.Cog):
         self.bot = bot
 
     @commands.command()
+    async def lyrics_config(self, ctx, *, token: str = None):
+        """Configure Genius API token for lyrics command
+
+        Usage:
+            !lyrics config
+            !lyrics config <token>
+        """
+        if not token:
+            # Show current config
+            current_token = self.bot.config.genius_token
+            if current_token:
+                await ctx.send(f"Current Genius token: `{current_token[:8]}...{current_token[-4:]}`")
+            else:
+                await ctx.send("No token configured. Use `!lyrics config <token>` to set one.")
+            return
+
+        # Set new token
+        self.bot.config.genius_token = token
+        await ctx.send(f"✅ Genius token updated successfully!")
+        await ctx.send("Use `!lyrics <song> - <artist>` to search for lyrics.")
+
+    @commands.command()
     async def lyrics(self, ctx, *, query: str):
         """Search for song lyrics using Genius API
 
