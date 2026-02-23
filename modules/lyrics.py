@@ -70,7 +70,9 @@ class Lyrics(commands.Cog):
                 return
 
             # Get the first result
-            song_url = data['response']['hits'][0]['result']['url']
+            song_api_path = data['response']['hits'][0]['result']['api_path']
+            song_path = data['response']['hits'][0]['result']['path']
+            song_url = f"https://genius.com{song_path}"
 
             # Scrape lyrics from the Genius page
             headers = {
