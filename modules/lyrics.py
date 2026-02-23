@@ -70,24 +70,24 @@ class Lyrics(commands.Cog):
                 return
 
             # Get the first result
-            song_url = data['response']['hits'][0]['result']['url']
+            song_id = data['response']['hits'][0]['result']['id']
 
-            # Scrape lyrics from the Genius page
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            }
+            # Get lyrics from Genius API directly
+            headers = {"Authorization": f"Bearer {genius_token}"}
+            params = {"text_format": "dom"}
 
-            async with self.bot.session.get(song_url, headers=headers) as resp:
+            async with self.bot.session.get(f"https://api.genius.com/songs/{song_id}", headers=headers, params=params) as resp:
                 if resp.status != 200:
-                    await ctx.send("Error accessing Genius lyrics page.")
+                    await ctx.send("Error accessing Genius lyrics API.")
                     return
 
-                html = await resp.text()
+                data = await resp.json()
 
-            # Parse HTML and extract lyrics
-            soup = BeautifulSoup(html, 'html.parser')
+            # Extract lyrics from the song data
+            lyrics_data = data['response']['song']['lyrics']
+            soup = BeautifulSoup(lyrics_data, 'html.parser')
 
-            # Genius lyrics are typically in a div with class "lyrics" or "lyrics__content"
+            # Find the lyrics container
             lyrics_div = soup.find('div', class_='lyrics')
             if not lyrics_div:
                 lyrics_div = soup.find('div', class_='lyrics__content')
@@ -96,17 +96,8 @@ class Lyrics(commands.Cog):
                 lyrics_div = soup.find('div', {'data-lyrics-container': 'true'})
 
             if not lyrics_div:
-                lyrics_div = soup.find('div', class_='lyrics-regular')
-                if not lyrics_div:
-                    lyrics_div = soup.find('div', class_='lyrics-widget')
-
-            if not lyrics_div:
-                await ctx.send("Could not extract lyrics from the page.")
+                await ctx.send("Could not extract lyrics from the API response.")
                 return
-
-            # Clean up: remove script and style tags
-            for element in lyrics_div.find_all(['script', 'style']):
-                element.decompose()
 
             # Extract lyrics from paragraphs
             paragraphs = lyrics_div.find_all('p')
@@ -127,7 +118,7 @@ class Lyrics(commands.Cog):
                 extra = len(lines) - max_lines
                 if extra > 0:
                     lines.append(f"... ({extra} more lines)")
-                lines.append(f"Full lyrics: {song_url}")
+                lines.append(f"Full lyrics: https://genius.com/songs/{song_id}")
 
             # Format output
             output = f"**{song}{' - ' + artist if artist else ''}**\n"
