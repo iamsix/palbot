@@ -1,0 +1,71 @@
+token = "abc123"
+
+# https://cse.google.com/cse/ - "Search engine ID"
+# Make sure 'search the entire web' and Image Search are enabled
+gsearchcx = "abc123"
+# these 2 can be the same key: https://console.cloud.google.com/
+#  create a service with custom search api and a server key
+gsearchapi = "abc123"
+gsearch2 = "abc123"
+
+# https://brave.com/search/api/
+bravesearch = "abc123"
+
+# https://timezonedb.com/
+timezonedb = "abc123"
+
+# https://pirateweather.net/en/latest/
+forecast_io_key = "abc123"
+# not a public api
+accuweather_key = "abc123"
+# not a publci api
+weathercom_key = "abc123"
+# https://www.visualcrossing.com/
+vcrossing_key = "abc123"
+
+# https://aqicn.org/api/
+aqicn = "abc123"
+
+# https://untappd.com/api/docs
+untappd_clientid = "abc123"
+untappd_clientsecret = "abc123"
+
+# no longer available
+goodreadskey = "abc123"
+
+# This isn't exactly a private token since it's directly off the website
+distillertoken = "abc123"
+
+wolframAPIkey = "abc123"
+
+lastfm_api_key = "abc123"
+
+# https://genius.com/api/documentation
+genius_token = ""
+
+stravaToken = "abc123"
+
+twitterconsumerkey = "abc123"
+twitterconsumersecret = "abc123"
+twitter_token = "abc123"
+
+# Format is {'twitterHandle' : [chanid, chanid2, chanid3]}
+# for example:
+# twitter_subscriptions = {'twitter' : [123]}
+twitter_subscriptions = {}
+
+mapquest_key = "abc123"
+
+# reddit api is stupid to work with cause you need all these things to get a token that lasts 1hr
+reddituser = "abc123"
+redditpw = "abc123"
+redditclient = "abc123"
+redditsecret = "abc123"
+
+gemini_keys = ["abc123"]
+
+# GitHub Copilot config for !clai and !sclai commands
+# Token file stores the short-lived API token (auto-refreshed)
+github_copilot_token_path = "/app/data/github-copilot.token.json"
+# Auth profile stores the long-lived GitHub OAuth token (used for refresh)
+github_copilot_auth_profile_path = "/app/config/auth-profiles.json"
