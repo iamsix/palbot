@@ -71,17 +71,17 @@ class Lyrics(commands.Cog):
 
             # Get the first result
             song_api_path = data['response']['hits'][0]['result']['api_path']
-            song_path = data['response']['hits'][0]['result']['path']
-            song_url = f"https://genius.com{song_path}"
+            song_url = f"https://api.genius.com{song_api_path}"
 
-            # Scrape lyrics from the Genius page
+            # Scrape lyrics from the Genius API endpoint
             headers = {
+                "Authorization": f"Bearer {genius_token}",
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             }
 
             async with self.bot.session.get(song_url, headers=headers) as resp:
                 if resp.status != 200:
-                    await ctx.send(f"Error accessing Genius lyrics page (status {resp.status}).")
+                    await ctx.send(f"Error accessing Genius lyrics API (status {resp.status}).")
                     return
 
                 html = await resp.text()
