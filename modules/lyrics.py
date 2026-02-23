@@ -17,18 +17,17 @@ class Lyrics(commands.Cog):
             !lyrics config <token>
         """
         if not token:
-            # Show current config
+            # Show current config status only
             current_token = self.bot.config.genius_token
             if current_token:
-                await ctx.send(f"Current Genius token: `{current_token[:8]}...{current_token[-4:]}`")
+                await ctx.send("Genius API is configured.")
             else:
-                await ctx.send("No token configured. Use `!lyrics config <token>` to set one.")
+                await ctx.send("Genius API is not configured. Use `!lyrics config <token>` to set one.")
             return
 
         # Set new token
         self.bot.config.genius_token = token
-        await ctx.send(f"✅ Genius token updated successfully!")
-        await ctx.send("Use `!lyrics <song> - <artist>` to search for lyrics.")
+        await ctx.send("✅ Genius API token updated successfully!")
 
     @commands.command()
     async def lyrics(self, ctx, *, query: str):
