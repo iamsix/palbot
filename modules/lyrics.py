@@ -1,5 +1,6 @@
 import aiohttp
 import re
+from discord.ext import commands
 from bs4 import BeautifulSoup
 from urllib.parse import quote as uriquote
 import html2text
@@ -102,21 +103,36 @@ class Lyrics(commands.Cog):
                 await ctx.send("Could not extract lyrics from the page.")
                 return
 
-            # Clean up lyrics: remove script tags, ads, and other non-lyric content
+            # Clean up lyrics: remove script and style tags
             for element in lyrics_div.find_all(['script', 'style', 'div', 'span']):
                 element.decompose()
 
-            # Get text content
-            lyrics_text = lyrics_div.get_text(separator='\n', strip=True)
+            # Find all paragraph tags that might contain lyrics
+            paragraphs = lyrics_div.find_all('p')
+
+            # If no paragraphs found, get all text from the div
+            if not paragraphs:
+                lyrics_text = lyrics_div.get_text(separator='\n', strip=True)
+            else:
+                # Extract text from paragraphs, filtering out empty ones
+                lines = []
+                for p in paragraphs:
+                    p_text = p.get_text(strip=True)
+                    if p_text and not p_text.startswith('[') and not p_text.startswith('**'):
+                        # Skip headers, metadata, instrumental markers
+                        if not any(marker in p_text for marker in ['Contributors', 'Translations', 'Read More', 'Lyrics', 'Instrumental']):
+                            lines.append(p_text)
 
             # Split into lines and remove empty lines
-            lines = [line.strip() for line in lyrics_text.split('\n') if line.strip()]
+            lines = [line.strip() for line in lines if line.strip()]
 
             # Truncate to ~15 lines
             max_lines = 15
             if len(lines) > max_lines:
                 lines = lines[:max_lines]
-                lines.append(f"... ({len(lines) - max_lines} more lines)")
+                extra = len(lines) - max_lines
+                if extra > 0:
+                    lines.append(f"... ({extra} more lines)")
                 lines.append(f"Full lyrics: {song_url}")
 
             # Format output
