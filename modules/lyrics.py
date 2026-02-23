@@ -9,13 +9,19 @@ class Lyrics(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    async def handle_config(self, ctx):
-        """Handle config command display"""
-        current_token = self.bot.config.genius_token
-        if current_token:
-            await ctx.send("Genius API is configured.")
+    async def handle_config(self, ctx, *, token: str = None):
+        """Handle config command - show current status or set new token"""
+        if token:
+            # Set the new token
+            self.bot.config.genius_token = token
+            await ctx.send(f"Genius API token updated successfully.")
         else:
-            await ctx.send("Genius API is not configured. Use `!lyrics config <token>` to set one.")
+            # Show current status
+            current_token = self.bot.config.genius_token
+            if current_token:
+                await ctx.send(f"Genius API is configured.")
+            else:
+                await ctx.send("Genius API is not configured. Use `!lyrics config <token>` to set one.")
 
     @commands.command()
     async def lyrics(self, ctx, *, query: str):
