@@ -63,12 +63,6 @@ class Lyrics(commands.Cog):
                     await ctx.send(f"Error searching for lyrics on Genius (status {resp.status}).")
                     return
 
-                # Check if response is JSON
-                content_type = resp.headers.get('content-type', '')
-                if 'application/json' not in content_type:
-                    await ctx.send("Error: Genius API returned HTML instead of JSON. Check your API token.")
-                    return
-
                 data = await resp.json()
 
             if not data['response']['hits']:
