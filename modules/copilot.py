@@ -785,7 +785,7 @@ Be detailed — this summary replaces the original messages and is the only reco
         """Ask Claude Opus 4.5 via GitHub Copilot API (with compacted channel + user context)"""
         # Check if AI commands are enabled in this channel
         enabled = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "enabled")
-        if enabled == "off":
+        if str(enabled).lower() in ("off", "false", "no", "0"):
             return
 
         async with ctx.channel.typing():
@@ -1001,7 +1001,7 @@ RULES:
         """Ask Claude Opus 4.5 with web search + compacted channel context for current events"""
         # Check if AI commands are enabled in this channel
         enabled = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "enabled")
-        if enabled == "off":
+        if str(enabled).lower() in ("off", "false", "no", "0"):
             return
 
         async with ctx.channel.typing():
