@@ -49,7 +49,7 @@ class Lyrics(commands.Cog):
         # Get Genius API token
         genius_token = self.bot.config.genius_token
         if not genius_token:
-            await ctx.send("Lyrics command not configured. Contact admin.")
+            await ctx.send("Genius API token not set. Use `!lyrics config <token>` to set one.")
             return
 
         try:
@@ -60,7 +60,13 @@ class Lyrics(commands.Cog):
 
             async with self.bot.session.get(search_url, headers=headers, params=params) as resp:
                 if resp.status != 200:
-                    await ctx.send("Error searching for lyrics on Genius.")
+                    await ctx.send(f"Error searching for lyrics on Genius (status {resp.status}).")
+                    return
+
+                # Check if response is JSON
+                content_type = resp.headers.get('content-type', '')
+                if 'application/json' not in content_type:
+                    await ctx.send("Error: Genius API returned HTML instead of JSON. Check your API token.")
                     return
 
                 data = await resp.json()
@@ -78,7 +84,13 @@ class Lyrics(commands.Cog):
 
             async with self.bot.session.get(f"https://api.genius.com/songs/{song_id}", headers=headers, params=params) as resp:
                 if resp.status != 200:
-                    await ctx.send("Error accessing Genius lyrics API.")
+                    await ctx.send(f"Error accessing Genius lyrics API (status {resp.status}).")
+                    return
+
+                # Check if response is JSON
+                content_type = resp.headers.get('content-type', '')
+                if 'application/json' not in content_type:
+                    await ctx.send("Error: Genius API returned HTML instead of JSON. Check your API token.")
                     return
 
                 data = await resp.json()
