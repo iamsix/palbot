@@ -11,28 +11,16 @@ class Lyrics(commands.Cog):
         """Search for song lyrics using LRCLIB API
 
         Usage:
-            !lyrics <song> - <artist>
-            !lyrics <song> <artist>
+            !lyrics <song>
         """
-        # Parse query for song - artist format
-        parts = query.split('-')
-        song = parts[0].strip() if len(parts) > 0 else ""
-        artist = parts[1].strip() if len(parts) > 1 else ""
-
-        # Fallback: use entire query as search (both song and artist)
-        if not song or not artist:
-            await ctx.send("❌ Please provide both song and artist. Usage: `!lyrics <song> - <artist>`")
-            return
-
         # Get LRCLIB API token (none needed, but keeping pattern for consistency)
         # Note: LRCLIB is free, no API key required
 
         try:
-            # Step 1: Search for the song on LRCLIB
-            search_url = "https://lrclib.net/api/get"
+            # Step 1: Search for the song on LRCLIB (using only song title)
+            search_url = "https://lrclib.net/api/search"
             params = {
-                "artist_name": artist,
-                "track_name": song
+                "q": query
             }
 
             async with self.bot.session.get(search_url, params=params) as resp:
@@ -42,17 +30,42 @@ class Lyrics(commands.Cog):
 
                 data = await resp.json()
 
+            # Check if any results found
+            if not data or len(data) == 0:
+                await ctx.send(f"❌ No lyrics found for `{query}` on LRCLIB.")
+                return
+
+            # Step 2: Take the first result (best guess)
+            first_result = data[0]
+
+            # Extract result data
+            result_id = first_result.get("id")
+            track_name = first_result.get("trackName", query)
+            artist_name = first_result.get("artistName", "Unknown Artist")
+            album_name = first_result.get("albumName", "")
+            instrumental = first_result.get("instrumental", False)
+
+            # Step 3: Get lyrics using cached endpoint
+            get_url = "https://lrclib.net/api/get-cached"
+            params = {
+                "id": result_id
+            }
+
+            async with self.bot.session.get(get_url, params=params) as resp:
+                if resp.status != 200:
+                    await ctx.send(f"❌ Error getting lyrics (status {resp.status}).")
+                    return
+
+                data = await resp.json()
+
             # Check if track was found
             if "message" in data and data["message"] == "Failed to find specified track":
-                await ctx.send(f"❌ Could not find lyrics for `{song} - {artist}` on LRCLIB.")
+                await ctx.send(f"❌ Could not find lyrics for `{track_name} - {artist_name}` on LRCLIB.")
                 return
 
             # Extract lyrics data
             plain_lyrics = data.get("plainLyrics", "")
             synced_lyrics = data.get("syncedLyrics", "")
-            track_name = data.get("trackName", song)
-            artist_name = data.get("artistName", artist)
-            instrumental = data.get("instrumental", False)
 
             # Handle instrumental tracks
             if instrumental:
@@ -65,7 +78,10 @@ class Lyrics(commands.Cog):
                 return
 
             # Format output
-            output = f"**{track_name} - {artist_name}**\n"
+            output = f"**{track_name} - {artist_name}**"
+            if album_name:
+                output += f" ({album_name})"
+            output += "\n"
             output += "-" * 40 + "\n\n"
             output += plain_lyrics
 
