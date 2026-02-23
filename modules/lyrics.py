@@ -8,26 +8,13 @@ class Lyrics(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command()
-    async def lyrics_config(self, ctx, *, token: str = None):
-        """Configure Genius API token for lyrics command
-
-        Usage:
-            !lyrics config
-            !lyrics config <token>
-        """
-        if not token:
-            # Show current config status only
-            current_token = self.bot.config.genius_token
-            if current_token:
-                await ctx.send("Genius API is configured.")
-            else:
-                await ctx.send("Genius API is not configured. Use `!lyrics config <token>` to set one.")
-            return
-
-        # Set new token
-        self.bot.config.genius_token = token
-        await ctx.send("✅ Genius API token updated successfully!")
+    async def handle_config(self, ctx):
+        """Handle config command display"""
+        current_token = self.bot.config.genius_token
+        if current_token:
+            await ctx.send("Genius API is configured.")
+        else:
+            await ctx.send("Genius API is not configured. Use `!lyrics config <token>` to set one.")
 
     @commands.command()
     async def lyrics(self, ctx, *, query: str):
@@ -36,7 +23,13 @@ class Lyrics(commands.Cog):
         Usage:
             !lyrics <song> - <artist>
             !lyrics <search query>
+            !lyrics config
+            !lyrics config <token>
         """
+        # Handle config command
+        if query.lower() == 'config':
+            return await self.handle_config(ctx)
+
         # Parse query for song - artist format
         parts = query.split('-')
         song = parts[0].strip() if len(parts) > 0 else ""
