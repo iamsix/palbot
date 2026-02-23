@@ -96,11 +96,12 @@ class Lyrics(commands.Cog):
                 lyrics_div = soup.find('div', {'data-lyrics-container': 'true'})
 
             if not lyrics_div:
-                await ctx.send("Could not extract lyrics from the page.")
-                return
+                # Fallback: find all p tags directly
+                paragraphs = soup.find_all('p')
+            else:
+                # Extract lyrics from paragraphs
+                paragraphs = lyrics_div.find_all('p')
 
-            # Extract lyrics from paragraphs
-            paragraphs = lyrics_div.find_all('p')
             lines = []
 
             for p in paragraphs:
