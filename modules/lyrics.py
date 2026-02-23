@@ -76,28 +76,22 @@ class Lyrics(commands.Cog):
                 return
 
             # Get the first result
-            song_id = data['response']['hits'][0]['result']['id']
+            song_url = data['response']['hits'][0]['result']['url']
 
-            # Get lyrics from Genius API directly
-            headers = {"Authorization": f"Bearer {genius_token}"}
-            params = {"text_format": "dom"}
+            # Scrape lyrics from the Genius page
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
 
-            async with self.bot.session.get(f"https://api.genius.com/songs/{song_id}", headers=headers, params=params) as resp:
+            async with self.bot.session.get(song_url, headers=headers) as resp:
                 if resp.status != 200:
-                    await ctx.send(f"Error accessing Genius lyrics API (status {resp.status}).")
+                    await ctx.send(f"Error accessing Genius lyrics page (status {resp.status}).")
                     return
 
-                # Check if response is JSON
-                content_type = resp.headers.get('content-type', '')
-                if 'application/json' not in content_type:
-                    await ctx.send("Error: Genius API returned HTML instead of JSON. Check your API token.")
-                    return
+                html = await resp.text()
 
-                data = await resp.json()
-
-            # Extract lyrics from the song data
-            lyrics_data = data['response']['song']['lyrics']
-            soup = BeautifulSoup(lyrics_data, 'html.parser')
+            # Parse HTML and extract lyrics
+            soup = BeautifulSoup(html, 'html.parser')
 
             # Find the lyrics container
             lyrics_div = soup.find('div', class_='lyrics')
@@ -108,7 +102,7 @@ class Lyrics(commands.Cog):
                 lyrics_div = soup.find('div', {'data-lyrics-container': 'true'})
 
             if not lyrics_div:
-                await ctx.send("Could not extract lyrics from the API response.")
+                await ctx.send("Could not extract lyrics from the page.")
                 return
 
             # Extract lyrics from paragraphs
