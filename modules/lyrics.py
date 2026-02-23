@@ -124,7 +124,7 @@ class Lyrics(commands.Cog):
                 extra = len(lines) - max_lines
                 if extra > 0:
                     lines.append(f"... ({extra} more lines)")
-                lines.append(f"Full lyrics: https://genius.com/songs/{song_id}")
+                lines.append(f"Full lyrics: {song_url}")
 
             # Format output
             output = f"**{song}{' - ' + artist if artist else ''}**\n"
