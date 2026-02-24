@@ -744,7 +744,7 @@ RULES:
                     self._add_usage_debug(debug_parts, usage, model, cost, elapsed)
 
                 if not response_text.strip():
-                    await ctx.send("❌ GLM produced no response (all tokens spent on reasoning). Try a simpler question or increase `glm_max_output_tokens`.")
+                    # Don't send an error — model chose not to respond (refusal/empty output)
                     return
 
                 # Restore mentions so users get pinged
