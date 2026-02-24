@@ -34,34 +34,24 @@ class OpenAIProvider(LLMProvider):
         """
         return self.api_key, self.base_url
 
-    async def chat(self, messages: Dict, model: str, max_tokens: int) -> Dict:
+    async def chat(self, payload: Dict) -> Dict:
         """Send a chat completion request to OpenAI-compatible API.
 
         Args:
-            messages: Request payload with 'messages', 'model', 'max_tokens'
-            model: Model identifier
-            max_tokens: Maximum tokens in response
+            payload: Full request payload with 'messages', 'model', 'max_tokens' keys
 
         Returns:
             dict: API response
         """
         api_key, base_url = await self.get_auth()
 
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        }
-
-        payload = {
-            "model": model,
-            "messages": messages,
-            "max_tokens": max_tokens,
-        }
-
         async with ClientSession() as session:
             async with session.post(
                 f"{base_url}/chat/completions",
-                headers=headers,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
                 json=payload
             ) as resp:
                 if resp.status != 200:
