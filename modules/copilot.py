@@ -1172,6 +1172,10 @@ RULES:
                 api_key = await self.ai_cache.get_setting(ctx.guild.id, None, "glm_api_key") or await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_api_key")
                 model = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_model")
 
+                # Update provider with settings
+                self.glm_provider.base_url = base_url
+                self.glm_provider.api_key = api_key
+
                 # Build system prompt
                 custom_prompt = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "system_prompt")
                 if custom_prompt:
@@ -1200,16 +1204,14 @@ RULES:
                     "max_tokens": max_output,
                 }
 
-                # Create provider with settings
-                provider = OpenAIProvider(bot, base_url=base_url, api_key=api_key)
-                data = await provider.chat(payload)
+                data = await self.glm_provider.chat(payload)
                 response_text = data["choices"][0]["message"]["content"]
 
                 # Log usage
                 usage = data.get("usage", {})
-                in_tok = usage.get("prompt_tokens", provider.estimate_tokens(ask))
-                out_tok = usage.get("completion_tokens", provider.estimate_tokens(response_text))
-                cost = provider.calculate_cost(model, in_tok, out_tok, 0)
+                in_tok = usage.get("prompt_tokens", self.glm_provider.estimate_tokens(ask))
+                out_tok = usage.get("completion_tokens", self.glm_provider.estimate_tokens(response_text))
+                cost = self.glm_provider.calculate_cost(model, in_tok, out_tok, 0)
 
                 await self.ai_cache.log_usage(
                     ctx.channel.id, ctx.guild.id, "glm",
