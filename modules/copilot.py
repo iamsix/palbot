@@ -1185,7 +1185,7 @@ RULES:
             # Build payload
             max_output = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "max_output_tokens", 500)
             payload = {
-                "model": "glm",  # GLM-4.7 Flash model
+                "model": "GLM-4.7-Flash-UD-Q4_K_XL.gguf",  # GLM-4.7 Flash model
                 "messages": [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": ask}
@@ -1205,7 +1205,7 @@ RULES:
 
                 await self.ai_cache.log_usage(
                     ctx.guild.id, ctx.channel.id, "glm", in_tok, out_tok, cost,
-                    answer_model="glm"
+                    answer_model="GLM-4.7-Flash-UD-Q4_K_XL.gguf"
                 )
 
                 # Restore mentions so users get pinged
