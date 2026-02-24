@@ -1168,9 +1168,9 @@ RULES:
                 ask = self.resolve_mentions(ctx, ask)
 
                 # Get GLM settings
-                base_url = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_base_url") or "https://open.bigmodel.cn/api/paas/v4"
+                base_url = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_base_url")
                 api_key = await self.ai_cache.get_setting(ctx.guild.id, None, "glm_api_key") or await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_api_key")
-                model = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_model") or "GLM-4.7-Flash-UD-Q4_K_XL.gguf"
+                model = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_model")
 
                 # Build system prompt
                 custom_prompt = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "system_prompt")
