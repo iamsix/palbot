@@ -283,12 +283,16 @@ class Copilot(commands.Cog):
         return parts
 
     @commands.command()
+    @commands.command()
+    @is_bot_admin()
     async def clai(self, ctx, *, ask: str):
         """Ask Claude Opus 4.5 via GitHub Copilot API (with compacted channel + user context)"""
-        # Check if AI commands are enabled in this channel
+        # Check if AI commands are enabled in this channel (admins can override)
         enabled = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "enabled")
         if str(enabled).lower() in ("off", "false", "no", "0"):
-            return
+            # Allow admins to use commands even when disabled
+            if not await _check_bot_admin(ctx):
+                return
 
         async with ctx.channel.typing():
             ask = self.context_gatherer.resolve_mentions(ctx, ask)
@@ -430,12 +434,16 @@ class Copilot(commands.Cog):
             return ""
 
     @commands.command()
+    @commands.command()
+    @is_bot_admin()
     async def sclai(self, ctx, *, ask: str):
         """Ask Claude Opus 4.5 with web search + compacted channel context for current events"""
-        # Check if AI commands are enabled in this channel
+        # Check if AI commands are enabled in this channel (admins can override)
         enabled = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "enabled")
         if str(enabled).lower() in ("off", "false", "no", "0"):
-            return
+            # Allow admins to use commands even when disabled
+            if not await _check_bot_admin(ctx):
+                return
 
         async with ctx.channel.typing():
             original_ask = ask
@@ -666,114 +674,99 @@ RULES:
             await ctx.send(output[:1980])
 
     @commands.command()
+    @is_bot_admin()
     async def glm(self, ctx, *, ask: str):
         """Ask using GLM via OpenAI-compatible API with context"""
-        try:
-            # Check if GLM is enabled in this channel
-            glm_enabled = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_enabled")
-            if str(glm_enabled).lower() in ("off", "false", "no", "0"):
+        # Check if GLM is enabled in this channel (admins can override)
+        glm_enabled = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_enabled")
+        if str(glm_enabled).lower() in ("off", "false", "no", "0"):
+            # Allow admins to use commands even when disabled
+            if not await _check_bot_admin(ctx):
                 return
 
-            async with ctx.channel.typing():
-                ask = self.context_gatherer.resolve_mentions(ctx, ask)
+        async with ctx.channel.typing():
+            ask = self.context_gatherer.resolve_mentions(ctx, ask)
 
-                # Get GLM settings
-                base_url = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_base_url")
-                api_key = await self.ai_cache.get_setting(ctx.guild.id, None, "glm_api_key") or await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_api_key")
-                model = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_model")
+            # Get GLM settings
+            base_url = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_base_url")
+            api_key = await self.ai_cache.get_setting(ctx.guild.id, None, "glm_api_key") or await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_api_key")
+            model = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_model")
 
-                # Update provider with settings
-                self.glm_provider.base_url = base_url
-                self.glm_provider.api_key = api_key
+            # Update provider with settings
+            self.glm_provider.base_url = base_url
+            self.glm_provider.api_key = api_key
 
-                # Build full context using ContextGatherer
-                settings = await self.ai_cache.get_all_settings(ctx.guild.id, ctx.channel.id)
-                show_debug = await self._should_debug(ctx, settings)
-                debug_parts = []
-                t0 = time.monotonic()
+            # Build full context using ContextGatherer
+            settings = await self.ai_cache.get_all_settings(ctx.guild.id, ctx.channel.id)
+            show_debug = await self._should_debug(ctx, settings)
+            debug_parts = []
+            t0 = time.monotonic()
 
-                context_data = await self.context_gatherer.build_full_context(
-                    ctx, settings, api_key, base_url, compact_model=model)
-                channel_context = context_data["channel_context"]
-                user_context = context_data["user_context"]
-                system_prompt = context_data["system_prompt"]
-                debug_parts.extend(context_data["debug_parts"])
+            context_data = await self.context_gatherer.build_full_context(
+                ctx, settings, api_key, base_url, compact_model=model)
+            channel_context = context_data["channel_context"]
+            user_context = context_data["user_context"]
+            system_prompt = context_data["system_prompt"]
+            debug_parts.extend(context_data["debug_parts"])
 
-                # Wrap context in XML tags
-                combined_context = self.context_gatherer.wrap_context(channel_context, user_context)
+            # Wrap context in XML tags
+            combined_context = self.context_gatherer.wrap_context(channel_context, user_context)
 
-                if combined_context:
-                    ask = f"""{combined_context}
+            if combined_context:
+                ask = f"""{combined_context}
 
 <user_question>
 {ask}
 </user_question>"""
 
-                # Build payload
-                max_output = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_max_output_tokens") or 2000
-                payload = {
-                    "model": model,
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": ask}
-                    ],
-                    "max_tokens": max_output,
-                }
+            # Build payload
+            max_output = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_max_output_tokens") or 2000
+            payload = {
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": ask}
+                ],
+                "max_tokens": max_output,
+            }
 
-                data = await self.glm_provider.chat(payload)
+            data = await self.glm_provider.chat(payload)
 
-                # Get both content and reasoning_content
-                message = data["choices"][0]["message"]
-                response_text = message.get("content") or ""
-                reasoning_text = message.get("reasoning_content") or ""
+            # Get both content and reasoning_content
+            message = data["choices"][0]["message"]
+            response_text = message.get("content") or ""
+            reasoning_text = message.get("reasoning_content") or ""
 
-                # Log usage (even if response is empty — tokens were consumed)
-                usage = data.get("usage", {})
-                in_tok = usage.get("prompt_tokens", self.glm_provider.estimate_tokens(ask))
-                out_tok = usage.get("completion_tokens", self.glm_provider.estimate_tokens(response_text))
-                elapsed = time.monotonic() - t0
-                cost = self.glm_provider.calculate_cost(model, in_tok, out_tok, 0)
+            # Log usage (even if response is empty — tokens were consumed)
+            usage = data.get("usage", {})
+            in_tok = usage.get("prompt_tokens", self.glm_provider.estimate_tokens(ask))
+            out_tok = usage.get("completion_tokens", self.glm_provider.estimate_tokens(response_text))
+            elapsed = time.monotonic() - t0
+            cost = self.glm_provider.calculate_cost(model, in_tok, out_tok, 0)
 
-                await self.ai_cache.log_usage(
-                    ctx.channel.id, ctx.guild.id, "glm",
-                    in_tok, out_tok, model,
-                    cached_tokens=0
-                )
+            await self.ai_cache.log_usage(
+                ctx.channel.id, ctx.guild.id, "glm",
+                in_tok, out_tok, model,
+                cached_tokens=0
+            )
 
-                if show_debug:
-                    self._add_usage_debug(debug_parts, usage, model, cost, elapsed)
+            if show_debug:
+                self._add_usage_debug(debug_parts, usage, model, cost, elapsed)
 
-                if not response_text.strip():
-                    await ctx.send("❌ GLM produced no response (all tokens spent on reasoning). Try a simpler question or increase `glm_max_output_tokens`.")
-                    return
+            if not response_text.strip():
+                await ctx.send("❌ GLM produced no response (all tokens spent on reasoning). Try a simpler question or increase `glm_max_output_tokens`.")
+                return
 
-                # Restore mentions so users get pinged
-                output = self.context_gatherer.restore_mentions(ctx, response_text)
+            # Restore mentions so users get pinged
+            output = self.context_gatherer.restore_mentions(ctx, response_text)
 
-                # Optionally include reasoning in output
-                show_reasoning = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_show_reasoning")
-                if str(show_reasoning).lower() in ("on", "true", "yes", "1"):
-                    if reasoning_text.strip():
-                        output += f"\n\n**Reasoning:** {reasoning_text}"
+            # Optionally include reasoning in output
+            show_reasoning = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_show_reasoning")
+            if str(show_reasoning).lower() in ("on", "true", "yes", "1"):
+                if reasoning_text.strip():
+                    output += f"\n\n**Reasoning:** {reasoning_text}"
 
-                await self._send_with_debug(ctx, output, debug_parts, show_debug)
-
-        except Exception as e:
-            self.bot.logger.error(f"GLM command error: {e}")
-            error_msg = f"❌ GLM command failed: {str(e)}"
-            if "429" in str(e) or "rate limit" in str(e).lower():
-                error_msg += "\n⚠️ Rate limit hit - try again later"
-            elif "503" in str(e) or "service unavailable" in str(e).lower():
-                error_msg += "\n⚠️ Service temporarily unavailable"
-            elif "504" in str(e) or "gateway timeout" in str(e).lower():
-                error_msg += "\n⚠️ Gateway timeout - try again"
-            elif "connection" in str(e).lower() or "timeout" in str(e).lower():
-                error_msg += "\n⚠️ Connection issue - check if endpoint is reachable"
-            elif "401" in str(e) or "unauthorized" in str(e).lower() or "403" in str(e) or "forbidden" in str(e).lower():
-                error_msg += "\n⚠️ Authentication failed - check API credentials"
-            elif "404" in str(e) or "not found" in str(e).lower():
-                error_msg += "\n⚠️ Model or endpoint not found - check configuration"
-            await ctx.send(error_msg)
+            await self._send_with_debug(ctx, output, debug_parts, show_debug)
 
     @commands.command()
     @is_bot_admin()
