@@ -41,6 +41,7 @@ class Copilot(commands.Cog):
         self.bot = bot
         self.ai_cache = AICache()
         self.provider = CopilotProvider(bot)
+        self.glm_provider = OpenAIProvider(bot)
 
     def cog_unload(self):
         asyncio.ensure_future(self.ai_cache.close())
@@ -1194,18 +1195,19 @@ RULES:
             }
 
             try:
-                data = await self.provider.chat(payload)
+                data = await self.glm_provider.chat(payload)
                 response_text = data["choices"][0]["message"]["content"]
 
                 # Log usage
                 usage = data.get("usage", {})
-                in_tok = usage.get("prompt_tokens", self.provider.estimate_tokens(ask))
-                out_tok = usage.get("completion_tokens", self.provider.estimate_tokens(response_text))
-                cost = self.provider.calculate_cost("glm", in_tok, out_tok, 0)
+                in_tok = usage.get("prompt_tokens", self.glm_provider.estimate_tokens(ask))
+                out_tok = usage.get("completion_tokens", self.glm_provider.estimate_tokens(response_text))
+                cost = self.glm_provider.calculate_cost("GLM-4.7-Flash-UD-Q4_K_XL.gguf", in_tok, out_tok, 0)
 
                 await self.ai_cache.log_usage(
-                    ctx.guild.id, ctx.channel.id, "glm", in_tok, out_tok, cost,
-                    answer_model="GLM-4.7-Flash-UD-Q4_K_XL.gguf"
+                    ctx.channel.id, ctx.guild.id, "glm",
+                    in_tok, out_tok, "GLM-4.7-Flash-UD-Q4_K_XL.gguf",
+                    cached_tokens=0
                 )
 
                 # Restore mentions so users get pinged
