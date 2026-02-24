@@ -64,6 +64,7 @@ SETTINGS_SPEC = {
     "glm_base_url":       ("https://llm.00id.net/v1", None, None),
     "glm_model":         ("GLM-4.7-Flash-UD-Q4_K_XL.gguf", None, None),
     "glm_api_key":       ("", None, None),
+    "glm_max_output_tokens": (2000, 100, 8000),
 }
 
 # Settings that are stored guild-wide (channel_id=NULL), not per-channel
@@ -91,6 +92,7 @@ SETTINGS_HELP = {
     "glm_base_url":       "Base URL for GLM API (OpenAI-compatible endpoint)",
     "glm_model":          "Model name to use for GLM responses",
     "glm_api_key":        "GLM API key for !glm command (global, required for GLM)",
+    "glm_max_output_tokens": "Max tokens GLM can generate per response (default 2000)",
 }
 
 # Hardcoded model pricing: (input $/M tokens, output $/M tokens, cache_read $/M tokens)
