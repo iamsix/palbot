@@ -498,10 +498,20 @@ Be detailed — this summary replaces the original messages and is the only reco
         use_context = settings.get("context", "on") != "off"
         debug_parts = []
 
+        # If compact_model is set (GLM), use GLM-specific compaction settings if available
+        if compact_model:
+            effective_settings = dict(settings)
+            for key in ("raw_max_tokens", "compact_max_tokens", "raw_hours", "compact_days", "recompact_raw_tokens"):
+                glm_key = f"glm_{key}"
+                if glm_key in settings:
+                    effective_settings[key] = settings[glm_key]
+        else:
+            effective_settings = settings
+
         # Build compacted channel context
         if use_context:
             channel_context = await self._build_compacted_context(
-                ctx, settings, token, base_url, compact_model=compact_model)
+                ctx, effective_settings, token, base_url, compact_model=compact_model)
         else:
             channel_context = ""
 
