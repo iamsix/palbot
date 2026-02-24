@@ -61,7 +61,7 @@ SETTINGS_SPEC = {
     "compact_model":      ("claude-sonnet-4.5", None, None),
     "system_prompt":      ("", None, None),
     "brave_api_key":      ("", None, None),
-    "glm_base_url":       ("https://open.bigmodel.cn/api/paas/v4", None, None),
+    "glm_base_url":       ("https://llm.00id.net/v1", None, None),
     "glm_model":         ("GLM-4.7-Flash-UD-Q4_K_XL.gguf", None, None),
     "glm_api_key":       ("", None, None),
 }
