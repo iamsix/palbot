@@ -76,6 +76,7 @@ SETTINGS_SPEC = {
     "glm_compact_days":      (7, 1, 30),
     "glm_recompact_raw_tokens": (6000, 500, 50000),
     "glm_max_compaction_input": (40000, 1000, 120000),
+    "glm_system_prompt":      ("", None, None),
 }
 
 # Settings that are stored guild-wide (channel_id=NULL), not per-channel
@@ -115,6 +116,7 @@ SETTINGS_HELP = {
     "glm_compact_days":      "Days of history to include in GLM compaction (default 7)",
     "glm_recompact_raw_tokens": "Overflow token threshold to trigger GLM recompaction (default 6000)",
     "glm_max_compaction_input": "Max tokens to send to GLM for compaction (default 40000, fits 64K context)",
+    "glm_system_prompt":      "Custom system prompt for GLM (overrides default; empty = use built-in GLM prompt)",
 }
 
 # Hardcoded model pricing: (input $/M tokens, output $/M tokens, cache_read $/M tokens)
