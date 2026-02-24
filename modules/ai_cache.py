@@ -59,12 +59,15 @@ SETTINGS_SPEC = {
     "debug":              ("off", None, None),
     "answer_model":       ("claude-opus-4.6", None, None),
     "compact_model":      ("claude-sonnet-4.5", None, None),
+    "max_context_tokens": (20000, 5000, 100000),  # Fallback cap for main context
+    "max_compaction_input": (120000, 50000, 200000),  # Max tokens for compaction model input
     "system_prompt":      ("", None, None),
     "brave_api_key":      ("", None, None),
     "glm_enabled":        ("on",  None, None),
     "glm_show_reasoning": ("off", None, None),
     "glm_base_url":       ("https://llm.00id.net/v1", None, None),
-    "glm_model":         ("GLM-4.7-Flash-UD-Q4_K_XL.gguf", None, None),
+    "glm_model":         ("GLM-4.7-Flash-Q5_K_M.gguf", None, None),
+    "glm_compact_model":  ("GLM-4.7-Flash-Q5_K_M.gguf", None, None),  # Optional: GLM model to use for compaction
     "glm_api_key":       ("", None, None),
     "glm_max_output_tokens": (2000, 100, 8000),
 }
@@ -89,12 +92,15 @@ SETTINGS_HELP = {
     "debug":              "Show token debug info to bot admins (on/off)",
     "answer_model":       "Model used for answering questions",
     "compact_model":      "Model used for compaction/summarization",
+    "max_context_tokens":  "Maximum tokens for main context window (fallback cap)",
+    "max_compaction_input": "Maximum tokens for compaction model input",
     "system_prompt":      "Custom system prompt (replaces default when set)",
     "brave_api_key":      "Brave Search API key for !sclai (global, falls back to Google if unset)",
     "glm_enabled":        "Enable/disable !glm command in this channel (on/off)",
     "glm_show_reasoning": "Show GLM reasoning content in output (on/off)",
     "glm_base_url":       "Base URL for GLM API (OpenAI-compatible endpoint)",
     "glm_model":          "Model name to use for GLM responses",
+    "glm_compact_model":  "Model name to use for GLM compaction/summarization",
     "glm_api_key":        "GLM API key for !glm command (global, required for GLM)",
     "glm_max_output_tokens": "Max tokens GLM can generate per response (default 2000)",
 }
