@@ -1185,7 +1185,7 @@ RULES:
 - When addressing users, use their display name (it will be auto-converted to a mention)"""
 
                 # Build payload
-                max_output = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "max_output_tokens", 500)
+                max_output = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "max_output_tokens") or 500
                 payload = {
                     "model": "GLM-4.7-Flash-UD-Q4_K_XL.gguf",  # GLM-4.7 Flash model
                     "messages": [
