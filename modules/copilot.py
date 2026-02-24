@@ -1210,11 +1210,20 @@ RULES:
                 }
 
                 data = await self.glm_provider.chat(payload)
-                response_text = data["choices"][0]["message"].get("content") or ""
+
+                # Get both content and reasoning_content
+                message = data["choices"][0]["message"]
+                response_text = message.get("content") or ""
+                reasoning_text = message.get("reasoning_content") or ""
 
                 # Handle empty responses (GLM may return only reasoning_content with empty content)
                 if not response_text.strip():
-                    await ctx.send("🤷 GLM returned an empty response — try rephrasing or ask something more specific.")
+                    if reasoning_text.strip():
+                        # Show reasoning if content is empty
+                        output = self.restore_mentions(ctx, reasoning_text)
+                        await ctx.send(output[:1980])
+                    else:
+                        await ctx.send("🤷 GLM returned an empty response — try rephrasing or ask something more specific.")
                     return
 
                 # Log usage
@@ -1231,6 +1240,13 @@ RULES:
 
                 # Restore mentions so users get pinged
                 output = self.restore_mentions(ctx, response_text)
+
+                # Optionally include reasoning in output
+                show_reasoning = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_show_reasoning")
+                if str(show_reasoning).lower() in ("on", "true", "yes", "1"):
+                    if reasoning_text.strip():
+                        output += f"\n\n**Reasoning:** {reasoning_text}"
+
                 await ctx.send(output[:1980])
 
         except Exception as e:
