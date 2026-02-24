@@ -1200,14 +1200,16 @@ RULES:
                     "max_tokens": max_output,
                 }
 
-                data = await self.glm_provider.chat(payload)
+                # Create provider with settings
+                provider = OpenAIProvider(bot, base_url=base_url, api_key=api_key)
+                data = await provider.chat(payload)
                 response_text = data["choices"][0]["message"]["content"]
 
                 # Log usage
                 usage = data.get("usage", {})
-                in_tok = usage.get("prompt_tokens", self.glm_provider.estimate_tokens(ask))
-                out_tok = usage.get("completion_tokens", self.glm_provider.estimate_tokens(response_text))
-                cost = self.glm_provider.calculate_cost(model, in_tok, out_tok, 0)
+                in_tok = usage.get("prompt_tokens", provider.estimate_tokens(ask))
+                out_tok = usage.get("completion_tokens", provider.estimate_tokens(response_text))
+                cost = provider.calculate_cost(model, in_tok, out_tok, 0)
 
                 await self.ai_cache.log_usage(
                     ctx.channel.id, ctx.guild.id, "glm",
