@@ -745,7 +745,7 @@ Be detailed — this summary replaces the original messages and is the only reco
 
             # Get valid token (auto-refreshes if expired)
             try:
-                token, base_url = await self.get_copilot_token()
+                token, base_url = await self.get_provider_auth()
             except Exception as e:
                 await ctx.send(f"Token error: {e}")
                 return
@@ -949,7 +949,7 @@ RULES:
 
             # Get valid token (auto-refreshes if expired)
             try:
-                token, base_url = await self.get_copilot_token()
+                token, base_url = await self.get_provider_auth()
             except Exception as e:
                 await ctx.send(f"Token error: {e}")
                 return
