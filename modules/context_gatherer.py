@@ -535,7 +535,8 @@ RULES:
                 parts = channel_context.split("Recent channel conversation:", 1)
                 stable_prefix_tokens += self.provider.estimate_tokens(parts[0])
                 if hasattr(self, '_last_compaction'):
-                    debug_parts.append(f"⟳{self._last_compaction}")
+                    label = self._last_compaction or "cached"
+                    debug_parts.append(f"⟳{label}")
                 debug_parts.append(f"summary={self.provider.estimate_tokens(parts[0])}tok")
                 debug_parts.append(f"raw={self.provider.estimate_tokens(parts[1])}tok")
                 if hasattr(self, '_overflow_tokens'):
