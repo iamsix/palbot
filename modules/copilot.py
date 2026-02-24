@@ -1194,18 +1194,23 @@ RULES:
 - When addressing users, use their display name (it will be auto-converted to a mention)"""
 
                 # Build payload
-                max_output = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "max_output_tokens") or 500
+                max_output = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_max_output_tokens") or 2000
                 payload = {
                     "model": model,
                     "messages": [
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": ask}
                     ],
-                    "max_tokens": max_output,
+                    "max_tokens": int(max_output),
                 }
 
                 data = await self.glm_provider.chat(payload)
-                response_text = data["choices"][0]["message"]["content"]
+                response_text = data["choices"][0]["message"].get("content") or ""
+
+                # Handle empty responses (GLM may return only reasoning_content with empty content)
+                if not response_text.strip():
+                    await ctx.send("🤷 GLM returned an empty response — try rephrasing or ask something more specific.")
+                    return
 
                 # Log usage
                 usage = data.get("usage", {})
