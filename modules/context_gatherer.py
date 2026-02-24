@@ -501,7 +501,7 @@ Be detailed — this summary replaces the original messages and is the only reco
         # If compact_model is set (GLM), use GLM-specific compaction settings if available
         if compact_model:
             effective_settings = dict(settings)
-            for key in ("raw_max_tokens", "compact_max_tokens", "raw_hours", "compact_days", "recompact_raw_tokens"):
+            for key in ("raw_max_tokens", "compact_max_tokens", "raw_hours", "compact_days", "recompact_raw_tokens", "max_compaction_input"):
                 glm_key = f"glm_{key}"
                 if glm_key in settings:
                     effective_settings[key] = settings[glm_key]

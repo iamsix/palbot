@@ -75,6 +75,7 @@ SETTINGS_SPEC = {
     "glm_raw_hours":         (6, 1, 168),
     "glm_compact_days":      (7, 1, 30),
     "glm_recompact_raw_tokens": (6000, 500, 50000),
+    "glm_max_compaction_input": (40000, 1000, 120000),
 }
 
 # Settings that are stored guild-wide (channel_id=NULL), not per-channel
@@ -113,6 +114,7 @@ SETTINGS_HELP = {
     "glm_raw_hours":         "Hours of recent messages to keep raw for GLM (default 6)",
     "glm_compact_days":      "Days of history to include in GLM compaction (default 7)",
     "glm_recompact_raw_tokens": "Overflow token threshold to trigger GLM recompaction (default 6000)",
+    "glm_max_compaction_input": "Max tokens to send to GLM for compaction (default 40000, fits 64K context)",
 }
 
 # Hardcoded model pricing: (input $/M tokens, output $/M tokens, cache_read $/M tokens)
