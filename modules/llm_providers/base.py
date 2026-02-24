@@ -20,13 +20,11 @@ class LLMProvider(ABC):
         pass
 
     @abstractmethod
-    async def chat(self, messages: List[Dict], model: str, max_tokens: int) -> Dict:
+    async def chat(self, payload: Dict) -> Dict:
         """Send a chat completion request.
 
         Args:
-            messages: List of message dicts with 'role' and 'content'
-            model: Model identifier (e.g., 'claude-opus-4.6')
-            max_tokens: Maximum tokens in response
+            payload: Full request payload dict with 'messages', 'model', 'max_tokens' keys
 
         Returns:
             dict: Response from API with 'choices' containing message content and usage info

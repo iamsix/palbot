@@ -86,13 +86,11 @@ class CopilotProvider(LLMProvider):
         self.bot.logger.info("Copilot token refreshed successfully")
         return token, self._extract_base_url(token)
 
-    async def chat(self, messages: Dict, model: str, max_tokens: int) -> Dict:
+    async def chat(self, payload: Dict) -> Dict:
         """Send a chat completion request to GitHub Copilot API.
 
         Args:
-            messages: Request payload with 'messages', 'model', 'max_tokens'
-            model: Model identifier
-            max_tokens: Maximum tokens in response
+            payload: Full request payload with 'messages', 'model', 'max_tokens' keys
 
         Returns:
             dict: API response
@@ -104,12 +102,6 @@ class CopilotProvider(LLMProvider):
             "Content-Type": "application/json",
             "Copilot-Integration-Id": "vscode-chat",
             "Editor-Version": "vscode/1.95.0",
-        }
-
-        payload = {
-            "model": model,
-            "messages": messages,
-            "max_tokens": max_tokens,
         }
 
         async with ClientSession() as session:
