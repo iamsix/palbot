@@ -1200,6 +1200,7 @@ RULES:
 
                 # Build payload
                 max_output = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_max_output_tokens") or 2000
+                include_reasoning = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_include_reasoning")
                 payload = {
                     "model": model,
                     "messages": [
@@ -1208,6 +1209,10 @@ RULES:
                     ],
                     "max_tokens": max_output,
                 }
+
+                # Add reasoning parameter if enabled
+                if str(include_reasoning).lower() in ("on", "true", "yes", "1"):
+                    payload["include_reasoning"] = True
 
                 data = await self.glm_provider.chat(payload)
 
