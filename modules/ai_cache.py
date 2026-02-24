@@ -61,13 +61,16 @@ SETTINGS_SPEC = {
     "compact_model":      ("claude-sonnet-4.5", None, None),
     "system_prompt":      ("", None, None),
     "brave_api_key":      ("", None, None),
+    "glm_base_url":       ("https://llm.00id.net/v1", None, None),
+    "glm_model":         ("GLM-4.7-Flash-UD-Q4_K_XL.gguf", None, None),
+    "glm_api_key":       ("", None, None),
 }
 
 # Settings that are stored guild-wide (channel_id=NULL), not per-channel
-GLOBAL_SETTINGS = {"brave_api_key"}
+GLOBAL_SETTINGS = {"brave_api_key", "glm_api_key"}
 
 # Settings whose values should be hidden in !claiconfig output
-SECRET_SETTINGS = {"brave_api_key"}
+SECRET_SETTINGS = {"brave_api_key", "glm_api_key"}
 
 SETTINGS_HELP = {
     "enabled":            "Enable/disable !clai and !sclai in this channel (on/off)",
@@ -85,6 +88,9 @@ SETTINGS_HELP = {
     "compact_model":      "Model used for compaction/summarization",
     "system_prompt":      "Custom system prompt (replaces default when set)",
     "brave_api_key":      "Brave Search API key for !sclai (global, falls back to Google if unset)",
+    "glm_base_url":       "Base URL for GLM API (OpenAI-compatible endpoint)",
+    "glm_model":          "Model name to use for GLM responses",
+    "glm_api_key":        "GLM API key for !glm command (global, required for GLM)",
 }
 
 # Hardcoded model pricing: (input $/M tokens, output $/M tokens, cache_read $/M tokens)

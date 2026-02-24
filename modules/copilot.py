@@ -1157,7 +1157,7 @@ RULES:
 
     @commands.command()
     async def glm(self, ctx, *, ask: str):
-        """Ask using GLM-4.7 Flash via OpenAI-compatible API (basic version)"""
+        """Ask using GLM via OpenAI-compatible API (basic version)"""
         try:
             # Check if AI commands are enabled in this channel
             enabled = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "enabled")
@@ -1166,6 +1166,15 @@ RULES:
 
             async with ctx.channel.typing():
                 ask = self.resolve_mentions(ctx, ask)
+
+                # Get GLM settings
+                base_url = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_base_url")
+                api_key = await self.ai_cache.get_setting(ctx.guild.id, None, "glm_api_key") or await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_api_key")
+                model = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_model")
+
+                # Update provider with settings
+                self.glm_provider.base_url = base_url
+                self.glm_provider.api_key = api_key
 
                 # Build system prompt
                 custom_prompt = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "system_prompt")
@@ -1187,7 +1196,7 @@ RULES:
                 # Build payload
                 max_output = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "max_output_tokens") or 500
                 payload = {
-                    "model": "GLM-4.7-Flash-UD-Q4_K_XL.gguf",  # GLM-4.7 Flash model
+                    "model": model,
                     "messages": [
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": ask}
@@ -1202,11 +1211,11 @@ RULES:
                 usage = data.get("usage", {})
                 in_tok = usage.get("prompt_tokens", self.glm_provider.estimate_tokens(ask))
                 out_tok = usage.get("completion_tokens", self.glm_provider.estimate_tokens(response_text))
-                cost = self.glm_provider.calculate_cost("GLM-4.7-Flash-UD-Q4_K_XL.gguf", in_tok, out_tok, 0)
+                cost = self.glm_provider.calculate_cost(model, in_tok, out_tok, 0)
 
                 await self.ai_cache.log_usage(
                     ctx.channel.id, ctx.guild.id, "glm",
-                    in_tok, out_tok, "GLM-4.7-Flash-UD-Q4_K_XL.gguf",
+                    in_tok, out_tok, model,
                     cached_tokens=0
                 )
 
@@ -1283,6 +1292,84 @@ RULES:
 
         if value is None:
             await ctx.send(f"Usage: `!claiconfig {key} <value>`")
+            return
+
+        # Allow clearing string settings with "none" or "reset"
+        if value.lower() in ("none", "reset", "clear", "default") and SETTINGS_SPEC[key][1] is None:
+            value = SETTINGS_SPEC[key][0]  # Reset to default
+
+        ok, err = await self.ai_cache.set_setting(guild_id, channel_id, key, value)
+        if ok:
+            scope = "server" if key in GLOBAL_SETTINGS else f"<#{channel_id}>"
+            if key in SECRET_SETTINGS:
+                if value:
+                    await ctx.send(f"✅ `{key}` set for {scope}")
+                else:
+                    await ctx.send(f"✅ `{key}` cleared for {scope}")
+            elif key == "system_prompt" and value:
+                preview = value[:80] + ("..." if len(value) > 80 else "")
+                await ctx.send(f"✅ `{key}` set for {scope}: {preview}")
+            elif key == "system_prompt":
+                await ctx.send(f"✅ `{key}` cleared for {scope}")
+            else:
+                await ctx.send(f"✅ `{key}` set to **{value}** for {scope}")
+        else:
+            await ctx.send(f"❌ {err}")
+
+    @commands.command()
+    @is_bot_admin()
+    async def glmconfig(self, ctx, key: str = None, *, value: str = None):
+        """Show or change GLM settings (Bot Admin only)"""
+        guild_id = ctx.guild.id
+        channel_id = ctx.channel.id
+
+        if key == "help":
+            lines = ["📖 **GLM Settings Help**\n"]
+            for k, spec in SETTINGS_SPEC.items():
+                if k.startswith("glm_"):
+                    desc = SETTINGS_HELP.get(k, "")
+                    default = spec[0]
+                    if spec[1] is not None:
+                        lines.append(f"**`{k}`** — {desc}\n  Default: {default}, range: {spec[1]}-{spec[2]}")
+                    elif k == "system_prompt":
+                        lines.append(f"**`{k}`** — {desc}\n  Default: *(built-in)*. Set to override, `none` to reset")
+                    else:
+                        lines.append(f"**`{k}`** — {desc}\n  Default: {default}")
+            lines.append(f"\nSettings are per-channel unless marked 🌐 (global). Run `!glmconfig` in the channel you want to configure.")
+            await ctx.send("\n".join(lines))
+            return
+
+        if key is None:
+            # Show all GLM settings
+            settings = await self.ai_cache.get_all_settings(guild_id, channel_id)
+            lines = [f"⚙️ **GLM Settings** — <#{channel_id}>"]
+            for k, v in settings.items():
+                if k.startswith("glm_"):
+                    spec = SETTINGS_SPEC[k]
+                    default = spec[0]
+                    is_default = (v == default)
+                    marker = " *(default)*" if is_default else ""
+                    global_tag = " 🌐" if k in GLOBAL_SETTINGS else ""
+                    if k in SECRET_SETTINGS:
+                        if v:
+                            lines.append(f"  `{k}`: ✓ set{global_tag}")
+                        else:
+                            lines.append(f"  `{k}`: ✗ not set{global_tag}")
+                    elif k == "system_prompt":
+                        if v:
+                            preview = v[:80] + ("..." if len(v) > 80 else "")
+                            lines.append(f"  `{k}`: {preview}")
+                        else:
+                            lines.append(f"  `{k}`: *(default — built-in)*")
+                    elif spec[1] is not None:
+                        lines.append(f"  `{k}`: **{v}** (range: {spec[1]}-{spec[2]}){marker}")
+                    else:
+                        lines.append(f"  `{k}`: **{v}**{marker}")
+            await ctx.send("\n".join(lines))
+            return
+
+        if value is None:
+            await ctx.send(f"Usage: `!glmconfig {key} <value>`")
             return
 
         # Allow clearing string settings with "none" or "reset"
