@@ -13,12 +13,12 @@ from .base import LLMProvider, estimate_tokens, calculate_cost
 class OpenAIProvider(LLMProvider):
     """OpenAI-compatible API provider."""
 
-    def __init__(self, bot, base_url: str = "http://192.168.0.50:8081", api_key: str = None):
+    def __init__(self, bot, base_url: str = "https://llm.00id.net/v1", api_key: str = None):
         """Initialize OpenAI provider.
 
         Args:
             bot: Discord bot instance
-            base_url: Base URL for API (default: http://192.168.0.50:8081)
+            base_url: Base URL for API (default: https://llm.00id.net/v1)
             api_key: API key for authentication (optional)
         """
         self.bot = bot
