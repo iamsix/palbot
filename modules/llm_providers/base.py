@@ -103,6 +103,10 @@ def calculate_cost(
         price_in, price_out, price_cache = 5.0, 25.0, 0.50
     elif model.startswith("claude-sonnet"):
         price_in, price_out, price_cache = 3.0, 15.0, 0.30
+    elif "glm" in model.lower() or "gemma" in model.lower():
+        # Local LLM on RTX 4090: ~$2-3/M tokens electricity cost
+        # Prompt eval is ~4x faster than generation, so input is cheaper
+        price_in, price_out, price_cache = 0.50, 3.00, 0.0
 
     uncached_in = max(0, input_tokens - cached_tokens)
     return (uncached_in * price_in + cached_tokens * price_cache +
