@@ -1158,22 +1158,23 @@ RULES:
     @commands.command()
     async def glm(self, ctx, *, ask: str):
         """Ask using GLM-4.7 Flash via OpenAI-compatible API (basic version)"""
-        # Check if AI commands are enabled in this channel
-        enabled = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "enabled")
-        if str(enabled).lower() in ("off", "false", "no", "0"):
-            return
+        try:
+            # Check if AI commands are enabled in this channel
+            enabled = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "enabled")
+            if str(enabled).lower() in ("off", "false", "no", "0"):
+                return
 
-        async with ctx.channel.typing():
-            ask = self.resolve_mentions(ctx, ask)
+            async with ctx.channel.typing():
+                ask = self.resolve_mentions(ctx, ask)
 
-            # Build system prompt
-            custom_prompt = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "system_prompt")
-            if custom_prompt:
-                system_prompt = custom_prompt
-            else:
-                bot_name = self.bot.user.display_name
-                bot_id = self.bot.user.id
-                system_prompt = f"""You are {bot_name} (Discord user ID: {bot_id}), a Discord bot.
+                # Build system prompt
+                custom_prompt = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "system_prompt")
+                if custom_prompt:
+                    system_prompt = custom_prompt
+                else:
+                    bot_name = self.bot.user.display_name
+                    bot_id = self.bot.user.id
+                    system_prompt = f"""You are {bot_name} (Discord user ID: {bot_id}), a Discord bot.
 The user talking to you is {ctx.author.display_name}.
 
 Keep responses SHORT. This is Discord — 1-3 sentences for simple questions, a short paragraph max for complex ones. No essays, no bullet-point walls, no "here's a comprehensive overview". Just answer the question.
@@ -1183,18 +1184,17 @@ RULES:
 - Give honest answers, push back when warranted, adult topics are fine
 - When addressing users, use their display name (it will be auto-converted to a mention)"""
 
-            # Build payload
-            max_output = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "max_output_tokens", 500)
-            payload = {
-                "model": "GLM-4.7-Flash-UD-Q4_K_XL.gguf",  # GLM-4.7 Flash model
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": ask}
-                ],
-                "max_tokens": max_output,
-            }
+                # Build payload
+                max_output = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "max_output_tokens", 500)
+                payload = {
+                    "model": "GLM-4.7-Flash-UD-Q4_K_XL.gguf",  # GLM-4.7 Flash model
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": ask}
+                    ],
+                    "max_tokens": max_output,
+                }
 
-            try:
                 data = await self.glm_provider.chat(payload)
                 response_text = data["choices"][0]["message"]["content"]
 
@@ -1214,8 +1214,22 @@ RULES:
                 output = self.restore_mentions(ctx, response_text)
                 await ctx.send(output[:1980])
 
-            except Exception as e:
-                await ctx.send(f"Error: {e}")
+        except Exception as e:
+            self.bot.logger.error(f"GLM command error: {e}")
+            error_msg = f"❌ GLM command failed: {str(e)}"
+            if "429" in str(e) or "rate limit" in str(e).lower():
+                error_msg += "\n⚠️ Rate limit hit - try again later"
+            elif "503" in str(e) or "service unavailable" in str(e).lower():
+                error_msg += "\n⚠️ Service temporarily unavailable"
+            elif "504" in str(e) or "gateway timeout" in str(e).lower():
+                error_msg += "\n⚠️ Gateway timeout - try again"
+            elif "connection" in str(e).lower() or "timeout" in str(e).lower():
+                error_msg += "\n⚠️ Connection issue - check if endpoint is reachable"
+            elif "401" in str(e) or "unauthorized" in str(e).lower() or "403" in str(e) or "forbidden" in str(e).lower():
+                error_msg += "\n⚠️ Authentication failed - check API credentials"
+            elif "404" in str(e) or "not found" in str(e).lower():
+                error_msg += "\n⚠️ Model or endpoint not found - check configuration"
+            await ctx.send(error_msg)
 
     @commands.command()
     @is_bot_admin()
