@@ -7,6 +7,7 @@ Provides reusable methods for:
 - Compaction summary caching and rebuilding
 """
 
+import aiohttp
 import asyncio
 import io
 import re
@@ -27,14 +28,15 @@ class ContextGatherer:
 
     DISCORD_EPOCH = 1420070400000  # Jan 1, 2015 in ms
 
-    def __init__(self, bot, ai_cache: AICache):
+    IMAGE_CONTENT_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
+    IMAGE_URL_PATTERN = re.compile(r'https?://\S+', re.IGNORECASE)
+    MAX_IMAGE_BYTES = 3_500_000  # ~3.5MB raw; base64 is ~33% larger → ~4.7MB (API limit ~5MB)
+    MAX_IMAGE_DIMENSION = 2048   # max width or height in pixels
+
+    def __init__(self, bot, ai_cache: AICache, provider=None):
         self.bot = bot
         self.ai_cache = ai_cache
-        self._last_compaction = None
-        self._overflow_tokens = 0
-        self._recompact_threshold = 0
-        self._img_tokens = 0
-        self._img_diag = []
+        self.provider = provider
 
     @staticmethod
     def resolve_mentions(ctx, text: str) -> str:
@@ -212,7 +214,7 @@ class ContextGatherer:
         return "\n".join(msgs)
 
     async def _do_compaction(self, ctx, messages_text: str, compact_max_tokens: int,
-                             compact_model: str, token: str, base_url: str) -> tuple:
+                             compact_model: str, token: str, base_url: str, headers: dict = None) -> tuple:
         """Call the compact_model to summarize messages.
 
         Returns (summary_text, input_tokens, output_tokens, cached_tokens) or raises on failure.
@@ -231,12 +233,13 @@ Omit:
 
 Be detailed — this summary replaces the original messages and is the only record of what was discussed."""
 
-        headers = {
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-            "Copilot-Integration-Id": "vscode-chat",
-            "Editor-Version": "vscode/1.95.0",
-        }
+        if headers is None:
+            headers = {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+                "Copilot-Integration-Id": "vscode-chat",
+                "Editor-Version": "vscode/1.95.0",
+            }
 
         payload = {
             "model": compact_model,
@@ -262,7 +265,7 @@ Be detailed — this summary replaces the original messages and is the only reco
         usage = data.get("usage", {})
         input_tokens = usage.get("prompt_tokens", 0)
         output_tokens = usage.get("completion_tokens", 0)
-        cached_tokens = (usage.get("prompt_tokens_details") or {}).get("cached_tokens", 0)
+        cached_tokens = (usage.get("prompt_tokens_details") or {}).get("cached_tokens", 0
 
         return summary, input_tokens, output_tokens, cached_tokens
 
@@ -291,7 +294,7 @@ Be detailed — this summary replaces the original messages and is the only reco
                 lo = mid + 1
         return msgs[lo:]
 
-    async def _build_compacted_context(self, ctx, settings: dict, token: str, base_url: str) -> str:
+    async def _build_compacted_context(self, ctx, settings: dict, token: str, base_url: str, headers: dict = None) -> str:
         """Build context for AI commands using compaction.
 
         Returns the context string (summary + raw messages) to use in the prompt.
@@ -354,7 +357,7 @@ Be detailed — this summary replaces the original messages and is the only reco
                         return "Recent channel conversation:\n" + self._format_messages(all_msgs, bot_user_id)
 
                     summary, in_tok, out_tok, cached_comp = await self._do_compaction(
-                        ctx, older_text, compact_max_tokens, compact_model, token, base_url)
+                        ctx, older_text, compact_max_tokens, compact_model, token, base_url, headers)
                     self._last_compaction = 'recompact'
                     await self.ai_cache.log_usage(
                         channel_id, guild_id, "compaction",
@@ -420,7 +423,7 @@ Be detailed — this summary replaces the original messages and is the only reco
 
             try:
                 summary, in_tok, out_tok, cached_comp = await self._do_compaction(
-                    ctx, older_text, compact_max_tokens, compact_model, token, base_url)
+                    ctx, older_text, compact_max_tokens, compact_model, token, base_url, headers)
                 self._last_compaction = 'cold'
                 await self.ai_cache.log_usage(
                     channel_id, guild_id, "compaction",
