@@ -1338,30 +1338,31 @@ RULES:
             return
 
         if key is None:
-            # Show all settings
+            # Show all GLM settings
             settings = await self.ai_cache.get_all_settings(guild_id, channel_id)
             lines = [f"⚙️ **GLM Settings** — <#{channel_id}>"]
             for k, v in settings.items():
-                spec = SETTINGS_SPEC[k]
-                default = spec[0]
-                is_default = (v == default)
-                marker = " *(default)*" if is_default else ""
-                global_tag = " 🌐" if k in GLOBAL_SETTINGS else ""
-                if k in SECRET_SETTINGS:
-                    if v:
-                        lines.append(f"  `{k}`: ✓ set{global_tag}")
+                if k.startswith("glm_"):
+                    spec = SETTINGS_SPEC[k]
+                    default = spec[0]
+                    is_default = (v == default)
+                    marker = " *(default)*" if is_default else ""
+                    global_tag = " 🌐" if k in GLOBAL_SETTINGS else ""
+                    if k in SECRET_SETTINGS:
+                        if v:
+                            lines.append(f"  `{k}`: ✓ set{global_tag}")
+                        else:
+                            lines.append(f"  `{k}`: ✗ not set{global_tag}")
+                    elif k == "system_prompt":
+                        if v:
+                            preview = v[:80] + ("..." if len(v) > 80 else "")
+                            lines.append(f"  `{k}`: {preview}")
+                        else:
+                            lines.append(f"  `{k}`: *(default — built-in)*")
+                    elif spec[1] is not None:
+                        lines.append(f"  `{k}`: **{v}** (range: {spec[1]}-{spec[2]}){marker}")
                     else:
-                        lines.append(f"  `{k}`: ✗ not set{global_tag}")
-                elif k == "system_prompt":
-                    if v:
-                        preview = v[:80] + ("..." if len(v) > 80 else "")
-                        lines.append(f"  `{k}`: {preview}")
-                    else:
-                        lines.append(f"  `{k}`: *(default — built-in)*")
-                elif spec[1] is not None:
-                    lines.append(f"  `{k}`: **{v}** (range: {spec[1]}-{spec[2]}){marker}")
-                else:
-                    lines.append(f"  `{k}`: **{v}**{marker}")
+                        lines.append(f"  `{k}`: **{v}**{marker}")
             await ctx.send("\n".join(lines))
             return
 
