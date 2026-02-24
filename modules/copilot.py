@@ -1164,6 +1164,11 @@ RULES:
             if str(enabled).lower() in ("off", "false", "no", "0"):
                 return
 
+            # Check if GLM is enabled in this channel
+            glm_enabled = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_enabled")
+            if str(glm_enabled).lower() in ("off", "false", "no", "0"):
+                return
+
             async with ctx.channel.typing():
                 ask = self.resolve_mentions(ctx, ask)
 
@@ -1201,7 +1206,7 @@ RULES:
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": ask}
                     ],
-                    "max_tokens": int(max_output),
+                    "max_tokens": max_output,
                 }
 
                 data = await self.glm_provider.chat(payload)
