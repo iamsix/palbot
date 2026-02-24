@@ -1,6 +1,6 @@
 """OpenAI-compatible provider implementation.
 
-Supports OpenAI API-compatible endpoints (e.g., llama.cpp server).
+Supports OpenAI API-compatible endpoints (e.g., llama.cpp server, GLM-4.7 Flash).
 """
 
 import time
@@ -13,16 +13,17 @@ from .base import LLMProvider, estimate_tokens, calculate_cost
 class OpenAIProvider(LLMProvider):
     """OpenAI-compatible API provider."""
 
-    def __init__(self, bot, base_url: str = "http://localhost:11434/v1"):
+    def __init__(self, bot, base_url: str = "https://llm.00id.net/v1", api_key: str = None):
         """Initialize OpenAI provider.
 
         Args:
             bot: Discord bot instance
-            base_url: Base URL for API (default: llama.cpp server)
+            base_url: Base URL for API (default: https://llm.00id.net/v1)
+            api_key: API key for authentication (optional)
         """
         self.bot = bot
         self.base_url = base_url
-        self.api_key = "sk-no-key-required"  # Some servers don't require auth
+        self.api_key = api_key or "sk-no-key-required"  # Some servers don't require auth
 
     async def get_auth(self) -> Tuple[str, str]:
         """Get authentication credentials.
