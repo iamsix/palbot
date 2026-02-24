@@ -1216,16 +1216,6 @@ RULES:
                 response_text = message.get("content") or ""
                 reasoning_text = message.get("reasoning_content") or ""
 
-                # Handle empty responses (GLM may return only reasoning_content with empty content)
-                if not response_text.strip():
-                    if reasoning_text.strip():
-                        # Show reasoning if content is empty
-                        output = self.restore_mentions(ctx, reasoning_text)
-                        await ctx.send(output[:1980])
-                    else:
-                        await ctx.send("🤷 GLM returned an empty response — try rephrasing or ask something more specific.")
-                    return
-
                 # Log usage
                 usage = data.get("usage", {})
                 in_tok = usage.get("prompt_tokens", self.glm_provider.estimate_tokens(ask))
