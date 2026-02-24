@@ -13,9 +13,9 @@ try:
     HAS_PIL = True
 except ImportError:
     HAS_PIL = False
-from modules.ai_cache import (AICache, estimate_tokens, calculate_cost,
-                              SETTINGS_SPEC, SETTINGS_HELP,
+from modules.ai_cache import (AICache, SETTINGS_SPEC, SETTINGS_HELP,
                               GLOBAL_SETTINGS, SECRET_SETTINGS)
+from modules.llm_providers import CopilotProvider, OpenAIProvider
 
 BOT_ADMIN_ROLE = "Bot Admin"
 
@@ -40,6 +40,7 @@ class Copilot(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.ai_cache = AICache()
+        self.provider = CopilotProvider(bot)
 
     def cog_unload(self):
         asyncio.ensure_future(self.ai_cache.close())
@@ -69,79 +70,12 @@ class Copilot(commands.Cog):
             text = text.replace(name, mention_map[name])
         return text
 
-    async def get_copilot_token(self):
-        """Get a valid GitHub Copilot API token, refreshing if needed.
-        
+    async def get_provider_auth(self):
+        """Get authentication from provider.
+
         Returns tuple of (token, base_url) or raises on failure.
         """
-        token_path = self.bot.config.github_copilot_token_path
-        auth_profile_path = self.bot.config.github_copilot_auth_profile_path
-        
-        # Load cached token
-        with open(token_path) as f:
-            token_data = json.load(f)
-        
-        # Check if token is still valid (with 5 min buffer)
-        expires_at = token_data.get("expiresAt", 0)
-        now_ms = time.time() * 1000
-        
-        if expires_at - now_ms > 5 * 60 * 1000:
-            # Token still valid
-            token = token_data["token"]
-        else:
-            # Token expired or expiring soon - refresh it
-            self.bot.logger.info("Copilot token expired, refreshing...")
-            
-            # Load the GitHub OAuth token from auth profile
-            with open(auth_profile_path) as f:
-                auth_data = json.load(f)
-            
-            github_token = auth_data["profiles"]["github-copilot:github"]["token"]
-            
-            # Exchange for new Copilot API token
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
-                    "https://api.github.com/copilot_internal/v2/token",
-                    headers={
-                        "Accept": "application/json",
-                        "Authorization": f"Bearer {github_token}",
-                        "Editor-Version": "vscode/1.96.2",
-                        "User-Agent": "GitHubCopilotChat/0.26.7",
-                    }
-                ) as resp:
-                    if resp.status != 200:
-                        error_text = await resp.text()
-                        raise Exception(f"Token refresh failed: {resp.status} - {error_text}")
-                    
-                    data = await resp.json()
-                    token = data["token"]
-                    # GitHub returns seconds, convert to ms
-                    expires_at_raw = data["expires_at"]
-                    if expires_at_raw > 10_000_000_000:
-                        expires_at = expires_at_raw  # already ms
-                    else:
-                        expires_at = expires_at_raw * 1000  # convert to ms
-            
-            # Save refreshed token
-            new_token_data = {
-                "token": token,
-                "expiresAt": expires_at,
-                "updatedAt": int(now_ms),
-            }
-            with open(token_path, 'w') as f:
-                json.dump(new_token_data, f, indent=2)
-            
-            self.bot.logger.info("Copilot token refreshed successfully")
-        
-        # Extract API base URL from token's proxy-ep field
-        match = re.search(r'proxy-ep=([^;\s]+)', token)
-        if match:
-            proxy_ep = match.group(1)
-            base_url = "https://" + proxy_ep.replace("proxy.", "api.")
-        else:
-            base_url = "https://api.individual.githubcopilot.com"
-        
-        return token, base_url
+        return await self.provider.get_auth()
 
     async def gather_user_context(self, ctx, max_users: int = 2, max_msgs_per_user: int = 1000) -> str:
         """Gather recent messages from mentioned users using local SQLite logs"""
@@ -587,8 +521,8 @@ Be detailed — this summary replaces the original messages and is the only reco
 
         summary = data["choices"][0]["message"]["content"]
         usage = data.get("usage", {})
-        input_tokens = usage.get("prompt_tokens", estimate_tokens(messages_text))
-        output_tokens = usage.get("completion_tokens", estimate_tokens(summary))
+        input_tokens = usage.get("prompt_tokens", self.provider.estimate_tokens(messages_text))
+        output_tokens = usage.get("completion_tokens", self.provider.estimate_tokens(summary))
         cached_tokens = (usage.get("prompt_tokens_details") or {}).get("cached_tokens", 0)
 
         return summary, input_tokens, output_tokens, cached_tokens
@@ -601,14 +535,14 @@ Be detailed — this summary replaces the original messages and is the only reco
         undercount by 20-30% on code, URLs, or non-English text.
         """
         text = self._format_messages(msgs, bot_user_id)
-        if estimate_tokens(text) * 1.2 <= max_tokens:
+        if self.provider.estimate_tokens(text) * 1.2 <= max_tokens:
             return msgs
 
         # Binary search: find minimum messages to drop from front
         lo, hi = 0, len(msgs)
         while lo < hi:
             mid = (lo + hi) // 2
-            if estimate_tokens(self._format_messages(msgs[mid:], bot_user_id)) * 1.2 <= max_tokens:
+            if self.provider.estimate_tokens(self._format_messages(msgs[mid:], bot_user_id)) * 1.2 <= max_tokens:
                 hi = mid
             else:
                 lo = mid + 1
@@ -649,14 +583,14 @@ Be detailed — this summary replaces the original messages and is the only reco
             # Trim raw messages to token budget
             raw_msgs = self._trim_messages_to_budget(raw_msgs, bot_user_id, raw_max_tokens)
             raw_text = self._format_messages(raw_msgs, bot_user_id)
-            raw_tokens = estimate_tokens(raw_text)
+            raw_tokens = self.provider.estimate_tokens(raw_text)
 
             # Check re-compaction trigger — token-only, no time component.
             # Only count tokens BEYOND the configured raw_hours window — the raw
             # window always stretches back to the compaction boundary, so in a busy
             # channel it can be large even right after compaction ran.
             overflow_msgs = [m for m in raw_msgs if m[3] <= raw_window_start]
-            overflow_tokens = estimate_tokens(self._format_messages(overflow_msgs, bot_user_id)) if overflow_msgs else 0
+            overflow_tokens = self.provider.estimate_tokens(self._format_messages(overflow_msgs, bot_user_id)) if overflow_msgs else 0
             self._overflow_tokens = overflow_tokens
             self._recompact_threshold = recompact_raw_tokens
             # Recompact when overflow exceeds the token threshold
@@ -681,11 +615,11 @@ Be detailed — this summary replaces the original messages and is the only reco
                     older_text = self._format_messages(older_msgs, bot_user_id)
 
                     # Truncate older text if it exceeds compaction model's context limit
-                    if estimate_tokens(older_text) > MAX_COMPACTION_INPUT:
+                    if self.provider.estimate_tokens(older_text) > MAX_COMPACTION_INPUT:
                         older_msgs = self._trim_messages_to_budget(older_msgs, bot_user_id, MAX_COMPACTION_INPUT)
                         older_text = self._format_messages(older_msgs, bot_user_id)
 
-                    if estimate_tokens(older_text) < compact_max_tokens:
+                    if self.provider.estimate_tokens(older_text) < compact_max_tokens:
                         # Too small to bother compacting
                         return "Recent channel conversation:\n" + self._format_messages(all_msgs, bot_user_id)
 
@@ -737,7 +671,7 @@ Be detailed — this summary replaces the original messages and is the only reco
 
             all_text = self._format_messages(all_msgs, bot_user_id)
 
-            if estimate_tokens(all_text) < compact_max_tokens:
+            if self.provider.estimate_tokens(all_text) < compact_max_tokens:
                 # Small enough, no compaction needed
                 return "Recent channel conversation:\n" + all_text
 
@@ -754,11 +688,11 @@ Be detailed — this summary replaces the original messages and is the only reco
             older_text = self._format_messages(older_msgs, bot_user_id)
 
             # Truncate older text if it exceeds compaction model's context limit
-            if estimate_tokens(older_text) > MAX_COMPACTION_INPUT:
+            if self.provider.estimate_tokens(older_text) > MAX_COMPACTION_INPUT:
                 older_msgs = self._trim_messages_to_budget(older_msgs, bot_user_id, MAX_COMPACTION_INPUT)
                 older_text = self._format_messages(older_msgs, bot_user_id)
 
-            if estimate_tokens(older_text) < compact_max_tokens:
+            if self.provider.estimate_tokens(older_text) < compact_max_tokens:
                 # Older portion is small, just send everything raw (truncated if needed)
                 all_msgs = self._trim_messages_to_budget(all_msgs, bot_user_id, MAX_CONTEXT_TOKENS)
                 return "Recent channel conversation:\n" + self._format_messages(all_msgs, bot_user_id)
@@ -830,19 +764,19 @@ Be detailed — this summary replaces the original messages and is the only reco
                 context_sections.append(f'<context type="discord_history" usage="internal_reference_only">\n{channel_context}\n</context>')
                 if "[Conversation summary" in channel_context and "Recent channel conversation:" in channel_context:
                     parts = channel_context.split("Recent channel conversation:", 1)
-                    stable_prefix_tokens += estimate_tokens(parts[0])
+                    stable_prefix_tokens += self.provider.estimate_tokens(parts[0])
                     if show_debug:
                         if self._last_compaction:
                             debug_parts.append(f"⟳{self._last_compaction}")
-                        debug_parts.append(f"summary={estimate_tokens(parts[0])}tok")
-                        debug_parts.append(f"raw={estimate_tokens(parts[1])}tok")
+                        debug_parts.append(f"summary={self.provider.estimate_tokens(parts[0])}tok")
+                        debug_parts.append(f"raw={self.provider.estimate_tokens(parts[1])}tok")
                         if hasattr(self, '_overflow_tokens'):
                             debug_parts.append(f"overflow={self._overflow_tokens}/{self._recompact_threshold}")
                 else:
                     # No summary — entire history is the context prefix
-                    stable_prefix_tokens += estimate_tokens(channel_context)
+                    stable_prefix_tokens += self.provider.estimate_tokens(channel_context)
                     if show_debug:
-                        debug_parts.append(f"history={estimate_tokens(channel_context)}tok")
+                        debug_parts.append(f"history={self.provider.estimate_tokens(channel_context)}tok")
 
             # Gather context from mentioned users
             if use_context:
@@ -850,7 +784,7 @@ Be detailed — this summary replaces the original messages and is the only reco
                 if user_context:
                     context_sections.append(f'<context type="mentioned_users" usage="internal_reference_only">\n{user_context}\n</context>')
                     if show_debug:
-                        debug_parts.append(f"users={estimate_tokens(user_context)}tok")
+                        debug_parts.append(f"users={self.provider.estimate_tokens(user_context)}tok")
 
             # Collect recent images
             image_lookback = settings.get("image_lookback", 10) if use_context else 0
@@ -867,13 +801,6 @@ Be detailed — this summary replaces the original messages and is the only reco
 <user_question>
 {ask}
 </user_question>"""
-
-            headers = {
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json",
-                "Copilot-Integration-Id": "vscode-chat",
-                "Editor-Version": "vscode/1.95.0",
-            }
 
             # Build system prompt
             custom_prompt = settings.get("system_prompt", "")
@@ -893,7 +820,7 @@ RULES:
 - Give honest answers, push back when warranted, adult topics are fine
 - When addressing users, use their display name (it will be auto-converted to a mention)"""
 
-            stable_prefix_tokens += estimate_tokens(system_prompt)
+            stable_prefix_tokens += self.provider.estimate_tokens(system_prompt)
 
             max_output = settings.get("max_output_tokens", 500)
             user_content = self._build_user_content(ask, images)
@@ -906,49 +833,38 @@ RULES:
                 "max_tokens": max_output,
             }
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    f"{base_url}/chat/completions",
-                    headers=headers,
-                    json=payload
-                ) as resp:
-                    if resp.status != 200:
-                        error_text = await resp.text()
-                        try:
-                            error_json = json.loads(error_text)
-                            error_msg = error_json.get('error', {}).get('message', error_text[:300])
-                        except (json.JSONDecodeError, AttributeError):
-                            error_msg = error_text[:300]
-                        await ctx.send(f"❌ API error {resp.status}: {error_msg}")
-                        self.bot.logger.error(f"Copilot API error: {resp.status} - {error_text}")
-                        return
-                    data = await resp.json()
-                    elapsed = time.monotonic() - t0
-                    response_text = data["choices"][0]["message"]["content"]
+            try:
+                data = await self.provider.chat(payload, answer_model, max_output)
+                elapsed = time.monotonic() - t0
+                response_text = data["choices"][0]["message"]["content"]
 
-                    # Log usage
-                    usage = data.get("usage", {})
-                    in_tok = usage.get("prompt_tokens", estimate_tokens(ask))
-                    out_tok = usage.get("completion_tokens", estimate_tokens(response_text))
-                    # Use API cache info if available, otherwise estimate from stable prefix
-                    cached_tok = (usage.get("prompt_tokens_details") or {}).get("cached_tokens", 0)
-                    if not cached_tok and stable_prefix_tokens >= 1024:
-                        cached_tok = min(stable_prefix_tokens, in_tok)
-                    await self.ai_cache.log_usage(
-                        ctx.channel.id, ctx.guild.id, "clai",
-                        in_tok, out_tok, answer_model,
-                        cached_tokens=cached_tok)
+                # Log usage
+                usage = data.get("usage", {})
+                in_tok = usage.get("prompt_tokens", self.provider.estimate_tokens(ask))
+                out_tok = usage.get("completion_tokens", self.provider.estimate_tokens(response_text))
+                # Use API cache info if available, otherwise estimate from stable prefix
+                cached_tok = (usage.get("prompt_tokens_details") or {}).get("cached_tokens", 0)
+                if not cached_tok and stable_prefix_tokens >= 1024:
+                    cached_tok = min(stable_prefix_tokens, in_tok)
+                await self.ai_cache.log_usage(
+                    ctx.channel.id, ctx.guild.id, "clai",
+                    in_tok, out_tok, answer_model,
+                    cached_tokens=cached_tok)
 
-                    if show_debug:
-                        debug_parts.append(f"in={in_tok}")
-                        if cached_tok:
-                            tilde = "" if (usage.get("prompt_tokens_details") or {}).get("cached_tokens") else "≈"
-                            debug_parts.append(f"cached{tilde}{cached_tok}")
-                        debug_parts.append(f"out={out_tok}")
-                        cost = calculate_cost(answer_model, in_tok, out_tok, cached_tok)
-                        debug_parts.append(f"${cost:.4f}")
-                        debug_parts.append(f"{elapsed:.1f}s")
-                        debug_parts.append(answer_model.split("-")[1] if "-" in answer_model else answer_model)
+                if show_debug:
+                    debug_parts.append(f"in={in_tok}")
+                    if cached_tok:
+                        tilde = "" if (usage.get("prompt_tokens_details") or {}).get("cached_tokens") else "≈"
+                        debug_parts.append(f"cached{tilde}{cached_tok}")
+                    debug_parts.append(f"out={out_tok}")
+                    cost = self.provider.calculate_cost(answer_model, in_tok, out_tok, cached_tok)
+                    debug_parts.append(f"${cost:.4f}")
+                    debug_parts.append(f"{elapsed:.1f}s")
+                    debug_parts.append(answer_model.split("-")[1] if "-" in answer_model else answer_model)
+            except Exception as e:
+                await ctx.send(f"❌ API error: {e}")
+                self.bot.logger.error(f"LLM API error: {e}")
+                return
 
         # Restore mentions so users get pinged
         output = self.restore_mentions(ctx, response_text)
@@ -1085,13 +1001,13 @@ RULES:
                     if web_content:
                         # Cap search results at search_max_tokens
                         combined_web = "\n\n".join(web_content)
-                        web_tokens = estimate_tokens(combined_web)
+                        web_tokens = self.provider.estimate_tokens(combined_web)
                         if web_tokens > search_max_tokens:
                             # Truncate from the bottom (drop least relevant)
                             truncated = []
                             running_tokens = 0
                             for wc in web_content:
-                                wc_tokens = estimate_tokens(wc)
+                                wc_tokens = self.provider.estimate_tokens(wc)
                                 if running_tokens + wc_tokens > search_max_tokens:
                                     break
                                 truncated.append(wc)
@@ -1100,7 +1016,7 @@ RULES:
 
                         volatile_sections.append(f'<web_search_results>\n{combined_web}\n</web_search_results>')
                         if show_debug:
-                            debug_parts.append(f"search:{search_engine}={estimate_tokens(combined_web)}tok")
+                            debug_parts.append(f"search:{search_engine}={self.provider.estimate_tokens(combined_web)}tok")
                 elif show_debug:
                     debug_parts.append(f"search:{search_engine}=0")
             except Exception as e:
@@ -1118,18 +1034,18 @@ RULES:
                 stable_sections.append(f'<discord_history>\n{channel_context}\n</discord_history>')
                 if "[Conversation summary" in channel_context and "Recent channel conversation:" in channel_context:
                     parts = channel_context.split("Recent channel conversation:", 1)
-                    stable_prefix_tokens += estimate_tokens(parts[0])
+                    stable_prefix_tokens += self.provider.estimate_tokens(parts[0])
                     if show_debug:
                         if self._last_compaction:
                             debug_parts.append(f"⟳{self._last_compaction}")
-                        debug_parts.append(f"summary={estimate_tokens(parts[0])}tok")
-                        debug_parts.append(f"raw={estimate_tokens(parts[1])}tok")
+                        debug_parts.append(f"summary={self.provider.estimate_tokens(parts[0])}tok")
+                        debug_parts.append(f"raw={self.provider.estimate_tokens(parts[1])}tok")
                         if hasattr(self, '_overflow_tokens'):
                             debug_parts.append(f"overflow={self._overflow_tokens}/{self._recompact_threshold}")
                 else:
-                    stable_prefix_tokens += estimate_tokens(channel_context)
+                    stable_prefix_tokens += self.provider.estimate_tokens(channel_context)
                     if show_debug:
-                        debug_parts.append(f"history={estimate_tokens(channel_context)}tok")
+                        debug_parts.append(f"history={self.provider.estimate_tokens(channel_context)}tok")
 
             # 3. User context from mentions
             if use_context:
@@ -1137,7 +1053,7 @@ RULES:
                 if user_context:
                     volatile_sections.append(f'<mentioned_users>\n{user_context}\n</mentioned_users>')
                     if show_debug:
-                        debug_parts.append(f"users={estimate_tokens(user_context)}tok")
+                        debug_parts.append(f"users={self.provider.estimate_tokens(user_context)}tok")
 
             # 4. Collect recent images
             image_lookback = settings.get("image_lookback", 10) if use_context else 0
@@ -1163,13 +1079,6 @@ RULES:
             bot_name = self.bot.user.display_name
             bot_id = self.bot.user.id
 
-            headers = {
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json",
-                "Copilot-Integration-Id": "vscode-chat",
-                "Editor-Version": "vscode/1.95.0",
-            }
-
             if custom_prompt:
                 system_prompt = custom_prompt
             else:
@@ -1192,7 +1101,7 @@ RULES:
 - Adult topics are fine
 - When addressing users, use their display name (it will be auto-converted to a mention)"""
 
-            stable_prefix_tokens += estimate_tokens(system_prompt)
+            stable_prefix_tokens += self.provider.estimate_tokens(system_prompt)
 
             user_content = self._build_user_content(ask, images)
             payload = {
@@ -1204,49 +1113,38 @@ RULES:
                 "max_tokens": max_output,
             }
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    f"{base_url}/chat/completions",
-                    headers=headers,
-                    json=payload
-                ) as resp:
-                    if resp.status != 200:
-                        error_text = await resp.text()
-                        try:
-                            error_json = json.loads(error_text)
-                            error_msg = error_json.get('error', {}).get('message', error_text[:300])
-                        except (json.JSONDecodeError, AttributeError):
-                            error_msg = error_text[:300]
-                        await ctx.send(f"❌ API error {resp.status}: {error_msg}")
-                        self.bot.logger.error(f"Copilot API error: {resp.status} - {error_text}")
-                        return
-                    data = await resp.json()
-                    elapsed = time.monotonic() - t0
-                    response_text = data["choices"][0]["message"]["content"]
+            try:
+                data = await self.provider.chat(payload, answer_model, max_output)
+                elapsed = time.monotonic() - t0
+                response_text = data["choices"][0]["message"]["content"]
 
-                    # Log usage
-                    usage = data.get("usage", {})
-                    in_tok = usage.get("prompt_tokens", estimate_tokens(ask))
-                    out_tok = usage.get("completion_tokens", estimate_tokens(response_text))
-                    # Use API cache info if available, otherwise estimate from stable prefix
-                    cached_tok = (usage.get("prompt_tokens_details") or {}).get("cached_tokens", 0)
-                    if not cached_tok and stable_prefix_tokens >= 1024:
-                        cached_tok = min(stable_prefix_tokens, in_tok)
-                    await self.ai_cache.log_usage(
-                        ctx.channel.id, ctx.guild.id, "sclai",
-                        in_tok, out_tok, answer_model,
-                        cached_tokens=cached_tok)
+                # Log usage
+                usage = data.get("usage", {})
+                in_tok = usage.get("prompt_tokens", self.provider.estimate_tokens(ask))
+                out_tok = usage.get("completion_tokens", self.provider.estimate_tokens(response_text))
+                # Use API cache info if available, otherwise estimate from stable prefix
+                cached_tok = (usage.get("prompt_tokens_details") or {}).get("cached_tokens", 0)
+                if not cached_tok and stable_prefix_tokens >= 1024:
+                    cached_tok = min(stable_prefix_tokens, in_tok)
+                await self.ai_cache.log_usage(
+                    ctx.channel.id, ctx.guild.id, "sclai",
+                    in_tok, out_tok, answer_model,
+                    cached_tokens=cached_tok)
 
-                    if show_debug:
-                        debug_parts.append(f"in={in_tok}")
-                        if cached_tok:
-                            tilde = "" if (usage.get("prompt_tokens_details") or {}).get("cached_tokens") else "≈"
-                            debug_parts.append(f"cached{tilde}{cached_tok}")
-                        debug_parts.append(f"out={out_tok}")
-                        cost = calculate_cost(answer_model, in_tok, out_tok, cached_tok)
-                        debug_parts.append(f"${cost:.4f}")
-                        debug_parts.append(f"{elapsed:.1f}s")
-                        debug_parts.append(answer_model.split("-")[1] if "-" in answer_model else answer_model)
+                if show_debug:
+                    debug_parts.append(f"in={in_tok}")
+                    if cached_tok:
+                        tilde = "" if (usage.get("prompt_tokens_details") or {}).get("cached_tokens") else "≈"
+                        debug_parts.append(f"cached{tilde}{cached_tok}")
+                    debug_parts.append(f"out={out_tok}")
+                    cost = self.provider.calculate_cost(answer_model, in_tok, out_tok, cached_tok)
+                    debug_parts.append(f"${cost:.4f}")
+                    debug_parts.append(f"{elapsed:.1f}s")
+                    debug_parts.append(answer_model.split("-")[1] if "-" in answer_model else answer_model)
+            except Exception as e:
+                await ctx.send(f"❌ API error: {e}")
+                self.bot.logger.error(f"LLM API error: {e}")
+                return
 
         # Restore mentions so users get pinged
         output = self.restore_mentions(ctx, response_text)
@@ -1347,7 +1245,7 @@ RULES:
             return
 
         summary = cache["summary_text"]
-        token_count = cache["token_count"] or estimate_tokens(summary)
+        token_count = cache["token_count"] or self.provider.estimate_tokens(summary)
         age_hours = (time.time() - cache["updated_at"]) / 3600
         days_covered = (self._snowflake_to_ts(cache["newest_snowflake"]) -
                         self._snowflake_to_ts(cache["oldest_snowflake"])) / 86400
@@ -1376,7 +1274,7 @@ RULES:
         """
         async with ctx.channel.typing():
             try:
-                token, base_url = await self.get_copilot_token()
+                token, base_url = await self.provider.get_auth()
             except Exception as e:
                 await ctx.send(f"Token error: {e}")
                 return
@@ -1460,7 +1358,7 @@ RULES:
             return f"{total_msgs} messages, all within raw window — no compaction needed"
 
         older_text = self._format_messages(older_msgs, bot_user_id)
-        older_tokens = estimate_tokens(older_text)
+        older_tokens = self.provider.estimate_tokens(older_text)
 
         if older_tokens < compact_max_tokens:
             return f"{total_msgs} messages, older portion ({older_tokens} tokens) small enough — no compaction needed"
@@ -1487,7 +1385,7 @@ RULES:
             channel.id, guild_id, oldest_older, newest_older,
             summary, compact_model)
 
-        summary_tokens = estimate_tokens(summary)
+        summary_tokens = self.provider.estimate_tokens(summary)
         days_covered = (self._snowflake_to_ts(newest_older) - self._snowflake_to_ts(oldest_older)) / 86400
         return f"{summary_tokens} token summary covering {days_covered:.1f} days ({len(older_msgs)} msgs compacted, {total_msgs - len(older_msgs)} raw)"
 
@@ -1507,7 +1405,7 @@ RULES:
                 age_hours = (time.time() - cache["updated_at"]) / 3600
                 days_covered = (self._snowflake_to_ts(cache["newest_snowflake"]) -
                                 self._snowflake_to_ts(cache["oldest_snowflake"])) / 86400
-                summary_tokens = cache["token_count"] or estimate_tokens(cache["summary_text"])
+                summary_tokens = cache["token_count"] or self.provider.estimate_tokens(cache["summary_text"])
 
                 # Count raw messages since cache boundary
                 raw_msgs = await self._fetch_messages_range(ctx, cache["newest_snowflake"])
@@ -1519,7 +1417,7 @@ RULES:
                 recompact_tokens = settings["recompact_raw_tokens"]
                 raw_window_start = self._ts_to_snowflake(time.time() - settings["raw_hours"] * 3600)
                 overflow_msgs = [m for m in raw_msgs if m[3] <= raw_window_start]
-                overflow_tokens = estimate_tokens(self._format_messages(overflow_msgs, self.bot.user.id)) if overflow_msgs else 0
+                overflow_tokens = self.provider.estimate_tokens(self._format_messages(overflow_msgs, self.bot.user.id)) if overflow_msgs else 0
 
                 lines.append(f"Cache: **warm** (built {age_hours:.1f}h ago)")
                 lines.append(f"  Summary: {summary_tokens:,} tokens covering {days_covered:.1f} days")
