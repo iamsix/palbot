@@ -296,7 +296,7 @@ class Copilot(commands.Cog):
             # Get settings for this channel
             settings = await self.ai_cache.get_all_settings(ctx.guild.id, ctx.channel.id)
             answer_model = settings["answer_model"]
-            show_debug = settings.get("debug", "off") == "on" and await _check_bot_admin(ctx)
+            show_debug = await self._should_debug(ctx, settings)
             debug_parts = []
 
             # Get valid token (auto-refreshes if expired)
@@ -366,17 +366,9 @@ class Copilot(commands.Cog):
                     ctx.channel.id, ctx.guild.id, "clai",
                     in_tok, out_tok, answer_model,
                     cached_tokens=cached_tok)
-
                 if show_debug:
-                    debug_parts.append(f"in={in_tok}")
-                    if cached_tok:
-                        tilde = "" if (usage.get("prompt_tokens_details") or {}).get("cached_tokens") else "≈"
-                        debug_parts.append(f"cached{tilde}{cached_tok}")
-                    debug_parts.append(f"out={out_tok}")
                     cost = self.provider.calculate_cost(answer_model, in_tok, out_tok, cached_tok)
-                    debug_parts.append(f"${cost:.4f}")
-                    debug_parts.append(f"{elapsed:.1f}s")
-                    debug_parts.append(answer_model.split("-")[1] if "-" in answer_model else answer_model)
+                    self._add_usage_debug(debug_parts, usage, answer_model, cost, elapsed, cached_tok)
             except Exception as e:
                 await ctx.send(f"❌ API error: {e}")
                 self.bot.logger.error(f"LLM API error: {e}")
@@ -384,12 +376,7 @@ class Copilot(commands.Cog):
 
         # Restore mentions so users get pinged
         output = self.context_gatherer.restore_mentions(ctx, response_text)
-        if show_debug and debug_parts:
-            debug_line = f"-# 🔧 {' | '.join(debug_parts)}"
-            await ctx.send(f"{debug_line}\n{output}"[:1980])
-        else:
-            await ctx.send(output[:1980])
-
+        await self._send_with_debug(ctx, output, debug_parts, show_debug)
     async def brave_search(self, query: str, api_key: str, count: int = 5) -> list:
         """Search using Brave Search API. Returns list of {title, link, snippet}.
 
@@ -460,7 +447,7 @@ class Copilot(commands.Cog):
             search_max_tokens = settings["search_max_tokens"]
             max_output = settings.get("max_output_tokens", 500)
             custom_prompt = settings.get("system_prompt", "")
-            show_debug = settings.get("debug", "off") == "on" and await _check_bot_admin(ctx)
+            show_debug = await self._should_debug(ctx, settings)
             debug_parts = []
 
             # Get valid token (auto-refreshes if expired)
@@ -631,15 +618,8 @@ RULES:
                     cached_tokens=cached_tok)
 
                 if show_debug:
-                    debug_parts.append(f"in={in_tok}")
-                    if cached_tok:
-                        tilde = "" if (usage.get("prompt_tokens_details") or {}).get("cached_tokens") else "≈"
-                        debug_parts.append(f"cached{tilde}{cached_tok}")
-                    debug_parts.append(f"out={out_tok}")
                     cost = self.provider.calculate_cost(answer_model, in_tok, out_tok, cached_tok)
-                    debug_parts.append(f"${cost:.4f}")
-                    debug_parts.append(f"{elapsed:.1f}s")
-                    debug_parts.append(answer_model.split("-")[1] if "-" in answer_model else answer_model)
+                    self._add_usage_debug(debug_parts, usage, answer_model, cost, elapsed, cached_tok)
             except Exception as e:
                 await ctx.send(f"❌ API error: {e}")
                 self.bot.logger.error(f"LLM API error: {e}")
@@ -647,8 +627,40 @@ RULES:
 
         # Restore mentions so users get pinged
         output = self.context_gatherer.restore_mentions(ctx, response_text)
+        await self._send_with_debug(ctx, output, debug_parts, show_debug)
+
+    async def _should_debug(self, ctx, settings):
+        """Check if debug output should be shown."""
+        return settings.get("debug", "off") == "on" and await _check_bot_admin(ctx)
+
+    def _format_debug_line(self, debug_parts):
+        """Format debug parts into a Discord small-text debug line."""
+        if not debug_parts:
+            return None
+        return f"-# 🔧 {' | '.join(debug_parts)}"
+
+    def _add_usage_debug(self, debug_parts, usage, model, cost, elapsed, cached_tok=0):
+        """Add standard usage stats to debug parts."""
+        in_tok = usage.get("prompt_tokens", 0)
+        out_tok = usage.get("completion_tokens", 0)
+        debug_parts.append(f"in={in_tok}")
+        if cached_tok:
+            tilde = "" if (usage.get("prompt_tokens_details") or {}).get("cached_tokens") else "≈"
+            debug_parts.append(f"cached{tilde}{cached_tok}")
+        debug_parts.append(f"out={out_tok}")
+        if cost is not None:
+            debug_parts.append(f"${cost:.4f}")
+        debug_parts.append(f"{elapsed:.1f}s")
+        # Short model name
+        short = model.split("-")[1] if "-" in model else model
+        if len(short) > 20:
+            short = short[:17] + "..."
+        debug_parts.append(short)
+
+    async def _send_with_debug(self, ctx, output, debug_parts, show_debug):
+        """Send output with optional debug line prepended."""
         if show_debug and debug_parts:
-            debug_line = f"-# 🔧 {' | '.join(debug_parts)}"
+            debug_line = self._format_debug_line(debug_parts)
             await ctx.send(f"{debug_line}\n{output}"[:1980])
         else:
             await ctx.send(output[:1980])
@@ -657,11 +669,6 @@ RULES:
     async def glm(self, ctx, *, ask: str):
         """Ask using GLM via OpenAI-compatible API with context"""
         try:
-            # Check if AI commands are enabled in this channel
-            enabled = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "enabled")
-            if str(enabled).lower() in ("off", "false", "no", "0"):
-                return
-
             # Check if GLM is enabled in this channel
             glm_enabled = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_enabled")
             if str(glm_enabled).lower() in ("off", "false", "no", "0"):
@@ -681,11 +688,16 @@ RULES:
 
                 # Build full context using ContextGatherer
                 settings = await self.ai_cache.get_all_settings(ctx.guild.id, ctx.channel.id)
+                show_debug = await self._should_debug(ctx, settings)
+                debug_parts = []
+                t0 = time.monotonic()
+
                 context_data = await self.context_gatherer.build_full_context(
                     ctx, settings, api_key, base_url, compact_model=model)
                 channel_context = context_data["channel_context"]
                 user_context = context_data["user_context"]
                 system_prompt = context_data["system_prompt"]
+                debug_parts.extend(context_data["debug_parts"])
 
                 # Wrap context in XML tags
                 combined_context = self.context_gatherer.wrap_context(channel_context, user_context)
@@ -719,6 +731,7 @@ RULES:
                 usage = data.get("usage", {})
                 in_tok = usage.get("prompt_tokens", self.glm_provider.estimate_tokens(ask))
                 out_tok = usage.get("completion_tokens", self.glm_provider.estimate_tokens(response_text))
+                elapsed = time.monotonic() - t0
                 cost = self.glm_provider.calculate_cost(model, in_tok, out_tok, 0)
 
                 await self.ai_cache.log_usage(
@@ -726,6 +739,9 @@ RULES:
                     in_tok, out_tok, model,
                     cached_tokens=0
                 )
+
+                if show_debug:
+                    self._add_usage_debug(debug_parts, usage, model, cost, elapsed)
 
                 if not response_text.strip():
                     await ctx.send("❌ GLM produced no response (all tokens spent on reasoning). Try a simpler question or increase `glm_max_output_tokens`.")
@@ -740,7 +756,7 @@ RULES:
                     if reasoning_text.strip():
                         output += f"\n\n**Reasoning:** {reasoning_text}"
 
-                await ctx.send(output[:1980])
+                await self._send_with_debug(ctx, output, debug_parts, show_debug)
 
         except Exception as e:
             self.bot.logger.error(f"GLM command error: {e}")
