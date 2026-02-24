@@ -834,7 +834,7 @@ RULES:
             }
 
             try:
-                data = await self.provider.chat(payload, answer_model, max_output)
+                data = await self.provider.chat(payload)
                 elapsed = time.monotonic() - t0
                 response_text = data["choices"][0]["message"]["content"]
 
@@ -1114,7 +1114,7 @@ RULES:
             }
 
             try:
-                data = await self.provider.chat(payload, answer_model, max_output)
+                data = await self.provider.chat(payload)
                 elapsed = time.monotonic() - t0
                 response_text = data["choices"][0]["message"]["content"]
 
