@@ -757,7 +757,6 @@ Be detailed — this summary replaces the original messages and is the only reco
             # Build compacted channel context
             use_context = settings.get("context", "on") != "off"
             if use_context:
-                data = await self.provider.chat(payload)
                 channel_context = await self._build_compacted_context(ctx, settings, token, base_url)
             else:
                 channel_context = ""
@@ -962,7 +961,6 @@ RULES:
             t0 = time.monotonic()
 
             # 1. Web search for current info (use original question)
-            data = await self.provider.chat(payload)
             search_engine = None
             try:
                 brave_key = await self.ai_cache.get_setting(ctx.guild.id, None, "brave_api_key")
