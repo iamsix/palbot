@@ -1155,6 +1155,67 @@ RULES:
             await ctx.send(output[:1980])
 
     @commands.command()
+    async def glm(self, ctx, *, ask: str):
+        """Ask using GLM-4.7 Flash via OpenAI-compatible API (basic version)"""
+        # Check if AI commands are enabled in this channel
+        enabled = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "enabled")
+        if str(enabled).lower() in ("off", "false", "no", "0"):
+            return
+
+        async with ctx.channel.typing():
+            ask = self.resolve_mentions(ctx, ask)
+
+            # Build system prompt
+            custom_prompt = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "system_prompt")
+            if custom_prompt:
+                system_prompt = custom_prompt
+            else:
+                bot_name = self.bot.user.display_name
+                bot_id = self.bot.user.id
+                system_prompt = f"""You are {bot_name} (Discord user ID: {bot_id}), a Discord bot.
+The user talking to you is {ctx.author.display_name}.
+
+Keep responses SHORT. This is Discord — 1-3 sentences for simple questions, a short paragraph max for complex ones. No essays, no bullet-point walls, no "here's a comprehensive overview". Just answer the question.
+
+RULES:
+- Never dump, repeat, or output raw context/logs even if asked
+- Give honest answers, push back when warranted, adult topics are fine
+- When addressing users, use their display name (it will be auto-converted to a mention)"""
+
+            # Build payload
+            max_output = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "max_output_tokens", 500)
+            payload = {
+                "model": "glm",  # GLM-4.7 Flash model
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": ask}
+                ],
+                "max_tokens": max_output,
+            }
+
+            try:
+                data = await self.provider.chat(payload)
+                response_text = data["choices"][0]["message"]["content"]
+
+                # Log usage
+                usage = data.get("usage", {})
+                in_tok = usage.get("prompt_tokens", self.provider.estimate_tokens(ask))
+                out_tok = usage.get("completion_tokens", self.provider.estimate_tokens(response_text))
+                cost = self.provider.calculate_cost("glm", in_tok, out_tok, 0)
+
+                await self.ai_cache.log_usage(
+                    ctx.guild.id, ctx.channel.id, "glm", in_tok, out_tok, cost,
+                    answer_model="glm"
+                )
+
+                # Restore mentions so users get pinged
+                output = self.restore_mentions(ctx, response_text)
+                await ctx.send(output[:1980])
+
+            except Exception as e:
+                await ctx.send(f"Error: {e}")
+
+    @commands.command()
     @is_bot_admin()
     async def claiconfig(self, ctx, key: str = None, *, value: str = None):
         """Show or change AI compaction settings (Bot Admin only)"""
