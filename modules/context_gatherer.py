@@ -265,7 +265,7 @@ Be detailed — this summary replaces the original messages and is the only reco
         usage = data.get("usage", {})
         input_tokens = usage.get("prompt_tokens", 0)
         output_tokens = usage.get("completion_tokens", 0)
-        cached_tokens = (usage.get("prompt_tokens_details") or {}).get("cached_tokens", 0
+        cached_tokens = (usage.get("prompt_tokens_details") or {}).get("cached_tokens", 0)
 
         return summary, input_tokens, output_tokens, cached_tokens
 
