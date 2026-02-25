@@ -430,6 +430,81 @@ class Copilot(commands.Cog):
             self.bot.logger.debug(f"Failed to fetch {url}: {e}")
             return ""
 
+    async def _web_search(self, ctx, query: str, settings: dict, debug_parts: list,
+                           show_debug: bool, search_max_tokens: int = None) -> str:
+        """Perform web search and fetch top results. Returns formatted web context string or empty."""
+        if search_max_tokens is None:
+            search_max_tokens = settings.get("search_max_tokens", 5000)
+
+        search_engine = None
+        try:
+            brave_key = await self.ai_cache.get_setting(ctx.guild.id, None, "brave_api_key")
+            if brave_key:
+                search_engine = "brave"
+                try:
+                    search_results = await self.brave_search(query, brave_key, count=5)
+                except Exception as e:
+                    if show_debug:
+                        debug_parts.append(f"search:brave_err({e})")
+                    search_results = None
+                    search_engine = "google"
+                    search_results = await self.bot.utils.google_for_urls(
+                        self.bot, query, return_full_data=True
+                    )
+            else:
+                search_engine = "google"
+                search_results = await self.bot.utils.google_for_urls(
+                    self.bot, query, return_full_data=True
+                )
+
+            if not search_results:
+                if show_debug:
+                    debug_parts.append(f"search:{search_engine}=0")
+                return ""
+
+            async def fetch_result(i, result):
+                title = result.get('title', '')
+                link = result.get('link', '')
+                snippet = result.get('snippet', '').replace('\n', ' ')
+                page_text = await self.fetch_page_text(link, max_chars=3000)
+                if page_text:
+                    return f"[Source {i+1}] {title}\nURL: {link}\nContent: {page_text}"
+                else:
+                    return f"[Source {i+1}] {title}\nURL: {link}\nSnippet: {snippet}"
+
+            top_n = 5 if brave_key else 3
+            tasks = [fetch_result(i, r) for i, r in enumerate(search_results[:top_n])]
+            web_content = await asyncio.gather(*tasks)
+
+            if not web_content:
+                if show_debug:
+                    debug_parts.append(f"search:{search_engine}=0")
+                return ""
+
+            combined_web = "\n\n".join(web_content)
+            web_tokens = self.provider.estimate_tokens(combined_web)
+            if web_tokens > search_max_tokens:
+                truncated = []
+                running_tokens = 0
+                for wc in web_content:
+                    wc_tokens = self.provider.estimate_tokens(wc)
+                    if running_tokens + wc_tokens > search_max_tokens:
+                        break
+                    truncated.append(wc)
+                    running_tokens += wc_tokens
+                combined_web = "\n\n".join(truncated) if truncated else web_content[0][:search_max_tokens * 4]
+
+            if show_debug:
+                debug_parts.append(f"search:{search_engine}={self.provider.estimate_tokens(combined_web)}tok")
+
+            return f'<web_search_results>\n{combined_web}\n</web_search_results>'
+
+        except Exception as e:
+            if show_debug:
+                debug_parts.append(f"search:{search_engine or '?'}_err({e})")
+            self.bot.logger.error(f"Web search failed: {e}")
+            return ""
+
     @commands.command()
     async def sclai(self, ctx, *, ask: str):
         """Ask Claude Opus 4.5 with web search + compacted channel context for current events"""
@@ -459,75 +534,16 @@ class Copilot(commands.Cog):
                 await ctx.send(f"Token error: {e}")
                 return
 
-            context_sections = []
             stable_sections = []
             volatile_sections = []
             stable_prefix_tokens = 0
             t0 = time.monotonic()
 
             # 1. Web search for current info (use original question)
-            search_engine = None
-            try:
-                brave_key = await self.ai_cache.get_setting(ctx.guild.id, None, "brave_api_key")
-                if brave_key:
-                    search_engine = "brave"
-                    try:
-                        search_results = await self.brave_search(original_ask, brave_key, count=5)
-                    except Exception as e:
-                        if show_debug:
-                            debug_parts.append(f"search:brave_err({e})")
-                        search_results = None
-                        # Fall back to Google
-                        search_engine = "google"
-                        search_results = await self.bot.utils.google_for_urls(
-                            self.bot, original_ask, return_full_data=True
-                        )
-                else:
-                    search_engine = "google"
-                    search_results = await self.bot.utils.google_for_urls(
-                        self.bot, original_ask, return_full_data=True
-                    )
-                if search_results:
-                    # Fetch content from top results in parallel
-                    async def fetch_result(i, result):
-                        title = result.get('title', '')
-                        link = result.get('link', '')
-                        snippet = result.get('snippet', '').replace('\n', ' ')
-                        page_text = await self.fetch_page_text(link, max_chars=3000)
-                        if page_text:
-                            return f"[Source {i+1}] {title}\nURL: {link}\nContent: {page_text}"
-                        else:
-                            return f"[Source {i+1}] {title}\nURL: {link}\nSnippet: {snippet}"
-
-                    top_n = 5 if brave_key else 3
-                    tasks = [fetch_result(i, r) for i, r in enumerate(search_results[:top_n])]
-                    web_content = await asyncio.gather(*tasks)
-
-                    if web_content:
-                        # Cap search results at search_max_tokens
-                        combined_web = "\n\n".join(web_content)
-                        web_tokens = self.provider.estimate_tokens(combined_web)
-                        if web_tokens > search_max_tokens:
-                            # Truncate from the bottom (drop least relevant)
-                            truncated = []
-                            running_tokens = 0
-                            for wc in web_content:
-                                wc_tokens = self.provider.estimate_tokens(wc)
-                                if running_tokens + wc_tokens > search_max_tokens:
-                                    break
-                                truncated.append(wc)
-                                running_tokens += wc_tokens
-                            combined_web = "\n\n".join(truncated) if truncated else web_content[0][:search_max_tokens * 4]
-
-                        volatile_sections.append(f'<web_search_results>\n{combined_web}\n</web_search_results>')
-                        if show_debug:
-                            debug_parts.append(f"search:{search_engine}={self.provider.estimate_tokens(combined_web)}tok")
-                elif show_debug:
-                    debug_parts.append(f"search:{search_engine}=0")
-            except Exception as e:
-                if show_debug:
-                    debug_parts.append(f"search:{search_engine or '?'}_err({e})")
-                self.bot.logger.error(f"sclai search failed: {e}")
+            web_context = await self._web_search(ctx, original_ask, settings, debug_parts,
+                                                  show_debug, search_max_tokens)
+            if web_context:
+                volatile_sections.append(web_context)
 
             # Build full context using ContextGatherer
             context_data = await self.context_gatherer.build_full_context(ctx, settings, token, base_url)
@@ -776,6 +792,116 @@ RULES:
                 error_msg += "\n⚠️ Authentication failed - check API credentials"
             elif "404" in str(e) or "not found" in str(e).lower():
                 error_msg += "\n⚠️ Model or endpoint not found - check configuration"
+            await ctx.send(error_msg)
+
+    @commands.command()
+    async def sglm(self, ctx, *, ask: str):
+        """Ask GLM with web search + channel context"""
+        if not await _check_bot_admin(ctx):
+            glm_enabled = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_enabled")
+            if str(glm_enabled).lower() in ("off", "false", "no", "0"):
+                return
+        try:
+            async with ctx.channel.typing():
+                original_ask = ask
+                ask = self.context_gatherer.resolve_mentions(ctx, ask)
+
+                # Get GLM settings
+                settings = await self.ai_cache.get_all_settings(ctx.guild.id, ctx.channel.id)
+                base_url = settings.get("glm_base_url", "https://llm.00id.net/v1")
+                api_key = await self.ai_cache.get_setting(ctx.guild.id, None, "glm_api_key") or await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_api_key")
+                model = settings.get("glm_model", "GLM-4.7-Flash-Q5_K_M.gguf")
+                max_output = settings.get("glm_max_output_tokens", 2000)
+                search_max_tokens = settings.get("search_max_tokens", 5000)
+
+                self.glm_provider.base_url = base_url
+                self.glm_provider.api_key = api_key
+
+                show_debug = await self._should_debug(ctx, settings)
+                debug_parts = []
+                t0 = time.monotonic()
+
+                # 1. Web search
+                web_context = await self._web_search(ctx, original_ask, settings, debug_parts,
+                                                      show_debug, search_max_tokens)
+
+                # 2. Channel context
+                context_data = await self.context_gatherer.build_full_context(
+                    ctx, settings, api_key, base_url, compact_model=model)
+                channel_context = context_data["channel_context"]
+                user_context = context_data["user_context"]
+                system_prompt = context_data["system_prompt"]
+                debug_parts.extend(context_data["debug_parts"])
+
+                # Build prompt with stable context first, then volatile search
+                stable_context = self.context_gatherer.wrap_context(channel_context, user_context)
+                sections = []
+                if stable_context:
+                    sections.append(stable_context)
+                if web_context:
+                    sections.append(web_context)
+
+                if sections:
+                    combined = "\n\n".join(sections)
+                    ask = f"""{combined}
+
+<user_question>
+{ask}
+</user_question>"""
+
+                # Inject search awareness into system prompt
+                if web_context:
+                    system_prompt += "\n\nYou have web search results as context. Prioritize them for factual/current info. Cite sources briefly when relevant."
+
+                payload = {
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": ask}
+                    ],
+                    "max_tokens": max_output,
+                }
+
+                data = await self.glm_provider.chat(payload)
+
+                message = data["choices"][0]["message"]
+                response_text = message.get("content") or ""
+                reasoning_text = message.get("reasoning_content") or ""
+
+                usage = data.get("usage", {})
+                in_tok = usage.get("prompt_tokens", self.glm_provider.estimate_tokens(ask))
+                out_tok = usage.get("completion_tokens", self.glm_provider.estimate_tokens(response_text))
+                elapsed = time.monotonic() - t0
+                cost = self.glm_provider.calculate_cost(model, in_tok, out_tok, 0)
+
+                await self.ai_cache.log_usage(
+                    ctx.channel.id, ctx.guild.id, "sglm",
+                    in_tok, out_tok, model,
+                    cached_tokens=0
+                )
+
+                if show_debug:
+                    self._add_usage_debug(debug_parts, usage, model, cost, elapsed)
+
+                if not response_text.strip():
+                    return
+
+                output = self.context_gatherer.restore_mentions(ctx, response_text)
+
+                show_reasoning = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_show_reasoning")
+                if str(show_reasoning).lower() in ("on", "true", "yes", "1"):
+                    if reasoning_text.strip():
+                        output += f"\n\n**Reasoning:** {reasoning_text}"
+
+                await self._send_with_debug(ctx, output, debug_parts, show_debug)
+
+        except Exception as e:
+            self.bot.logger.error(f"sGLM command error: {e}")
+            error_msg = f"❌ sGLM command failed: {str(e)}"
+            if "429" in str(e) or "rate limit" in str(e).lower():
+                error_msg += "\n⚠️ Rate limit hit - try again later"
+            elif "connection" in str(e).lower() or "timeout" in str(e).lower():
+                error_msg += "\n⚠️ Connection issue - check if endpoint is reachable"
             await ctx.send(error_msg)
 
     @commands.command()
