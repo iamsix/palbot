@@ -257,6 +257,8 @@ Be detailed — this summary replaces the original messages and is the only reco
         headers = {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
+            "Copilot-Integration-Id": "vscode-chat",
+            "Editor-Version": "vscode/1.95.0",
         }
 
         payload = {
