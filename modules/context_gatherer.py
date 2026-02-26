@@ -493,7 +493,7 @@ Be detailed — this summary replaces the original messages and is the only reco
                 return "Recent channel conversation:\n" + self._format_messages(all_msgs, bot_user_id)
 
     async def build_full_context(self, ctx, settings: dict, token: str, base_url: str,
-                                compact_model: str = None) -> dict:
+                                compact_model: str = None, user_prompt: str = None) -> dict:
         """Build complete context for an AI command.
 
         Returns dict with:
@@ -590,6 +590,10 @@ RULES:
 
         if user_context:
             debug_parts.append(f"users={self.provider.estimate_tokens(user_context)}tok")
+
+        # Append per-user custom prompt if set
+        if user_prompt:
+            system_prompt += f"\n\n[Per-user instructions for {ctx.author.display_name}]\n{user_prompt}"
 
         return {
             "channel_context": channel_context,

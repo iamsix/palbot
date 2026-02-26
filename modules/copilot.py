@@ -310,7 +310,8 @@ class Copilot(commands.Cog):
             t0 = time.monotonic()
 
             # Build full context using ContextGatherer
-            context_data = await self.context_gatherer.build_full_context(ctx, settings, token, base_url)
+            user_prompt = await self.ai_cache.get_user_prompt(ctx.guild.id, ctx.channel.id, ctx.author.id)
+            context_data = await self.context_gatherer.build_full_context(ctx, settings, token, base_url, user_prompt=user_prompt)
             channel_context = context_data["channel_context"]
             user_context = context_data["user_context"]
             system_prompt = context_data["system_prompt"]
@@ -546,7 +547,8 @@ class Copilot(commands.Cog):
                 volatile_sections.append(web_context)
 
             # Build full context using ContextGatherer
-            context_data = await self.context_gatherer.build_full_context(ctx, settings, token, base_url)
+            user_prompt = await self.ai_cache.get_user_prompt(ctx.guild.id, ctx.channel.id, ctx.author.id)
+            context_data = await self.context_gatherer.build_full_context(ctx, settings, token, base_url, user_prompt=user_prompt)
             channel_context = context_data["channel_context"]
             user_context = context_data["user_context"]
             stable_prefix_tokens = context_data["stable_prefix_tokens"]
@@ -711,8 +713,9 @@ RULES:
                 debug_parts = []
                 t0 = time.monotonic()
 
+                user_prompt = await self.ai_cache.get_user_prompt(ctx.guild.id, ctx.channel.id, ctx.author.id)
                 context_data = await self.context_gatherer.build_full_context(
-                    ctx, settings, api_key, base_url, compact_model=model)
+                    ctx, settings, api_key, base_url, compact_model=model, user_prompt=user_prompt)
                 channel_context = context_data["channel_context"]
                 user_context = context_data["user_context"]
                 system_prompt = context_data["system_prompt"]
@@ -826,8 +829,9 @@ RULES:
                                                       show_debug, search_max_tokens)
 
                 # 2. Channel context
+                user_prompt = await self.ai_cache.get_user_prompt(ctx.guild.id, ctx.channel.id, ctx.author.id)
                 context_data = await self.context_gatherer.build_full_context(
-                    ctx, settings, api_key, base_url, compact_model=model)
+                    ctx, settings, api_key, base_url, compact_model=model, user_prompt=user_prompt)
                 channel_context = context_data["channel_context"]
                 user_context = context_data["user_context"]
                 system_prompt = context_data["system_prompt"]
@@ -1217,6 +1221,118 @@ RULES:
         summary_tokens = self.provider.estimate_tokens(summary)
         days_covered = (self.context_gatherer._snowflake_to_ts(newest_older) - self.context_gatherer._snowflake_to_ts(oldest_older)) / 86400
         return f"{summary_tokens} token summary covering {days_covered:.1f} days ({len(older_msgs)} msgs compacted, {total_msgs - len(older_msgs)} raw)"
+
+    @commands.command()
+    async def claiuserprompt(self, ctx, target: str = None, *, prompt: str = None):
+        """Set per-user system prompt (Bot Admin only).
+        !claiuserprompt @user <prompt> — set for this channel
+        !claiuserprompt @user #channel <prompt> — set for a specific channel
+        !claiuserprompt @user global <prompt> — set server-wide
+        !claiuserprompt @user clear — remove prompt
+        !claiuserprompt @user — view prompt
+        !claiuserprompt list — show all"""
+        if not await _check_bot_admin(ctx):
+            await ctx.reply("Bot admin only.")
+            return
+
+        guild_id = ctx.guild.id
+        channel_id = ctx.channel.id
+
+        # !claiuserprompt (no args) or !claiuserprompt list
+        if not target or target.lower() == "list":
+            prompts = await self.ai_cache.list_user_prompts(guild_id)
+            if not prompts:
+                await ctx.reply("No user prompts set.")
+                return
+            lines = []
+            for p in prompts:
+                scope = "server-wide" if p["channel_id"] is None else f"<#{p['channel_id']}>"
+                lines.append(f"<@{p['user_id']}> ({scope}): {p['prompt'][:80]}{'...' if len(p['prompt']) > 80 else ''}")
+            await ctx.reply("\n".join(lines))
+            return
+
+        # Parse target user from mention
+        import re as _re
+        mention_match = _re.match(r'<@!?(\d+)>', target)
+        if not mention_match:
+            await ctx.reply("Usage: `!claiuserprompt @user [#channel|global] <prompt>` or `!claiuserprompt list`")
+            return
+
+        target_user_id = int(mention_match.group(1))
+        target_user = ctx.guild.get_member(target_user_id)
+        if not target_user:
+            await ctx.reply("User not found.")
+            return
+
+        user_name = target_user.display_name
+
+        # Parse optional channel mention or "global" from start of prompt
+        target_channel_id = channel_id  # default: current channel
+        scope_label = f"<#{channel_id}>"
+        if prompt:
+            stripped = prompt.strip()
+            # Check for #channel mention
+            chan_match = _re.match(r'^<#(\d+)>\s*(.*)', stripped, _re.DOTALL)
+            if chan_match:
+                target_channel_id = int(chan_match.group(1))
+                prompt = chan_match.group(2).strip() or None
+                scope_label = f"<#{target_channel_id}>"
+            # Check for "global"
+            elif stripped.lower().startswith("global"):
+                rest = stripped[6:].strip()
+                target_channel_id = None
+                prompt = rest or None
+                scope_label = "server-wide"
+
+        # No prompt — show current
+        if not prompt:
+            current = await self.ai_cache.get_user_prompt(guild_id, target_channel_id, target_user_id)
+            if current:
+                await ctx.reply(f"User prompt for **{user_name}** ({scope_label}): {current}")
+            else:
+                await ctx.reply(f"No user prompt set for **{user_name}** ({scope_label}).")
+            return
+
+        # Clear
+        if prompt.strip().lower() == "clear":
+            await self.ai_cache.delete_user_prompt(guild_id, target_channel_id, target_user_id)
+            await ctx.reply(f"Cleared user prompt for **{user_name}** ({scope_label}).")
+            return
+
+        # Set
+        await self.ai_cache.set_user_prompt(guild_id, target_channel_id, target_user_id, prompt.strip())
+        await ctx.reply(f"Set user prompt for **{user_name}** ({scope_label}):\n> {prompt.strip()[:200]}")
+
+    @commands.command()
+    async def claihelp(self, ctx):
+        """Show all AI commands and what they do."""
+        embed = discord.Embed(title="AI Commands", color=0x7289DA)
+        embed.add_field(name="Chat", value=(
+            "`!clai <question>` — Ask Claude (with channel context)\n"
+            "`!sclai <question>` — Ask Claude with web search\n"
+            "`!glm <question>` — Ask GLM local model (with context)\n"
+            "`!sglm <question>` — Ask GLM with web search"
+        ), inline=False)
+        embed.add_field(name="Config (Admin)", value=(
+            "`!claiconfig` — Show all settings\n"
+            "`!claiconfig <key> <value>` — Change a setting\n"
+            "`!claiconfig help` — List all setting keys\n"
+            "`!glmconfig` — Show/change GLM-specific settings"
+        ), inline=False)
+        embed.add_field(name="User Prompts (Admin)", value=(
+            "`!claiuserprompt @user <prompt>` — Set per-user instructions\n"
+            "`!claiuserprompt @user #channel <prompt>` — Set for specific channel\n"
+            "`!claiuserprompt @user global <prompt>` — Set server-wide\n"
+            "`!claiuserprompt @user clear` — Remove prompt\n"
+            "`!claiuserprompt list` — Show all user prompts"
+        ), inline=False)
+        embed.add_field(name="Maintenance (Admin)", value=(
+            "`!claireset` — Rebuild compaction cache (this channel)\n"
+            "`!claireset all` — Rebuild all channels\n"
+            "`!claisummary [#channel]` — Show current compaction summary\n"
+            "`!claistatus [#channel]` — Usage stats and costs"
+        ), inline=False)
+        await ctx.reply(embed=embed)
 
     @commands.command()
     async def claistatus(self, ctx, channel: discord.TextChannel = None):

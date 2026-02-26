@@ -30,6 +30,15 @@ CREATE TABLE IF NOT EXISTS settings (
     PRIMARY KEY (guild_id, channel_id, key)
 );
 
+CREATE TABLE IF NOT EXISTS user_prompts (
+    guild_id INTEGER NOT NULL,
+    channel_id INTEGER,
+    user_id INTEGER NOT NULL,
+    prompt TEXT NOT NULL,
+    updated_at REAL NOT NULL,
+    PRIMARY KEY (guild_id, channel_id, user_id)
+);
+
 CREATE TABLE IF NOT EXISTS usage_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     channel_id INTEGER NOT NULL,
@@ -351,6 +360,69 @@ class AICache:
             except (ValueError, TypeError):
                 return default_val
         return raw
+
+    # ── User Prompts CRUD ──────────────────────────────────────
+
+    async def get_user_prompt(self, guild_id: int, channel_id: int | None, user_id: int) -> str | None:
+        """Get a user-specific system prompt for a channel. Returns None if unset."""
+        db = await self.get_db()
+        # Try channel-specific first
+        if channel_id is not None:
+            cursor = await db.execute(
+                "SELECT prompt FROM user_prompts WHERE guild_id = ? AND channel_id = ? AND user_id = ?",
+                [guild_id, channel_id, user_id])
+            row = await cursor.fetchone()
+            if row:
+                return row["prompt"]
+        # Fallback to guild-wide
+        cursor = await db.execute(
+            "SELECT prompt FROM user_prompts WHERE guild_id = ? AND channel_id IS NULL AND user_id = ?",
+            [guild_id, user_id])
+        row = await cursor.fetchone()
+        return row["prompt"] if row else None
+
+    async def set_user_prompt(self, guild_id: int, channel_id: int | None, user_id: int, prompt: str):
+        """Set a per-user system prompt."""
+        db = await self.get_db()
+        if channel_id is None:
+            await db.execute(
+                "DELETE FROM user_prompts WHERE guild_id = ? AND channel_id IS NULL AND user_id = ?",
+                [guild_id, user_id])
+        else:
+            await db.execute(
+                "DELETE FROM user_prompts WHERE guild_id = ? AND channel_id = ? AND user_id = ?",
+                [guild_id, channel_id, user_id])
+        await db.execute(
+            "INSERT INTO user_prompts (guild_id, channel_id, user_id, prompt, updated_at) VALUES (?, ?, ?, ?, ?)",
+            [guild_id, channel_id, user_id, prompt, time.time()])
+        await db.commit()
+
+    async def delete_user_prompt(self, guild_id: int, channel_id: int | None, user_id: int):
+        """Delete a user-specific system prompt."""
+        db = await self.get_db()
+        if channel_id is None:
+            await db.execute(
+                "DELETE FROM user_prompts WHERE guild_id = ? AND channel_id IS NULL AND user_id = ?",
+                [guild_id, user_id])
+        else:
+            await db.execute(
+                "DELETE FROM user_prompts WHERE guild_id = ? AND channel_id = ? AND user_id = ?",
+                [guild_id, channel_id, user_id])
+        await db.commit()
+
+    async def list_user_prompts(self, guild_id: int, channel_id: int | None = None) -> list:
+        """List all user prompts for a guild/channel. Returns list of (user_id, prompt, channel_id)."""
+        db = await self.get_db()
+        if channel_id is not None:
+            cursor = await db.execute(
+                "SELECT user_id, prompt, channel_id FROM user_prompts WHERE guild_id = ? AND (channel_id = ? OR channel_id IS NULL) ORDER BY channel_id, user_id",
+                [guild_id, channel_id])
+        else:
+            cursor = await db.execute(
+                "SELECT user_id, prompt, channel_id FROM user_prompts WHERE guild_id = ? ORDER BY channel_id, user_id",
+                [guild_id])
+        rows = await cursor.fetchall()
+        return [dict(r) for r in rows]
 
     # ── Usage Logging ───────────────────────────────────────────
 
