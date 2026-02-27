@@ -620,3 +620,6 @@ RULES:
             sections.append(f'<context type="mentioned_users" usage="internal_reference_only">\n{user_context}\n</context>')
         return "\n\n".join(sections) if sections else ""
 
+# Dummy setup since it's not a cog but an extra module used by one
+async def setup(bot):
+    pass

@@ -1,4 +1,6 @@
 import aiohttp
+from aiohttp import ClientTimeout
+
 import re
 from discord.ext import commands
 from urllib.parse import quote as uriquote
@@ -18,6 +20,7 @@ class Lyrics(commands.Cog):
         # Note: LRCLIB is free, no API key required
 
         try:
+            
             # Step 1: Search for the song on LRCLIB (using only song title)
             search_url = "https://lrclib.net/api/search"
             headers = {
@@ -29,7 +32,13 @@ class Lyrics(commands.Cog):
 
             self.bot.logger.info(f"Searching for lyrics: {query} (params: {params})")
 
-            async with self.bot.session.get(search_url, params=params, headers=headers) as resp:
+            timeout = ClientTimeout(total=20)
+
+            async with self.bot.session.get(search_url, 
+                                            params=params, 
+                                            headers=headers, 
+                                            timeout=timeout
+                                            ) as resp:
                 if resp.status != 200:
                     error_text = await resp.text()
                     self.bot.logger.error(f"Search API error (status {resp.status}): {error_text}")
