@@ -164,10 +164,10 @@ class Persona(commands.Cog):
         sample_msgs = []
         seen = {}  # msg_lower -> count, cap duplicates
         MAX_DUPES = 3  # same message appears at most 3 times
-        MIN_MSG_LEN = 4  # skip ultra-short messages like "lol", "lel", "k"
+        MIN_MSG_LEN = 20  # skip low-effort messages ("lol", "lel", "nice", "true yeah")
+        MAX_SHORT = 10  # keep a handful of short ones for voice flavor
         chars = 0
         short_count = 0
-        MAX_SHORT_RATIO = 0.2  # short messages can be at most 20% of sample
         for row in rows:
             msg = custom_emoji_re.sub('', row[1]).strip()
             if not msg:
@@ -177,10 +177,10 @@ class Persona(commands.Cog):
             seen[msg_lower] = seen.get(msg_lower, 0) + 1
             if seen[msg_lower] > MAX_DUPES:
                 continue
-            # Limit ultra-short messages to avoid biasing the model
+            # Limit short messages to a small fixed count for flavor
             if len(msg) < MIN_MSG_LEN:
                 short_count += 1
-                if short_count > len(sample_msgs) * MAX_SHORT_RATIO + 5:
+                if short_count > MAX_SHORT:
                     continue
             if chars + len(msg) > target_chars:
                 break
