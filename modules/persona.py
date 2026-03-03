@@ -9,10 +9,8 @@ import time
 from datetime import datetime
 
 from discord.ext import commands
-import discord
 
-from modules.ai_cache import AICache, GLOBAL_SETTINGS, SECRET_SETTINGS, SETTINGS_SPEC
-from modules.context_gatherer import ContextGatherer
+from modules.ai_cache import AICache
 
 
 BOT_ADMIN_ROLE = "Bot Admin"
@@ -61,9 +59,8 @@ class Persona(commands.Cog):
         self._persona_commands = {}  # guild_id -> {name: command}
 
     async def cog_load(self):
-        """Register existing persona commands on startup."""
-        await self.ai_cache._ensure_table()
-        # We'll register commands lazily per-guild on first use or via on_ready
+        """Ensure DB is ready on startup."""
+        await self._ensure_persona_table()
 
     def cog_unload(self):
         # Remove all dynamic commands
