@@ -271,6 +271,9 @@ class Persona(commands.Cog):
                     {"role": "user", "content": ask},
                 ],
                 "max_tokens": max_output,
+                "temperature": 0.9,
+                "frequency_penalty": 0.7,
+                "presence_penalty": 0.5,
             }
 
             try:
