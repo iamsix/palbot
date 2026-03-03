@@ -73,10 +73,7 @@ class Persona(commands.Cog):
 
     async def _ensure_persona_table(self):
         """Create the personas table if it doesn't exist."""
-        db = self.ai_cache.db
-        if db is None:
-            await self.ai_cache._ensure_db()
-            db = self.ai_cache.db
+        db = await self.ai_cache.get_db()
         await db.execute("""
             CREATE TABLE IF NOT EXISTS personas (
                 guild_id INTEGER NOT NULL,
@@ -94,7 +91,7 @@ class Persona(commands.Cog):
     async def _get_personas(self, guild_id: int) -> list:
         """Get all personas for a guild."""
         await self._ensure_persona_table()
-        db = self.ai_cache.db
+        db = await self.ai_cache.get_db()
         cursor = await db.execute(
             "SELECT persona_name, user_id, sample_tokens, provider, created_by, created_at "
             "FROM personas WHERE guild_id = ? ORDER BY persona_name",
@@ -106,7 +103,7 @@ class Persona(commands.Cog):
     async def _get_persona(self, guild_id: int, name: str) -> dict | None:
         """Get a single persona by name."""
         await self._ensure_persona_table()
-        db = self.ai_cache.db
+        db = await self.ai_cache.get_db()
         cursor = await db.execute(
             "SELECT persona_name, user_id, sample_tokens, provider, created_by, created_at "
             "FROM personas WHERE guild_id = ? AND persona_name = ?",
@@ -122,7 +119,7 @@ class Persona(commands.Cog):
                                provider: str = "copilot"):
         """Create or update a persona."""
         await self._ensure_persona_table()
-        db = self.ai_cache.db
+        db = await self.ai_cache.get_db()
         await db.execute(
             "INSERT OR REPLACE INTO personas "
             "(guild_id, persona_name, user_id, sample_tokens, provider, created_by, created_at) "
@@ -133,7 +130,7 @@ class Persona(commands.Cog):
     async def _delete_persona(self, guild_id: int, name: str):
         """Delete a persona."""
         await self._ensure_persona_table()
-        db = self.ai_cache.db
+        db = await self.ai_cache.get_db()
         await db.execute(
             "DELETE FROM personas WHERE guild_id = ? AND persona_name = ?",
             [guild_id, name.lower()])
