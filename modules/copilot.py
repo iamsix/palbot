@@ -1351,6 +1351,13 @@ RULES:
             "`!claiuserprompt @user clear` — Remove prompt\n"
             "`!claiuserprompt list` — Show all user prompts"
         ), inline=False)
+        embed.add_field(name="Personas (Admin)", value=(
+            "`!claipersona create <name> @user` — Create persona command\n"
+            "`!claipersona delete <name>` — Delete persona\n"
+            "`!claipersona list` — Show all personas\n"
+            "`!claipersona info <name>` — Show persona details\n"
+            "`!clai-<name> <question>` — Chat as that person"
+        ), inline=False)
         embed.add_field(name="Maintenance (Admin)", value=(
             "`!claireset` — Rebuild compaction cache (this channel)\n"
             "`!claireset all` — Rebuild all channels\n"
