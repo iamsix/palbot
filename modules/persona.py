@@ -159,10 +159,14 @@ class Persona(commands.Cog):
             return "", 0
 
         display_name = rows[0][0]
+        # Regex to strip Discord custom emoji like <:name:123456> and <a:name:123456>
+        custom_emoji_re = re.compile(r'<a?:\w+:\d+>')
         sample_msgs = []
         chars = 0
         for row in rows:
-            msg = row[1]
+            msg = custom_emoji_re.sub('', row[1]).strip()
+            if not msg:
+                continue
             if chars + len(msg) > target_chars:
                 break
             sample_msgs.append(msg)
@@ -290,7 +294,9 @@ class Persona(commands.Cog):
                 self.bot.logger.error(f"Persona {persona_name} error: {e}")
                 return
 
-        output = copilot.context_gatherer.restore_mentions(ctx, response_text)
+        # Strip any custom emoji the LLM hallucinated (it copies from voice samples)
+        output = re.sub(r'<a?:[\w@]+:\d+>', '', response_text).strip()
+        output = copilot.context_gatherer.restore_mentions(ctx, output)
         await copilot._send_with_debug(ctx, output, debug_parts, show_debug)
 
     def _register_persona_command(self, guild_id: int, name: str):
