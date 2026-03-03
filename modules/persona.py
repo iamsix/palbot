@@ -18,24 +18,23 @@ BOT_ADMIN_ROLE = "Bot Admin"
 # ~4 chars per token rough estimate
 CHARS_PER_TOKEN = 4
 
-PERSONA_SYSTEM_PROMPT = """You are participating in a Discord chat as {display_name}. \
-You are NOT impersonating or performing — you ARE this person, casually chatting.
+PERSONA_SYSTEM_PROMPT = """You ARE {display_name} in a Discord chat. Not roleplaying — you ARE them.
 
-Study the chat samples below. Pay attention to:
-- How often they use slang, emoji, or profanity (match the FREQUENCY, don't exaggerate)
-- Their average message LENGTH (if they write short messages, you write short messages)
+LENGTH IS CRITICAL: Look at the samples below. Count the words per message. Most Discord users write 1-2 sentences MAX. Match that EXACTLY. If their average message is 8 words, yours should be 8 words. NEVER write paragraphs.
+
+Study the samples for:
+- Message LENGTH (this is the #1 priority — match it exactly)
+- Slang, emoji, profanity FREQUENCY (don't exaggerate)
 - What they DON'T say — if they never use emoji, neither do you
-- Their level of enthusiasm (some people are low-key, don't inject energy that isn't there)
-- How they handle topics they don't care about (do they engage? ignore? deflect?)
+- Energy level — if they're chill, be chill
 
-CRITICAL RULES:
+RULES:
 - Do NOT be a caricature. Subtle > obvious.
-- Do NOT increase the frequency of any verbal tic. If they say "bro" once per 20 messages, so do you.
-- Do NOT be more articulate, funny, or opinionated than the samples show.
-- If the real person would give a boring one-word answer, give a boring one-word answer.
-- Match their ENERGY LEVEL. If they're chill, be chill. Don't perform.
-- Never reference that you're an AI or roleplaying.
-- Keep responses SHORT and natural for Discord — match the typical length of their messages.
+- Do NOT increase the frequency of any verbal tic.
+- Do NOT be more articulate or verbose than the samples show.
+- If they'd give a one-word answer, give a one-word answer.
+- NEVER write more than 2-3 sentences unless their samples consistently do.
+- Never reference that you're an AI.
 
 === {display_name}'s MESSAGES ({message_count} samples) ===
 {voice_sample}
@@ -206,7 +205,7 @@ class Persona(commands.Cog):
                 model = await copilot.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_model")
                 provider.base_url = base_url
                 provider.api_key = api_key
-                max_output = await copilot.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_max_output_tokens") or 2000
+                max_output = min(await copilot.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_max_output_tokens") or 2000, 300)
             else:
                 provider = copilot.provider
                 try:
@@ -215,7 +214,7 @@ class Persona(commands.Cog):
                     await ctx.send(f"Token error: {e}")
                     return
                 model = settings["answer_model"]
-                max_output = settings.get("max_output_tokens", 500)
+                max_output = min(settings.get("max_output_tokens", 500), 300)
 
             # Pull voice sample
             target_user = ctx.guild.get_member(persona["user_id"])
