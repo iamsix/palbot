@@ -402,7 +402,7 @@ class Persona(commands.Cog):
             # Find user mention
             mention_match = re.search(r'<@!?(\d+)>', args)
             if not mention_match:
-                await ctx.reply("Must mention a user: `!claipersona create petko @Petko`")
+                await ctx.reply("Must @mention a user: `!claipersona create <name> @someone`")
                 return
 
             target_user_id = int(mention_match.group(1))
