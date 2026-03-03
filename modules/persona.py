@@ -181,13 +181,20 @@ class Persona(commands.Cog):
 
     async def _invoke_persona(self, ctx, persona_name: str, ask: str):
         """Core persona invocation — shared by all dynamic commands."""
+        # Check if !clai is enabled in this channel; if not, admin-only
+        copilot = self.bot.cogs.get("Copilot")
+        if copilot:
+            settings = await copilot.ai_cache.get_all_settings(ctx.guild.id, ctx.channel.id)
+            enabled = settings.get("enabled", "on")
+            if enabled == "off" and not await _check_bot_admin(ctx):
+                return  # silently ignore, same as !clai when disabled
+
         persona = await self._get_persona(ctx.guild.id, persona_name)
         if not persona:
             await ctx.send(f"Persona `{persona_name}` not found.")
             return
 
         # Get the Copilot cog for providers and context
-        copilot = self.bot.cogs.get("Copilot")
         if not copilot:
             await ctx.send("❌ Copilot cog not loaded.")
             return
