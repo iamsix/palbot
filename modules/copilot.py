@@ -35,6 +35,8 @@ async def _check_bot_admin(ctx) -> bool:
     return any(role.name == BOT_ADMIN_ROLE for role in ctx.author.roles)
 
 
+_IMAGE_HINT = "\n\nImages from recent chat are included for visual context. Do NOT comment on, describe, or respond to images unless the user is clearly and specifically asking about an image. Focus on the text conversation."
+
 class Copilot(commands.Cog):
     DISCORD_EPOCH = 1420070400000  # Jan 1, 2015 in ms
 
@@ -324,9 +326,11 @@ class Copilot(commands.Cog):
             use_context = settings.get("context", "on") != "off"
             image_lookback = settings.get("image_lookback", 10) if use_context else 0
             images = await self._collect_recent_images(ctx, image_lookback)
-            if images and show_debug:
-                img_tok = getattr(self, '_img_tokens', 0)
-                debug_parts.append(f"imgs={len(images)}(~{img_tok}tok)")
+            if images:
+                system_prompt += _IMAGE_HINT
+                if show_debug:
+                    img_tok = getattr(self, '_img_tokens', 0)
+                    debug_parts.append(f"imgs={len(images)}(~{img_tok}tok)")
 
             # Wrap context in XML tags
             combined_context = self.context_gatherer.wrap_context(channel_context, user_context)
@@ -563,9 +567,11 @@ class Copilot(commands.Cog):
             use_context = settings.get("context", "on") != "off"
             image_lookback = settings.get("image_lookback", 10) if use_context else 0
             images = await self._collect_recent_images(ctx, image_lookback)
-            if images and show_debug:
-                img_tok = getattr(self, '_img_tokens', 0)
-                debug_parts.append(f"imgs={len(images)}(~{img_tok}tok)")
+            if images:
+                system_prompt += _IMAGE_HINT
+                if show_debug:
+                    img_tok = getattr(self, '_img_tokens', 0)
+                    debug_parts.append(f"imgs={len(images)}(~{img_tok}tok)")
 
             # Build final prompt — stable context first for prefix caching
             context_sections = stable_sections + volatile_sections
