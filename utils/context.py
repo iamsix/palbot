@@ -23,9 +23,11 @@ class MoreContext(commands.Context):
                 kwargs['content'] = args[0]
             if 'embed' not in kwargs:
                 kwargs['embed'] = None
+            if 'view' not in kwargs:
+                kwargs['view'] = None
             await edit.edit(**kwargs)
             self.bot.recent_posts[self.message.id] = (edit, paginator)
-            
+
             return edit
         
     @property

@@ -54,7 +54,7 @@ class Pics(commands.Cog):
 
             data = data['results']
             pages = self.bot.utils.Paginator(ctx, data, self.image_callback)
-            await pages.paginate()
+            await pages.start()
 
     async def image_callback(self, data, pg):
         title = f"{pg + 1}. {data[pg]['title']}"
@@ -95,7 +95,7 @@ class Pics(commands.Cog):
         
         if catlist:
             pages = self.bot.utils.Paginator(ctx, catlist, self.reddit_pics_callback)
-            await pages.paginate()
+            await pages.start()
         else:
             await ctx.send(f"Couldn't find any suitable pics in r/{subreddit}")
     

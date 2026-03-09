@@ -35,7 +35,7 @@ class Media(commands.Cog):
             await ctx.send(f"Couldn't find a movie named `{movie_name}` on Flixster")
             return
         pages = Paginator(ctx, movielist, self.rt_output_callback)
-        await pages.paginate()
+        await pages.start()
 
 
     async def rt_output_callback(self, data, pg_number):
