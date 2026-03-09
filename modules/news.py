@@ -13,7 +13,7 @@ class News(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command(name='news')
+    @commands.command(name='bnews')
     async def bing_news(self, ctx, *, query: str = "cats"):
         """Search bing news for a specific topic"""
         url = f"https://www.bing.com/news/search?q={query}&format=rss"
@@ -40,7 +40,7 @@ class News(commands.Cog):
 
 
 
-    @commands.command(name='gnews')
+    @commands.command(name='news')
     async def google_news(self, ctx, *, query: str = ""):
         """Search for a story on google news - returns the headline and a link"""
         if not query:
