@@ -41,11 +41,10 @@ class PalBot(commands.Bot):
         self.cc_conn = None
         print(self.intents)
         print(self.intents.members)
-        # This contains a list of tuples where:
-        #  [0] = User's command Message obj
-        #  [1] = the bot's response Message obj
-        #  [2] = Paginator (None if not paginating)
-        self.recent_posts = deque([], maxlen=10)
+        # This contains a tuple indexed by user-message-id where:
+        #  [0] = the bot's response Message obj
+        #  [1] = Paginator (None if not paginating)
+        self.recent_posts = self.utils.LimitedSizeDict(maxlen=10)
         
 
 
@@ -107,28 +106,22 @@ class PalBot(commands.Bot):
         await self.invoke(ctx)
     
     async def on_message_delete(self, message):
-        remove = None
-        # Consider iterating copy to prevent race condition
-        for user_msg, bot_msg, pg in self.recent_posts:
-            if message == user_msg:
-                remove = (user_msg, bot_msg, pg)
-                del(pg)
-                await bot_msg.delete()
-                break
-        if remove:
-            self.recent_posts.remove(remove)
-
+        if message.id in self.recent_posts:
+            bot_msg, pg = self.recent_posts[message.id]
+            del(pg)
+            await bot_msg.delete()
+            self.recent_posts.pop(message.id)
+                
     async def on_message_edit(self, before, after):
         # Check if this was a tracked message (bot already responded)
-        for user_msg, bot_msg, pg in self.recent_posts:
-            if before.id == user_msg.id:
-                if pg:
-                    pg.__del__()
-                    del(pg)
-                ctx = await self.get_context(after, cls=self.utils.MoreContext)
-                ctx.override_send_for_edit = (after, bot_msg)
-                await self.invoke(ctx)
-                return
+        if before.id in self.recent_posts:
+            bot_msg, pg = self.recent_posts[before.id]
+            if pg:
+                del(pg)
+            ctx = await self.get_context(after, cls=self.utils.MoreContext)
+            ctx.override_send_for_edit = (after, bot_msg)
+            await self.invoke(ctx)
+            return
         
         # If not tracked, treat edited message as a new command
         # (handles case where user corrects a typo in command)

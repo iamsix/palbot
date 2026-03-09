@@ -2,6 +2,7 @@ import sqlite3
 from discord.ext import commands
 from urllib.parse import quote as uriquote
 import json
+from collections import OrderedDict
 
 
 class MoreContext(commands.Context):
@@ -13,21 +14,34 @@ class MoreContext(commands.Context):
         paginator = kwargs.pop('paginator', None)
         if not self.override_send_for_edit or not self.message.id == self.override_send_for_edit[0].id:
             result = await super().send(*args, **kwargs)
-            self.bot.recent_posts.append((self.message, result, paginator))
+            self.bot.recent_posts[self.message.id] = (result, paginator)
             return result
         else:
             edit = self.override_send_for_edit[1]
             self.override_send_for_edit = None
             if len(args):
                 kwargs['content'] = args[0]
-                if 'embed' not in kwargs:
-                    kwargs['embed'] = None
+            if 'embed' not in kwargs:
+                kwargs['embed'] = None
             await edit.edit(**kwargs)
+            self.bot.recent_posts[self.message.id] = (edit, paginator)
+            
             return edit
         
     @property
     def author_info(self):
         return AuthorInfo(self.author)
+    
+class LimitedSizeDict(OrderedDict):
+    def __init__(self, maxlen, *args, **kwargs):
+        self.maxlen = maxlen
+        super().__init__(*args, **kwargs)
+
+    def __setitem__(self, key, value):
+        super().__setitem__(key, value)
+        # If we exceed the max length, remove the oldest item (FIFO)
+        if len(self) > self.maxlen:
+            self.popitem(last=False)
 
 
 #class myHelp(commands.HelpCommand):
