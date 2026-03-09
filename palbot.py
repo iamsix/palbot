@@ -11,7 +11,6 @@ import datetime
 import sys, traceback
 import logging
 import aiosqlite
-from collections import deque
 
 
 FORMAT = "[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s"
