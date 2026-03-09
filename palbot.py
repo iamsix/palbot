@@ -116,6 +116,7 @@ class PalBot(commands.Bot):
         if before.id in self.recent_posts:
             bot_msg, pg = self.recent_posts[before.id]
             if pg:
+                pg.__del__()
                 del(pg)
             ctx = await self.get_context(after, cls=self.utils.MoreContext)
             ctx.override_send_for_edit = (after, bot_msg)
