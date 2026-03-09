@@ -64,6 +64,46 @@ class Pics(commands.Cog):
         return None, e
 
 
+
+    @commands.command()
+    async def gimage(self, ctx, *, search: str):
+        """Google Image Search and return the results in a switchable embed"""
+        if ctx.invoked_with.lower() == "gif":
+            search += " gif -site:tiktok.com"
+
+        url = 'https://www.googleapis.com/customsearch/v1'
+        params = {'key': self.bot.config.gsearch2, 'cx': self.bot.config.gsearchcx,
+                   'q': search, 'searchType': 'image'}
+        if not ctx.channel.is_nsfw():
+            params['safe'] = "medium"
+        
+        async with self.bot.session.get(url, params=params) as resp:
+            if resp.status != 200:
+                print(f"google image search ", resp.status)
+                print(await resp.read())
+                return
+
+#            print(resp.url)
+            data = await resp.json()
+#            print(data)
+            if 'items' not in data:
+                await ctx.send(f"There are no images of `{search}` on Google Image Search")
+                return
+
+            data = data['items']
+            pages = self.bot.utils.Paginator(ctx, data, self.gimage_callback)
+            await pages.start()
+
+    async def gimage_callback(self, data, pg):
+        title = f"{pg + 1}. {data[pg]['title']}"
+        e = discord.Embed(title=title, url=data[pg]['image']['contextLink'])
+        if 'x-raw-image' not in data[pg]['link']:
+            e.set_image(url=data[pg]['link'])
+        else:
+            e.set_image(url=data[pg]['image']['thumbnailLink'])
+        return None, e
+
+
     @commands.command(name='rpics', aliases=['cats', 'dogs', 'birds', 'sloths', 'rats'])
     async def reddit_pics(self, ctx, *, subreddit: str = ""):
         """Search a subreddit for any image files and return 2 random ones"""
