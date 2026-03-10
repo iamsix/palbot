@@ -172,13 +172,18 @@ class Vids(commands.Cog):
                 return
             data = await resp.json()
             if data['items']:
-                yt_id = data['items'][0]['id']['videoId']
+                pages = self.bot.utils.Paginator(ctx, data['items'], self.yt_callback)
+                await pages.start()
             else:
                 await ctx.send(f"Unable to find a youtube video for `{search}`")
                 return
+            
+   
+    async def yt_callback(self, data, pg):
+        key = self.bot.config.gsearch2
+        yt_id = data['items'][pg]['id']['videoId']
+
         link = f"https://youtu.be/{yt_id}"
-
-
         url = "https://www.googleapis.com/youtube/v3/videos"
         params = {'part': "snippet,contentDetails,statistics",
                 'hl' : 'en', 'id': yt_id,  'key': key, 'regionCode': 'US'}
@@ -187,9 +192,8 @@ class Vids(commands.Cog):
             if ytjson['items']:
                 ytjson = ytjson['items'][0]
             else:
-                await ctx.send(f"Failed to load video info for `{link}`")
-                return
-            
+                return f"Failed to load video info for `{link}`", None
+
         
         title = ytjson['snippet']['title']
         uploader = ytjson['snippet']['channelTitle']
@@ -216,8 +220,8 @@ class Vids(commands.Cog):
 
         out += (f"{title} [{category}] :: Length: {duration} - Likes: {likes:,} - "
                 f"{viewcount:,} views - {uploader} on {pubdate} - {link}")
-
-        await ctx.send(out)
+        
+        return out, None
 
     REDDIT_URL = re.compile(r'v\.redd\.it|reddit\.com/r/')
     REDDIT_GIF = re.compile(r'preview.redd.it/.+\.gif\?format=mp4')
