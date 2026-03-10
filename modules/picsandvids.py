@@ -163,7 +163,7 @@ class Vids(commands.Cog):
         key = self.bot.config.gsearch2
         url = "https://www.googleapis.com/youtube/v3/search"
         params = {'part' : 'snippet', 'q': search, 'type': 'video',
-                  'maxResults': 1, 'key' : key, 'regionCode': 'US'}
+                  'maxResults': 10, 'key' : key, 'regionCode': 'US'}
         
         async with self.bot.session.get(url, params=params) as resp:
             if resp.status != 200:
