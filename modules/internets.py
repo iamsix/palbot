@@ -118,7 +118,7 @@ class Internets(commands.Cog):
             e.set_thumbnail(url=image.get("content"))
        
         # TODO some kind of proper pagination here...
-        e.description=text[:2000]
+        e.description=text[:4000]
         
         return e
 
