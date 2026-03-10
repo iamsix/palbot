@@ -172,7 +172,7 @@ class Vids(commands.Cog):
                 return
             data = await resp.json()
             if data['items']:
-                pages = self.bot.utils.Paginator(ctx, data, self.yt_callback)
+                pages = self.bot.utils.Paginator(ctx, data['items'], self.yt_callback)
                 await pages.start()
             else:
                 await ctx.send(f"Unable to find a youtube video for `{search}`")
@@ -181,7 +181,7 @@ class Vids(commands.Cog):
    
     async def yt_callback(self, data, pg):
         key = self.bot.config.gsearch2
-        yt_id = data['items'][pg]['id']['videoId']
+        yt_id = data[pg]['id']['videoId']
 
         link = f"https://youtu.be/{yt_id}"
         url = "https://www.googleapis.com/youtube/v3/videos"

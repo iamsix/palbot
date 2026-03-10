@@ -38,7 +38,7 @@ class Paginator(discord.ui.View):
         return content, embed
 
     # Left
-    @discord.ui.button(emoji='\N{BLACK LEFT-POINTING TRIANGLE}', style=discord.ButtonStyle.primary)
+    @discord.ui.button(label='\N{BLACK LEFT-POINTING TRIANGLE}', style=discord.ButtonStyle.primary)
     async def previous_page(self, interaction: discord.Interaction, button: discord.ui.Button):
         content, embed = await self.get_page_content(self.current_page - 1)
         self.update_buttons()
@@ -50,7 +50,7 @@ class Paginator(discord.ui.View):
         pass
 
     # Right
-    @discord.ui.button(emoji='\N{BLACK RIGHT-POINTING TRIANGLE}', style=discord.ButtonStyle.primary)
+    @discord.ui.button(label='\N{BLACK RIGHT-POINTING TRIANGLE}', style=discord.ButtonStyle.primary)
     async def next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
         content, embed = await self.get_page_content(self.current_page + 1)
         self.update_buttons()
