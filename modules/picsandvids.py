@@ -172,7 +172,7 @@ class Vids(commands.Cog):
                 return
             data = await resp.json()
             if data['items']:
-                pages = self.bot.utils.Paginator(ctx, data['items'], self.yt_callback)
+                pages = self.bot.utils.Paginator(ctx, data, self.yt_callback)
                 await pages.start()
             else:
                 await ctx.send(f"Unable to find a youtube video for `{search}`")
