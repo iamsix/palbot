@@ -3,10 +3,9 @@ import re
 from urllib.parse import quote as uriquote
 import asyncio
 from bs4 import BeautifulSoup
-import collections
+from collections import OrderedDict
 from collections.abc import Mapping
 from utils.context import MoreContext
-from utils.context import LimitedSizeDict
 from utils.context import Location
 from utils.context import AuthorInfo
 from utils.paginator import Paginator
@@ -20,6 +19,17 @@ def remove_html_tags(data):
     #removes all html tags from a given string
     return tagregex.sub('', data)
 
+
+class LimitedSizeDict(OrderedDict):
+    def __init__(self, maxlen, *args, **kwargs):
+        self.maxlen = maxlen
+        super().__init__(*args, **kwargs)
+
+    def __setitem__(self, key, value):
+        super().__setitem__(key, value)
+        # If we exceed the max length, remove the oldest item (FIFO)
+        if len(self) > self.maxlen:
+            self.popitem(last=False)
 
 async def google_for_urls(bot, search_term, *, url_regex=None, return_full_data=False):
     url = 'https://www.googleapis.com/customsearch/v1?key={}&cx={}&q={}'

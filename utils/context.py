@@ -2,7 +2,6 @@ import sqlite3
 from discord.ext import commands
 from urllib.parse import quote as uriquote
 import json
-from collections import OrderedDict
 
 
 class MoreContext(commands.Context):
@@ -33,25 +32,6 @@ class MoreContext(commands.Context):
     @property
     def author_info(self):
         return AuthorInfo(self.author)
-    
-class LimitedSizeDict(OrderedDict):
-    def __init__(self, maxlen, *args, **kwargs):
-        self.maxlen = maxlen
-        super().__init__(*args, **kwargs)
-
-    def __setitem__(self, key, value):
-        super().__setitem__(key, value)
-        # If we exceed the max length, remove the oldest item (FIFO)
-        if len(self) > self.maxlen:
-            self.popitem(last=False)
-
-
-#class myHelp(commands.HelpCommand):
-#    def __init__(self):
-#        super().__init__(command_attrs={
-#            'cooldown': commands.Cooldown(1, 3.0, commands.BucketType.member),
-#            'help': 'Shows help about the bot, a command, or a category'
-#        })
 
 #@dataclass
 class Location:
