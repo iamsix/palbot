@@ -16,8 +16,8 @@ class Pics(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command(name='image', aliases=['pic', 'gif'])
-    async def image(self, ctx, *, search: str):
+    @commands.command()
+    async def bimage(self, ctx, *, search: str):
         """Google Image Search and return the results in a switchable embed"""
         if ctx.invoked_with.lower() == "gif":
             search += " gif -site:tiktok.com"
@@ -65,7 +65,7 @@ class Pics(commands.Cog):
 
 
 
-    @commands.command()
+    @commands.command(name='image', aliases=['pic', 'gif'])
     async def gimage(self, ctx, *, search: str):
         """Google Image Search and return the results in a switchable embed"""
         if ctx.invoked_with.lower() == "gif":
