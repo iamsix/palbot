@@ -226,33 +226,7 @@ class Gemini(commands.Cog):
     @commands.command()
     async def ai(self, ctx, *, ask: str):
         """Ask gemini AI a question"""
-        if ctx.guild and not await self._is_enabled(ctx.guild.id, ctx.channel.id):
-            return
-        async with ctx.channel.typing():
-            ask = self.resolve_mentions(ctx, ask)
-            
-            # No context gathering - Gemini free tier uses data for training
-            
-            try:
-                client = genai.Client(api_key=next(self.keys))
-                response = await client.aio.models.generate_content(
-                    model="gemini-2.5-flash",
-                    contents=ask,
-                    config=GenerateContentConfig(
-                        max_output_tokens=5000,
-                        system_instruction="Answer questions briefly (1 paragraph max). Adult topics are fine.",
-                    ),
-                )
-                # Restore mentions so users get pinged
-                output = self.restore_mentions(ctx, response.text)
-                await ctx.send(output[:1980])
-            except Exception as e:
-                error_msg = str(e)
-                if "429" in error_msg or "quota" in error_msg.lower():
-                    await ctx.send("⚠️ API quota exceeded. Try again later.")
-                else:
-                    await ctx.send(f"❌ API error: {error_msg[:100]}")
-                self.bot.logger.error(f"!ai error: {e}")
+        await self.sai(ctx, ask=ask)
 
     @commands.command(hidden=True)
     async def dbgchat(self, ctx):
