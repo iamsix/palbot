@@ -29,7 +29,7 @@ class Internets(commands.Cog):
                 pages = Paginator(ctx, data['list'], self.ud_callback)
                 await pages.start()
             except:
-                ctx.send(f"Failed to find {term} on urbandictionary")
+                await ctx.send(f"Failed to find {term} on urbandictionary")
 
     async def ud_callback(self, data, pg_number):
         reply = await self.parse_ud(data[pg_number])
