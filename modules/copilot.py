@@ -287,10 +287,12 @@ class Copilot(commands.Cog):
     @commands.command()
     async def clai(self, ctx, *, ask: str):
         """Ask Claude Opus 4.5 via GitHub Copilot API (with compacted channel + user context)"""
-        # Bot admins can always use AI commands regardless of enabled setting
+        # Bot admins can always use AI commands regardless of enabled/ACL settings
         if not await _check_bot_admin(ctx):
             enabled = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "enabled")
             if str(enabled).lower() in ("off", "false", "no", "0"):
+                return
+            if not await self.ai_cache.acl_check(ctx.guild.id, ctx.author.id):
                 return
 
         async with ctx.channel.typing():
@@ -513,10 +515,12 @@ class Copilot(commands.Cog):
     @commands.command()
     async def sclai(self, ctx, *, ask: str):
         """Ask Claude Opus 4.5 with web search + compacted channel context for current events"""
-        # Bot admins can always use AI commands regardless of enabled setting
+        # Bot admins can always use AI commands regardless of enabled/ACL settings
         if not await _check_bot_admin(ctx):
             enabled = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "enabled")
             if str(enabled).lower() in ("off", "false", "no", "0"):
+                return
+            if not await self.ai_cache.acl_check(ctx.guild.id, ctx.author.id):
                 return
 
         async with ctx.channel.typing():
@@ -694,10 +698,12 @@ RULES:
     @commands.command()
     async def glm(self, ctx, *, ask: str):
         """Ask using GLM via OpenAI-compatible API with context"""
-        # Bot admins can always use GLM regardless of enabled setting
+        # Bot admins can always use GLM regardless of enabled/ACL settings
         if not await _check_bot_admin(ctx):
             glm_enabled = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_enabled")
             if str(glm_enabled).lower() in ("off", "false", "no", "0"):
+                return
+            if not await self.ai_cache.acl_check(ctx.guild.id, ctx.author.id):
                 return
         try:
 
@@ -809,6 +815,8 @@ RULES:
         if not await _check_bot_admin(ctx):
             glm_enabled = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_enabled")
             if str(glm_enabled).lower() in ("off", "false", "no", "0"):
+                return
+            if not await self.ai_cache.acl_check(ctx.guild.id, ctx.author.id):
                 return
         try:
             async with ctx.channel.typing():
@@ -1365,12 +1373,75 @@ RULES:
             "`!clai-<name> <question>` — Chat as that person"
         ), inline=False)
         embed.add_field(name="Maintenance (Admin)", value=(
+            "`!clai-acl` — Show ACL status\n"
+            "`!clai-acl on/off` — Enable/disable allowlist\n"
+            "`!clai-acl add/remove @user` — Manage access\n"
+            "`!clai-acl list` — Show allowlist\n"
             "`!claireset` — Rebuild compaction cache (this channel)\n"
             "`!claireset all` — Rebuild all channels\n"
             "`!claisummary [#channel]` — Show current compaction summary\n"
             "`!claistatus [#channel]` — Usage stats and costs"
         ), inline=False)
         await ctx.reply(embed=embed)
+
+    @commands.command(name="clai-acl")
+    @is_bot_admin()
+    async def clai_acl(self, ctx, action: str = None, member: discord.Member = None):
+        """Manage AI command access list. !clai-acl on/off/add/remove/list"""
+        guild_id = ctx.guild.id
+
+        if action is None:
+            enforced = await self.ai_cache.acl_is_enforced(guild_id)
+            status = "🔒 **ON** (allowlist mode)" if enforced else "🔓 **OFF** (open access)"
+            await ctx.reply(f"AI ACL: {status}\nUse `!clai-acl on/off/add @user/remove @user/list`")
+            return
+
+        action = action.lower()
+
+        if action == "on":
+            await self.ai_cache.acl_set_enforced(guild_id, True)
+            await ctx.reply("🔒 AI ACL **enabled** — only allowlisted users + admins can use AI commands.")
+            return
+
+        if action == "off":
+            await self.ai_cache.acl_set_enforced(guild_id, False)
+            await ctx.reply("🔓 AI ACL **disabled** — all users can use AI commands.")
+            return
+
+        if action == "add":
+            if not member:
+                await ctx.reply("Usage: `!clai-acl add @user`")
+                return
+            await self.ai_cache.acl_add(guild_id, member.id, ctx.author.id)
+            await ctx.reply(f"✅ Added **{member.display_name}** to AI allowlist.")
+            return
+
+        if action == "remove":
+            if not member:
+                await ctx.reply("Usage: `!clai-acl remove @user`")
+                return
+            await self.ai_cache.acl_remove(guild_id, member.id)
+            await ctx.reply(f"❌ Removed **{member.display_name}** from AI allowlist.")
+            return
+
+        if action == "list":
+            entries = await self.ai_cache.acl_list(guild_id)
+            enforced = await self.ai_cache.acl_is_enforced(guild_id)
+            status = "🔒 ON" if enforced else "🔓 OFF"
+            if not entries:
+                await ctx.reply(f"AI ACL ({status}): No users in allowlist.")
+                return
+            lines = []
+            for entry in entries:
+                user = ctx.guild.get_member(entry["user_id"])
+                name = user.display_name if user else f"Unknown ({entry['user_id']})"
+                added_by = ctx.guild.get_member(entry["added_by"])
+                added_name = added_by.display_name if added_by else "Unknown"
+                lines.append(f"• **{name}** (added by {added_name})")
+            await ctx.reply(f"AI ACL ({status}):\n" + "\n".join(lines))
+            return
+
+        await ctx.reply("Unknown action. Use: `on`, `off`, `add @user`, `remove @user`, `list`")
 
     @commands.command()
     async def claistatus(self, ctx, channel: discord.TextChannel = None):
