@@ -50,6 +50,20 @@ CREATE TABLE IF NOT EXISTS usage_log (
     model TEXT NOT NULL,
     timestamp REAL NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS ai_acl (
+    guild_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    allowed INTEGER NOT NULL DEFAULT 1,
+    added_by INTEGER,
+    added_at REAL NOT NULL,
+    PRIMARY KEY (guild_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS ai_acl_config (
+    guild_id INTEGER PRIMARY KEY,
+    enforced INTEGER NOT NULL DEFAULT 0
+);
 """
 
 # Settings defaults and validation bounds
@@ -498,6 +512,66 @@ class AICache:
                               "all": {"calls": 0, "in": 0, "out": 0, "cost": 0.0}}
 
         return stats
+
+    # ── ACL ─────────────────────────────────────────────────────
+
+    async def acl_is_enforced(self, guild_id: int) -> bool:
+        """Check if ACL is enforced for this guild."""
+        db = await self.get_db()
+        cursor = await db.execute(
+            "SELECT enforced FROM ai_acl_config WHERE guild_id = ?",
+            [guild_id])
+        row = await cursor.fetchone()
+        return bool(row and row["enforced"])
+
+    async def acl_set_enforced(self, guild_id: int, enforced: bool):
+        """Toggle ACL enforcement for a guild."""
+        db = await self.get_db()
+        await db.execute(
+            """INSERT INTO ai_acl_config (guild_id, enforced)
+               VALUES (?, ?) ON CONFLICT(guild_id)
+               DO UPDATE SET enforced = excluded.enforced""",
+            [guild_id, int(enforced)])
+        await db.commit()
+
+    async def acl_check(self, guild_id: int, user_id: int) -> bool:
+        """Return True if user is allowed to use AI commands.
+        If ACL is not enforced, always returns True."""
+        if not await self.acl_is_enforced(guild_id):
+            return True
+        db = await self.get_db()
+        cursor = await db.execute(
+            "SELECT allowed FROM ai_acl WHERE guild_id = ? AND user_id = ?",
+            [guild_id, user_id])
+        row = await cursor.fetchone()
+        return bool(row and row["allowed"])
+
+    async def acl_add(self, guild_id: int, user_id: int, added_by: int):
+        """Add a user to the ACL allowlist."""
+        db = await self.get_db()
+        await db.execute(
+            """INSERT INTO ai_acl (guild_id, user_id, allowed, added_by, added_at)
+               VALUES (?, ?, 1, ?, ?) ON CONFLICT(guild_id, user_id)
+               DO UPDATE SET allowed = 1, added_by = excluded.added_by,
+                             added_at = excluded.added_at""",
+            [guild_id, user_id, added_by, time.time()])
+        await db.commit()
+
+    async def acl_remove(self, guild_id: int, user_id: int):
+        """Remove a user from the ACL."""
+        db = await self.get_db()
+        await db.execute(
+            "DELETE FROM ai_acl WHERE guild_id = ? AND user_id = ?",
+            [guild_id, user_id])
+        await db.commit()
+
+    async def acl_list(self, guild_id: int) -> list:
+        """List all ACL entries for a guild. Returns list of (user_id, added_by, added_at)."""
+        db = await self.get_db()
+        cursor = await db.execute(
+            "SELECT user_id, added_by, added_at FROM ai_acl WHERE guild_id = ? AND allowed = 1",
+            [guild_id])
+        return await cursor.fetchall()
 
 
 # Dummy setup since it's not a cog but an extra module used by one

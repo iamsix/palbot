@@ -8,6 +8,7 @@ import discord
 import pickle
 import os.path
 from itertools import cycle
+from modules.ai_cache import AICache
 
 # https://discordpy.readthedocs.io/en/stable/api.html#thread
 # look in to threads/parent channel
@@ -79,6 +80,7 @@ class Gemini(commands.Cog):
         self.last_stats = {}
         self.keys = cycle(self.bot.config.gemini_keys)
         self._settings_db = None
+        self._ai_cache = AICache()
 
         for ch in allowed_channels:
              self.load_chat(ch)
@@ -197,6 +199,9 @@ class Gemini(commands.Cog):
         """Ask "smart" gemini a question. It uses google and is better for current event questions."""
         if ctx.guild and not await self._is_enabled(ctx.guild.id, ctx.channel.id):
             return
+        if ctx.guild and not await _check_bot_admin(ctx):
+            if not await self._ai_cache.acl_check(ctx.guild.id, ctx.author.id):
+                return
         async with ctx.channel.typing():
             ask = self.resolve_mentions(ctx, ask)
             try:
@@ -228,6 +233,9 @@ class Gemini(commands.Cog):
         """Ask gemini AI a question"""
         if ctx.guild and not await self._is_enabled(ctx.guild.id, ctx.channel.id):
             return
+        if ctx.guild and not await _check_bot_admin(ctx):
+            if not await self._ai_cache.acl_check(ctx.guild.id, ctx.author.id):
+                return
         async with ctx.channel.typing():
             ask = self.resolve_mentions(ctx, ask)
             

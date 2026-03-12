@@ -203,6 +203,9 @@ class Persona(commands.Cog):
             enabled = settings.get("enabled", "on")
             if enabled == "off" and not await _check_bot_admin(ctx):
                 return  # silently ignore, same as !clai when disabled
+            if not await _check_bot_admin(ctx):
+                if not await copilot.ai_cache.acl_check(ctx.guild.id, ctx.author.id):
+                    return
 
         persona = await self._get_persona(ctx.guild.id, persona_name)
         if not persona:
