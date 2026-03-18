@@ -38,7 +38,7 @@ lxml==6.0.2
 multidict==6.7.0
 parsedatetime==2.6
 propcache==0.4.1
-pyasn1==0.6.2
+pyasn1==0.6.3
 pyasn1_modules==0.4.2
 pycparser==3.0
 pydantic==2.12.5
