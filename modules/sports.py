@@ -76,9 +76,9 @@ class Sports(commands.Cog):
             if len(g['hteam']) > rmax:
                 rmax = len(g['hteam'])
             if not g['scheduled']:
-                if slen < 2 and (int(g['ascore']) > 10 or int(g['hscore']) > 10):
+                if slen < 2 and (int(g['ascore']) > 9 or int(g['hscore']) > 9):
                     slen = 2
-                if slen < 3 and (int(g['ascore']) > 100 or int(g['hscore']) > 100):
+                if slen < 3 and (int(g['ascore']) > 99 or int(g['hscore']) > 99):
                     slen = 3
         
         for g in data:
