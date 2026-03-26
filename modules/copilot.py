@@ -293,6 +293,7 @@ class Copilot(commands.Cog):
             if str(enabled).lower() in ("off", "false", "no", "0"):
                 return
             if not await self.ai_cache.acl_check(ctx.guild.id, ctx.author.id):
+                await ctx.reply("🔒 You don't have access to AI commands. Ask a Bot Admin to run `!clai-acl add @you`.")
                 return
 
         async with ctx.channel.typing():
@@ -521,6 +522,7 @@ class Copilot(commands.Cog):
             if str(enabled).lower() in ("off", "false", "no", "0"):
                 return
             if not await self.ai_cache.acl_check(ctx.guild.id, ctx.author.id):
+                await ctx.reply("🔒 You don't have access to AI commands. Ask a Bot Admin to run `!clai-acl add @you`.")
                 return
 
         async with ctx.channel.typing():
@@ -704,6 +706,7 @@ RULES:
             if str(glm_enabled).lower() in ("off", "false", "no", "0"):
                 return
             if not await self.ai_cache.acl_check(ctx.guild.id, ctx.author.id):
+                await ctx.reply("🔒 You don't have access to AI commands. Ask a Bot Admin to run `!clai-acl add @you`.")
                 return
         try:
 
@@ -817,6 +820,7 @@ RULES:
             if str(glm_enabled).lower() in ("off", "false", "no", "0"):
                 return
             if not await self.ai_cache.acl_check(ctx.guild.id, ctx.author.id):
+                await ctx.reply("🔒 You don't have access to AI commands. Ask a Bot Admin to run `!clai-acl add @you`.")
                 return
         try:
             async with ctx.channel.typing():
