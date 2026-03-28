@@ -5,7 +5,7 @@ services:
     restart: always
     volumes:
       # CONFIG: Mount a single file or a folder
-      - ./config:/app/config:ro
+      - ./config:/app/config
       
       # DATA: Where your SQLite db lives
       - ./data:/app/data
