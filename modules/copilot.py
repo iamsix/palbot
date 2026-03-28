@@ -1369,7 +1369,8 @@ RULES:
             "`!glm <question>` — Ask GLM local model (with context)\n"
             "`!sglm <question>` — Ask GLM with web search\n"
             "`!ai <question>` — Ask Gemini (with channel context)\n"
-            "`!sai <question>` — Ask Gemini with web search"
+            "`!sai <question>` — Ask Gemini with web search\n"
+            "`!newchat [instructions]` — Start a Gemini chat thread"
         ), inline=False)
         embed.add_field(name="Config (Admin)", value=(
             "`!claiconfig` — Show all settings\n"
@@ -1400,8 +1401,7 @@ RULES:
             "`!claireset` — Rebuild compaction cache (this channel)\n"
             "`!claireset all` — Rebuild all channels\n"
             "`!claisummary [#channel]` — Show current compaction summary\n"
-            "`!claistatus [#channel]` — Usage stats and costs\n"
-            "`!aistats [#channel]` — Gemini usage stats"
+            "`!claistatus [#channel]` — Usage stats and costs"
         ), inline=False)
         await ctx.reply(embed=embed)
 
