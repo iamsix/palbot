@@ -196,16 +196,19 @@ class Persona(commands.Cog):
 
     async def _invoke_persona(self, ctx, persona_name: str, ask: str):
         """Core persona invocation — shared by all dynamic commands."""
-        # Check if !clai is enabled in this channel; if not, admin-only
         copilot = self.bot.cogs.get("Copilot")
         if copilot:
-            settings = await copilot.ai_cache.get_all_settings(ctx.guild.id, ctx.channel.id)
-            enabled = settings.get("enabled", "on")
-            if enabled == "off" and not await _check_bot_admin(ctx):
-                return  # silently ignore, same as !clai when disabled
+            # Bot admins and ACL-listed users can always use AI commands regardless of other settings
             if not await _check_bot_admin(ctx):
-                if not await copilot.ai_cache.acl_check(ctx.guild.id, ctx.author.id):
-                    return
+                if not await copilot.ai_cache.acl_is_allowed(ctx.guild.id, ctx.author.id):
+                    acl_enforced = await copilot.ai_cache.acl_is_enforced(ctx.guild.id)
+                    if acl_enforced:
+                        return  # silently ignore, ACL enforced and user not on list
+                    else:
+                        settings = await copilot.ai_cache.get_all_settings(ctx.guild.id, ctx.channel.id)
+                        enabled = settings.get("enabled", "on")
+                        if enabled == "off":
+                            return  # silently ignore, same as !clai when disabled
 
         persona = await self._get_persona(ctx.guild.id, persona_name)
         if not persona:
