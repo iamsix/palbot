@@ -64,5 +64,5 @@ gemini_keys = ["abc123"]
 # GitHub Copilot config for !clai and !sclai commands
 # Token file stores the short-lived API token (auto-refreshed)
 github_copilot_token_path = "/app/data/github-copilot.token.json"
-# Auth profile stores the long-lived GitHub OAuth token (used for refresh)
+# Auth profile stores the GitHub OAuth token (managed via !copilot-auth device flow)
 github_copilot_auth_profile_path = "/app/config/auth-profiles.json"

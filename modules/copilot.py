@@ -1572,5 +1572,111 @@ RULES:
         lines_out.append("```")
         return "\n".join(lines_out)
 
+    # ── Auth Management Commands ─────────────────────────────────────
+
+    @commands.command(name="copilot-auth")
+    @is_bot_admin()
+    async def copilot_auth(self, ctx):
+        """Start GitHub device code flow to authenticate Copilot (Bot Admin only).
+
+        Displays a code and URL. Open the URL in a browser, enter the code,
+        and authorize the app. The bot will detect authorization automatically.
+        """
+        if self.provider._pending_device_flow:
+            await ctx.reply(
+                "⚠️ A device flow is already in progress. "
+                "Please complete or wait for it to expire before starting a new one."
+            )
+            return
+
+        try:
+            flow = await self.provider.start_device_flow()
+        except Exception as e:
+            await ctx.reply(f"❌ Failed to start device flow: {e}")
+            return
+
+        user_code = flow["user_code"]
+        verification_uri = flow["verification_uri"]
+        expires_in = flow.get("expires_in", 900)
+
+        embed = discord.Embed(
+            title="🔑 GitHub Copilot Authentication",
+            description=(
+                f"**1.** Open **{verification_uri}**\n"
+                f"**2.** Enter the code below\n"
+                f"**3.** Authorize the application\n\n"
+                f"This code expires in {expires_in // 60} minutes."
+            ),
+            color=discord.Color.blue(),
+        )
+        embed.add_field(name="Code", value=f"```\n{user_code}\n```", inline=False)
+        embed.set_footer(text="Waiting for authorization…")
+        status_msg = await ctx.reply(embed=embed)
+
+        # Poll in background so the bot stays responsive
+        try:
+            await self.provider.poll_device_flow()
+        except Exception as e:
+            fail_embed = discord.Embed(
+                title="🔑 GitHub Copilot Authentication",
+                description=f"❌ Authentication failed: {e}",
+                color=discord.Color.red(),
+            )
+            await status_msg.edit(embed=fail_embed)
+            return
+
+        success_embed = discord.Embed(
+            title="🔑 GitHub Copilot Authentication",
+            description="✅ Authenticated successfully! Copilot commands are ready to use.",
+            color=discord.Color.green(),
+        )
+        await status_msg.edit(embed=success_embed)
+
+    @commands.command(name="copilot-auth-status")
+    @is_bot_admin()
+    async def copilot_auth_status(self, ctx):
+        """Check current Copilot authentication status (Bot Admin only)."""
+        status = self.provider.auth_status()
+
+        if not status["has_oauth"]:
+            embed = discord.Embed(
+                title="🔑 Copilot Auth Status",
+                description="❌ **Not authenticated.** Use `!copilot-auth` to set up.",
+                color=discord.Color.red(),
+            )
+            await ctx.reply(embed=embed)
+            return
+
+        lines = ["✅ GitHub OAuth token present"]
+
+        if status["has_api_token"]:
+            if status["api_token_valid"]:
+                expires_ms = status["api_token_expires"]
+                remaining = (expires_ms - time.time() * 1000) / 60_000
+                lines.append(f"✅ API token valid ({remaining:.0f} min remaining)")
+            else:
+                lines.append("⚠️ API token expired (will auto-refresh on next use)")
+        else:
+            lines.append("ℹ️ No cached API token (will be fetched on next use)")
+
+        embed = discord.Embed(
+            title="🔑 Copilot Auth Status",
+            description="\n".join(lines),
+            color=discord.Color.green(),
+        )
+        await ctx.reply(embed=embed)
+
+    @commands.command(name="copilot-deauth")
+    @is_bot_admin()
+    async def copilot_deauth(self, ctx):
+        """Remove stored Copilot credentials (Bot Admin only)."""
+        status = self.provider.auth_status()
+        if not status["has_oauth"] and not status["has_api_token"]:
+            await ctx.reply("ℹ️ No credentials are currently stored.")
+            return
+
+        self.provider.clear_auth()
+        await ctx.reply("🗑️ Copilot credentials cleared. Use `!copilot-auth` to re-authenticate.")
+
 async def setup(bot):
     await bot.add_cog(Copilot(bot))
