@@ -287,19 +287,17 @@ class Copilot(commands.Cog):
     @commands.command()
     async def clai(self, ctx, *, ask: str):
         """Ask Claude Opus 4.5 via GitHub Copilot API (with compacted channel + user context)"""
-        # Bot admins can always use AI commands regardless of enabled/ACL settings
+        # Bot admins and ACL-listed users can always use AI commands regardless of other settings
         if not await _check_bot_admin(ctx):
-            acl_enforced = await self.ai_cache.acl_is_enforced(ctx.guild.id)
-            if acl_enforced:
-                # ACL is on: explicitly allowed users can use regardless of channel setting
-                if not await self.ai_cache.acl_check(ctx.guild.id, ctx.author.id):
+            if not await self.ai_cache.acl_is_allowed(ctx.guild.id, ctx.author.id):
+                acl_enforced = await self.ai_cache.acl_is_enforced(ctx.guild.id)
+                if acl_enforced:
                     await ctx.reply("🔒 You don't have access to AI commands. Ask a Bot Admin to run `!clai-acl add @you`.")
                     return
-            else:
-                # ACL is off: respect channel enabled setting
-                enabled = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "enabled")
-                if str(enabled).lower() in ("off", "false", "no", "0"):
-                    return
+                else:
+                    enabled = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "enabled")
+                    if str(enabled).lower() in ("off", "false", "no", "0"):
+                        return
 
         async with ctx.channel.typing():
             ask = self.context_gatherer.resolve_mentions(ctx, ask)
@@ -521,17 +519,17 @@ class Copilot(commands.Cog):
     @commands.command()
     async def sclai(self, ctx, *, ask: str):
         """Ask Claude Opus 4.5 with web search + compacted channel context for current events"""
-        # Bot admins can always use AI commands regardless of enabled/ACL settings
+        # Bot admins and ACL-listed users can always use AI commands regardless of other settings
         if not await _check_bot_admin(ctx):
-            acl_enforced = await self.ai_cache.acl_is_enforced(ctx.guild.id)
-            if acl_enforced:
-                if not await self.ai_cache.acl_check(ctx.guild.id, ctx.author.id):
+            if not await self.ai_cache.acl_is_allowed(ctx.guild.id, ctx.author.id):
+                acl_enforced = await self.ai_cache.acl_is_enforced(ctx.guild.id)
+                if acl_enforced:
                     await ctx.reply("🔒 You don't have access to AI commands. Ask a Bot Admin to run `!clai-acl add @you`.")
                     return
-            else:
-                enabled = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "enabled")
-                if str(enabled).lower() in ("off", "false", "no", "0"):
-                    return
+                else:
+                    enabled = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "enabled")
+                    if str(enabled).lower() in ("off", "false", "no", "0"):
+                        return
 
         async with ctx.channel.typing():
             original_ask = ask
@@ -708,17 +706,17 @@ RULES:
     @commands.command()
     async def glm(self, ctx, *, ask: str):
         """Ask using GLM via OpenAI-compatible API with context"""
-        # Bot admins can always use GLM regardless of enabled/ACL settings
+        # Bot admins and ACL-listed users can always use AI commands regardless of other settings
         if not await _check_bot_admin(ctx):
-            acl_enforced = await self.ai_cache.acl_is_enforced(ctx.guild.id)
-            if acl_enforced:
-                if not await self.ai_cache.acl_check(ctx.guild.id, ctx.author.id):
+            if not await self.ai_cache.acl_is_allowed(ctx.guild.id, ctx.author.id):
+                acl_enforced = await self.ai_cache.acl_is_enforced(ctx.guild.id)
+                if acl_enforced:
                     await ctx.reply("🔒 You don't have access to AI commands. Ask a Bot Admin to run `!clai-acl add @you`.")
                     return
-            else:
-                glm_enabled = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_enabled")
-                if str(glm_enabled).lower() in ("off", "false", "no", "0"):
-                    return
+                else:
+                    glm_enabled = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_enabled")
+                    if str(glm_enabled).lower() in ("off", "false", "no", "0"):
+                        return
         try:
 
             async with ctx.channel.typing():
@@ -826,16 +824,17 @@ RULES:
     @commands.command()
     async def sglm(self, ctx, *, ask: str):
         """Ask GLM with web search + channel context"""
+        # Bot admins and ACL-listed users can always use AI commands regardless of other settings
         if not await _check_bot_admin(ctx):
-            acl_enforced = await self.ai_cache.acl_is_enforced(ctx.guild.id)
-            if acl_enforced:
-                if not await self.ai_cache.acl_check(ctx.guild.id, ctx.author.id):
+            if not await self.ai_cache.acl_is_allowed(ctx.guild.id, ctx.author.id):
+                acl_enforced = await self.ai_cache.acl_is_enforced(ctx.guild.id)
+                if acl_enforced:
                     await ctx.reply("🔒 You don't have access to AI commands. Ask a Bot Admin to run `!clai-acl add @you`.")
                     return
-            else:
-                glm_enabled = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_enabled")
-                if str(glm_enabled).lower() in ("off", "false", "no", "0"):
-                    return
+                else:
+                    glm_enabled = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_enabled")
+                    if str(glm_enabled).lower() in ("off", "false", "no", "0"):
+                        return
         try:
             async with ctx.channel.typing():
                 original_ask = ask

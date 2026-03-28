@@ -546,6 +546,16 @@ class AICache:
         row = await cursor.fetchone()
         return bool(row and row["allowed"])
 
+    async def acl_is_allowed(self, guild_id: int, user_id: int) -> bool:
+        """Return True if user is explicitly on the ACL allowlist.
+        Unlike acl_check(), ignores whether enforcement is on/off."""
+        db = await self.get_db()
+        cursor = await db.execute(
+            "SELECT allowed FROM ai_acl WHERE guild_id = ? AND user_id = ?",
+            [guild_id, user_id])
+        row = await cursor.fetchone()
+        return bool(row and row["allowed"])
+
     async def acl_add(self, guild_id: int, user_id: int, added_by: int):
         """Add a user to the ACL allowlist."""
         db = await self.get_db()
