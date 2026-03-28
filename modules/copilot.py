@@ -1403,6 +1403,11 @@ RULES:
             "`!claisummary [#channel]` — Show current compaction summary\n"
             "`!claistatus [#channel]` — Usage stats and costs"
         ), inline=False)
+        embed.add_field(name="Auth (Admin)", value=(
+            "`!copilot-auth` — Authenticate GitHub Copilot via device code\n"
+            "`!copilot-auth-status` — Check auth status and token info\n"
+            "`!copilot-deauth` — Clear Copilot credentials"
+        ), inline=False)
         await ctx.reply(embed=embed)
 
     @commands.command(name="clai-acl")
