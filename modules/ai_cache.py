@@ -539,12 +539,7 @@ class AICache:
         If ACL is not enforced, always returns True."""
         if not await self.acl_is_enforced(guild_id):
             return True
-        db = await self.get_db()
-        cursor = await db.execute(
-            "SELECT allowed FROM ai_acl WHERE guild_id = ? AND user_id = ?",
-            [guild_id, user_id])
-        row = await cursor.fetchone()
-        return bool(row and row["allowed"])
+        return await self.acl_is_allowed(guild_id, user_id)
 
     async def acl_is_allowed(self, guild_id: int, user_id: int) -> bool:
         """Return True if user is explicitly on the ACL allowlist.
