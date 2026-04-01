@@ -4,7 +4,7 @@ PyNaCl==1.6.2
 RapidFuzz==3.14.3
 Unidecode==1.4.0
 aiohappyeyeballs==2.6.1
-aiohttp==3.13.3
+aiohttp==3.13.4
 aiosignal==1.4.0
 aiosqlite==0.22.1
 annotated-types==0.7.0
