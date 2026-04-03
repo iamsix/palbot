@@ -1,5 +1,7 @@
 import aiohttp
 from aiohttp import ClientTimeout
+import io
+import discord
 
 import re
 from discord.ext import commands
@@ -100,14 +102,10 @@ class Lyrics(commands.Cog):
             if synced_lyrics:
                 output += f"\n\n*Synced lyrics available via LRCLIB*"
 
-            # TRUNCATE to Discord's 2000 character limit
-            MAX_DISCORD_MESSAGE_LENGTH = 2000
-            if len(output) > MAX_DISCORD_MESSAGE_LENGTH:
-                self.bot.logger.warning(f"Lyrics too long ({len(output)} chars), truncating to {MAX_DISCORD_MESSAGE_LENGTH}")
-                output = output[:MAX_DISCORD_MESSAGE_LENGTH - 3] + "..."
-
-            # Send with limit
-            await ctx.send(output)
+            filename = track_name.replace(" ", "_")
+            data = io.BytesIO(output.encode('utf-8'))
+            file = discord.File(fp=data, filename=f"{filename}.txt")
+            await ctx.send(f"**{track_name} - {artist_name}**", file=file)
 
         except aiohttp.ClientError as e:
             error_msg = f"Network error: {type(e).__name__} - {str(e)}"
