@@ -17,7 +17,6 @@ class TTTView(discord.ui.View):
         self.p1_moves = [] 
         self.p2_moves = [] 
         
-        # FIX: Added a dedicated turn tracker instead of relying on array lengths
         self.is_p1_turn = True 
         
         for y in range(3):
@@ -44,7 +43,7 @@ class TTTView(discord.ui.View):
             symbol = 'X'
             style = discord.ButtonStyle.success 
             active_moves = self.p1_moves
-            next_player_text = f"{self.p2.mention}'s turn (O)" if self.p2 else "Waiting for Player 2 to click..."
+            next_player_text = f"**Infinite Tic-Tac-Toe!** Only your last 3 moves stay on the board.\n{self.p2.mention}'s turn (O)" if self.p2 else "**Infinite Tic-Tac-Toe!** Only your last 3 moves stay on the board.\nWaiting for Player 2 to click..."
             
         else:
             if self.p2 is None:
@@ -58,7 +57,7 @@ class TTTView(discord.ui.View):
             symbol = 'O'
             style = discord.ButtonStyle.danger 
             active_moves = self.p2_moves
-            next_player_text = f"{self.p1.mention}'s turn (X)"
+            next_player_text = f"**Infinite Tic-Tac-Toe!** Only your last 3 moves stay on the board.\n{self.p1.mention}'s turn (X)"
 
         # ---------------- APPLY MOVE ----------------
         button.label = symbol
@@ -87,7 +86,6 @@ class TTTView(discord.ui.View):
             return
 
         # ---------------- CONTINUE GAME ----------------
-        # FIX: Flip the turn state manually after a successful move
         self.is_p1_turn = not self.is_p1_turn
         
         await interaction.response.edit_message(content=next_player_text, view=self)
