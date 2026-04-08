@@ -223,8 +223,7 @@ class Gemini(commands.Cog):
                 self.bot.logger.error(f"!sai error: {e}")
             except Exception as e:
                 error_msg = str(e)                    
-                else:
-                    await ctx.send(f"❌ API error: {error_msg[:100]}")
+                await ctx.send(f"❌ API error: {error_msg[:100]}")
                 self.bot.logger.error(f"!sai error: {e}")
 
 
