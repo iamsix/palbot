@@ -213,11 +213,16 @@ class Gemini(commands.Cog):
                         system_instruction=instr,
                     ),
                 )
+
+                candidate = response.candidates[0]
+                if candidate.finish_reason != "STOP":
+                    await ctx.send(f"Warning: Model finished with reason: {candidate.finish_reason}")
                 await ctx.send(response.text[:1980])
+            except exceptions.GenAIError as e:
+                await ctx.send(f"⚠️ API Error: {e}")
+                self.bot.logger.error(f"!sai error: {e}")
             except Exception as e:
-                error_msg = str(e)
-                if "429" in error_msg or "quota" in error_msg.lower():
-                    await ctx.send("⚠️ API quota exceeded. Try again later.")
+                error_msg = str(e)                    
                 else:
                     await ctx.send(f"❌ API error: {error_msg[:100]}")
                 self.bot.logger.error(f"!sai error: {e}")
