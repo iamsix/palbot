@@ -215,6 +215,14 @@ class Sports(commands.Cog):
         """Show today's or [date]s NBA games with score, status"""
         todaydate = await self.sports_date(ctx, None)
         date = await self.sports_date(ctx, date)
+		headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0",
+				   "Referer": "https://www.nba.com/",
+				   "Origin": "https://www.nba.com",
+				   "Sec-Fetch-Mode": "cors",
+				   "Sec-Fetch-Site": "same-site",
+				   "Priority": "u=4",
+				   "TE": "trailers",
+				   }
         if date.date() == todaydate.date():
             if ctx.invoked_with.lower() == "wnba":
                 url = "https://cdn.wnba.com/static/json/liveData/scoreboard/todaysScoreboard_10.json"
@@ -228,7 +236,7 @@ class Sports(commands.Cog):
                 url = "https://cdn.nba.com/static/json/staticData/scheduleLeagueV2.json"
             today = False
         
-        async with self.bot.session.get(url) as resp:
+        async with self.bot.session.get(url, headers=headers) as resp:
             data = await resp.json(content_type=None)
 
         if today:
