@@ -341,7 +341,7 @@ class Media(commands.Cog):
         async with self.bot.session.get(url, headers=headers) as resp:
             data = await resp.json()
             if not len(data['docs']):
-                await ctx.send(f"Couldn't find a book named `{book}` on openlibrary")
+                await ctx.send(f"Couldn't find a book named `{books}` on openlibrary")
                 return
             
         book = data['docs'][0]
@@ -356,7 +356,7 @@ class Media(commands.Cog):
         burl = f"https://openlibrary.org/{book['key']}"
         e = discord.Embed(title=title, url=burl)
         e.set_thumbnail(url=cover)
-        e.description = book['description']
+        e.description = book.get('description', '')
 
         e.add_field(name="Rating", value=rating)
 
