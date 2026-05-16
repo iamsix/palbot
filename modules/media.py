@@ -358,7 +358,7 @@ class Media(commands.Cog):
         e.set_thumbnail(url=cover)
         e.description = book['description']
 
-        e.add_field(name="Rating", value="rating")
+        e.add_field(name="Rating", value=rating)
 
         await ctx.send(embed=e)
 
