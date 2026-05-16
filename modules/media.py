@@ -329,66 +329,39 @@ class Media(commands.Cog):
         
         await ctx.send(embed=e)
 
-    async def read_goodreads_data(self, url):
-        headers = {'User-Agent': "Mozilla/5.0 (X11; Linux x86_64; rv:91.0) Gecko/20100101 Firefox/91.0"}
-        for _ in range(3):
-            page = await self.bot.utils.bs_from_url(self.bot, url, headers=headers)
-            data = json.loads(page.find('script', id="__NEXT_DATA__", type='application/json').string)
-            data = data['props']['pageProps']['apolloState']
-            if data:
-                break
-        return data
 
-    @commands.command(name='gr', aliases=['book'])
-    async def get_goodreads_book_rating(self, ctx, *, book: str):
-        """Find a <book> on goodreads.com and return some rating info and a link"""
+
+    @commands.command(name='book', aliases=['gr'])
+    async def openlibrary(self, ctx, *, books: str):
+        """Find a <book> on openlibrary.org and return some rating info and a link"""
         
-        urls = await self.bot.utils.google_for_urls(self.bot,
-                        "site:goodreads.com inurl:com/book " + book,
-                        url_regex="goodreads.com/book/show/\\d+")
 
-        if not urls:
-            await ctx.send(f"Couldn't find a book named `{book}` on goodreads")
-            return
+        url = f"https://openlibrary.org/search.json?q={uriquote(books)}&limit=1&fields=description"
+        headers = {"User-Agent": "Palbot/1.0 (https://github.com/iamsix/palbot/)",}
+        async with self.bot.session.get(url, headers=headers) as resp:
+            data = await resp.json()
+            if not len(data['docs']):
+                await ctx.send(f"Couldn't find a book named `{book}` on openlibrary")
+                return
+            
+        book = data['docs'][0]
+        title = book['title']
+        if 'series_name' in book:
+            title += f" ({book['series_name'][0]} #{book['series_position'][0]})"
+        title += f" by {book['author_name'][0]} ({book['first_publish_year']})"
 
-        data = await self.read_goodreads_data(urls[0])
-        if not data:
-            await ctx.send(f"Failed to retrieve data for {urls[0]}")
+        rating = f"{book['ratings_average']:.1f} ({book['ratings_count']} ratings)"
+        cover = f"https://covers.openlibrary.org/b/id/{book['cover_i']}-M.jpg"
 
-        bookdata = None
-        for k in data.keys():
-            if k.startswith("Book"):
-                bookdata = data[k]
-                break
+        burl = f"https://openlibrary.org/{book['key']}"
+        e = discord.Embed(title=title, url=burl)
+        e.set_thumbnail(url=cover)
+        e.description = book['description']
 
-        if not bookdata:
-            self.bot.logger.info(f"Failed to load bookdata in query: {book} {urls[0]}")
-            self.bot.logger.info(data)
-            return
-        try:
-            authorkey = bookdata['primaryContributorEdge']['node']['__ref']
-            name = data[authorkey]['name']
-        except:
-            name = "?"
+        e.add_field(name="Rating", value="rating")
 
-        workkey = bookdata['work']['__ref']
-        workdata = data[workkey]
-        avgrating = workdata['stats']['averageRating']
-        ratingscount = workdata['stats']['ratingsCount']
+        await ctx.send(embed=e)
 
-        try: 
-            pubyear = datetime.fromtimestamp(workdata['details']['publicationTime']/1000)
-            year = pubyear.year
-        except TypeError:
-            year = "NA"
-
-
-        title = bookdata['titleComplete']
-
-        bookurl = bookdata['webUrl']
-        
-        output = f"{title} by {name} ({year}) | Avg rating: {avgrating} ({ratingscount:,} ratings)\n{bookurl}"
-        await ctx.send(output)
 
 
 async def setup(bot):
