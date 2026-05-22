@@ -19,7 +19,7 @@ cffi==2.0.0
 charset-normalizer==3.4.4
 curl_cffi==0.15.0
 dateparser==1.2.2
-discord.py==2.6.4
+discord.py==2.7.1
 discord==2.3.2
 distro==1.9.0
 edge-tts==7.2.7
