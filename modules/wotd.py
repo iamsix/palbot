@@ -77,7 +77,7 @@ class WotdPrompt(discord.ui.Modal):
         word = str(self.new_wotd)
         # This might fail from those stupid fancy quotes
         # self.fullword = not (word[0] == '*' and word[-1] == '*')
-        self.fullword = self.full_word.value
+        self.fullword = self.full_word.component.value
         word = self.s_re.sub("", word)
         if word[0] == "!" or word[-1] == "!":
             self.fullword = False
