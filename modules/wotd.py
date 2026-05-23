@@ -65,11 +65,13 @@ class WotdPrompt(discord.ui.Modal):
     s_re = re.compile("[^a-z0-9!'_-]*",re.I)
     new_wotd = discord.ui.TextInput(
         label="New Word of the Day", min_length=3, max_length=20, required=True)
+    full_word = discord.ui.Checkbox(label="Full word match only (no substrings)", default=True)
     
     async def on_submit(self, interaction: discord.Interaction):
         word = str(self.new_wotd)
         # This might fail from those stupid fancy quotes
-        self.fullword = not (word[0] == '*' and word[-1] == '*')
+        # self.fullword = not (word[0] == '*' and word[-1] == '*')
+        self.fullword = self.full_word.value
         # self.fullword = True
         word = self.s_re.sub("", word)
         if word[0] == "!" or word[-1] == "!":
