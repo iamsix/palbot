@@ -65,7 +65,8 @@ class WotdPrompt(discord.ui.Modal):
     s_re = re.compile("[^a-z0-9!'_-]*",re.I)
     new_wotd = discord.ui.TextInput(
         label="New Word of the Day", min_length=3, max_length=20, required=True)
-    full_word = discord.ui.Checkbox(label="Full word match only (no substrings)", default=True)
+    label = discord.ui.Label(text="Full word match only (no substrings)")
+    full_word = discord.ui.Checkbox(default=True)
     
     async def on_submit(self, interaction: discord.Interaction):
         word = str(self.new_wotd)
