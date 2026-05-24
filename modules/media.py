@@ -350,7 +350,10 @@ class Media(commands.Cog):
             title += f" ({book['series_name'][0]} #{book['series_position'][0]})"
         title += f" by {book['author_name'][0]} ({book['first_publish_year']})"
 
-        rating = f"{book['ratings_average']:.1f} ({book['ratings_count']} ratings)"
+        if 'ratings_average' in book:
+            rating = f"{book['ratings_average']:.1f} ({book['ratings_count']} ratings)"
+        else:
+            rating = "No ratings"
         cover = f"https://covers.openlibrary.org/b/id/{book['cover_i']}-M.jpg"
 
         burl = f"https://openlibrary.org/{book['key']}"
