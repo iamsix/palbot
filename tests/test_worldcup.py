@@ -289,5 +289,124 @@ class PayloadEndToEndTests(unittest.TestCase):
         self.assertEqual(wc._extract_standings({"response": []}), [])
 
 
+# Two-group payload — exercises the multi-group iteration in
+# _extract_standings (regression guard: previously returned [groups[0]]).
+STANDINGS_PAYLOAD_TWO_GROUPS = {
+    "response": [
+        {
+            "league": {
+                "standings": [
+                    [
+                        {
+                            "team": {"name": "USA"},
+                            "group": "Group A",
+                            "all": {
+                                "played": 3, "win": 2, "draw": 1, "lose": 0,
+                                "goals": {"for": 7, "against": 2},
+                            },
+                            "points": 7,
+                        },
+                        {
+                            "team": {"name": "Mexico"},
+                            "group": "Group A",
+                            "all": {
+                                "played": 3, "win": 1, "draw": 1, "lose": 1,
+                                "goals": {"for": 4, "against": 4},
+                            },
+                            "points": 4,
+                        },
+                    ],
+                    [
+                        {
+                            "team": {"name": "Germany"},
+                            "group": "Group B",
+                            "all": {
+                                "played": 3, "win": 3, "draw": 0, "lose": 0,
+                                "goals": {"for": 9, "against": 1},
+                            },
+                            "points": 9,
+                        },
+                        {
+                            "team": {"name": "Brazil"},
+                            "group": "Group B",
+                            "all": {
+                                "played": 3, "win": 2, "draw": 0, "lose": 1,
+                                "goals": {"for": 6, "against": 3},
+                            },
+                            "points": 6,
+                        },
+                    ],
+                ]
+            }
+        }
+    ]
+}
+
+
+class MultiGroupStandingsTests(unittest.TestCase):
+    """Regression guard for #5: every group must be parsed, not just the first."""
+
+    def test_parse_two_groups(self):
+        groups = wc._extract_standings(STANDINGS_PAYLOAD_TWO_GROUPS)
+        self.assertEqual(len(groups), 2)
+        names = [g["name"] for g in groups]
+        self.assertIn("Group A", names)
+        self.assertIn("Group B", names)
+        teams = {row["team"] for g in groups for row in g["rows"]}
+        for expected in ("USA", "Mexico", "Germany", "Brazil"):
+            self.assertIn(expected, teams)
+
+
+class FormatStandingsTableTests(unittest.TestCase):
+    """Regression guard for #4: GD column must be signed and right-aligned."""
+
+    def _row(self, team, gd, pts=0):
+        return {
+            "team": team, "mp": 3, "w": 0, "d": 0, "l": 0,
+            "gf": max(gd, 0), "ga": max(-gd, 0), "gd": gd, "pts": pts,
+        }
+
+    def test_signed_right_aligned_gd_column(self):
+        rendered = wc._format_standings_table(
+            [self._row("USA", 5, pts=9), self._row("Mexico", -3, pts=0)]
+        )
+        # `{gd:>+4}` (correct) emits the sign+value right-aligned in a
+        # 4-wide column → "  +5" / "  -3" (two leading spaces).
+        # The buggy `{gd:+<4}` would emit "+5  " / "-3  " (sign+value
+        # then trailing spaces), with NO leading spaces.
+        self.assertIn("  +5", rendered)
+        self.assertIn("  -3", rendered)
+
+    def test_zero_gd_still_signed(self):
+        rendered = wc._format_standings_table([self._row("Tie", 0, pts=3)])
+        # `{:>+4}` formats 0 as "  +0" (sign forced, right-aligned).
+        self.assertIn("  +0", rendered)
+
+
+class FormatMatchRowsWithDateTests(unittest.TestCase):
+    """Regression guard for #6/#2: date prefix must live INSIDE backticks
+    so the whole row renders as monospace and aligns."""
+
+    def test_date_prefix_inside_backticks(self):
+        sched = wc._build_match_dict(FIXTURE_SCHEDULED)
+        sched["date"] = "06/12"
+        big = wc._build_match_dict(FIXTURE_LIVE_BIG_SCORE)
+        big["date"] = "06/15"
+        rows = wc._format_match_rows([sched, big], show_date=True)
+        self.assertEqual(len(rows), 2)
+        for row in rows:
+            # Every row must be a single monospace block.
+            self.assertTrue(row.startswith("`"))
+            self.assertTrue(row.endswith("`"))
+            # Date prefix must be INSIDE the backticks. The buggy
+            # implementation placed `06/12 - ` BEFORE the opening backtick.
+            self.assertFalse(
+                row.startswith("06/"),
+                f"date leaked outside backticks: {row!r}",
+            )
+            inner = row.strip("`").split(" | ", 1)[0]
+            self.assertIn("06/", inner)
+
+
 if __name__ == "__main__":
     unittest.main()
