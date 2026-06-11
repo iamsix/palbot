@@ -8,7 +8,6 @@ output. They follow the red→green discipline: this file lands first
 without modules/worldcup.py, then the implementation lands to make it
 pass.
 """
-import json
 import os
 import sys
 import unittest

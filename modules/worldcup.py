@@ -195,7 +195,9 @@ def _format_match_rows(matches, show_date: bool = False):
     Width math is derived across BOTH scheduled and non-scheduled rows so
     columns line up regardless of input ordering. Each row is wrapped in
     monospace backticks; columns are separated by ``" | "`` between the
-    score block and the status block.
+    score block and the status block. When ``show_date=True`` the date
+    prefix is placed INSIDE the backticks so the whole row renders in
+    monospace and the date column aligns with the rest.
     """
     if not matches:
         return []
@@ -207,17 +209,24 @@ def _format_match_rows(matches, show_date: bool = False):
     )
     slen = max(slen, max(len(str(m.get("hscore", ""))) for m in matches), 1)
 
+    date_width = 0
+    if show_date:
+        date_width = max((len(str(m.get("date") or "")) for m in matches),
+                         default=0)
+
     rows = []
     for m in matches:
-        prefix = ""
-        if show_date and m.get("date"):
-            prefix = f"{m['date']} - "
         ateam = m["ateam"].ljust(lmax)
         hteam = m["hteam"].ljust(rmax)
         ascore = str(m["ascore"]).rjust(slen)
         hscore = str(m["hscore"]).ljust(slen)
+        if show_date:
+            date_str = str(m.get("date") or "").ljust(date_width)
+            prefix = f"{date_str} - " if date_width else ""
+        else:
+            prefix = ""
         rows.append(
-            f"{prefix}`{ateam} {ascore} - {hscore} {hteam} | {m['status']}`"
+            f"`{prefix}{ateam} {ascore} - {hscore} {hteam} | {m['status']}`"
         )
     return rows
 
@@ -358,7 +367,7 @@ class WorldCup(commands.Cog):
             await ctx.send("Connection error, try again later.")
             return None
 
-    async def _sports_date(self, ctx, date):
+    def _sports_date(self, ctx, date):
         # TODO: extract to shared utils once sports.py is touched.
         if date:
             return date.dt
@@ -381,7 +390,7 @@ class WorldCup(commands.Cog):
         if not await self._ensure_configured(ctx):
             return
 
-        target = await self._sports_date(ctx, date)
+        target = self._sports_date(ctx, date)
         params = {
             "league": WORLD_CUP_LEAGUE_ID,
             "season": WORLD_CUP_SEASON,
@@ -496,7 +505,10 @@ class WorldCup(commands.Cog):
         for grp in groups:
             description = _format_standings_table(grp["rows"])
             if len(description) > EMBED_DESC_LIMIT:
-                description = description[:EMBED_DESC_LIMIT]
+                # Mirror the trim pattern used by the other commands so
+                # we don't chop mid-line and strand the closing ``` fence.
+                description = description[:EMBED_DESC_LIMIT].rsplit("\n", 1)[0]
+                description += "\n_… truncated_"
             embed = discord.Embed(
                 title=f"World Cup 2026 – {grp['name']}",
                 description=description,
@@ -531,7 +543,17 @@ class WorldCup(commands.Cog):
         target = None
         for grp in groups:
             # API exposes the group label as e.g. "Group A" or just "A".
-            label = grp["name"].strip().split()[-1].upper()
+            # If _extract_standings emitted the "Standings" fallback (when
+            # upstream omits the group field), it can't be matched to a
+            # single A–L letter — skip it from the per-group lookup
+            # rather than silently matching nothing.
+            raw_name = (grp.get("name") or "").strip()
+            tokens = raw_name.split()
+            if not tokens:
+                continue
+            label = tokens[-1].upper()
+            if len(label) != 1 or label not in WC2026_GROUPS:
+                continue
             if label == norm:
                 target = grp
                 break
