@@ -407,5 +407,43 @@ class FormatMatchRowsWithDateTests(unittest.TestCase):
             self.assertIn("06/", inner)
 
 
+class HeadersForTests(unittest.TestCase):
+    def test_headers_for_uses_direct_endpoint_convention(self):
+        headers = wc.WorldCup._headers_for("test-key-123")
+        self.assertEqual(headers, {"x-apisports-key": "test-key-123"})
+
+
+class GetApiKeyTests(unittest.IsolatedAsyncioTestCase):
+    def _make_instance_and_ctx(self, setting_value):
+        import unittest.mock as mock
+        instance = mock.MagicMock()
+        instance.ai_cache.get_setting = mock.AsyncMock(return_value=setting_value)
+        ctx = mock.MagicMock()
+        ctx.send = mock.AsyncMock()
+        ctx.guild = mock.MagicMock()
+        ctx.guild.id = 12345
+        return instance, ctx
+
+    async def test_missing_key_sends_config_hint(self):
+        instance, ctx = self._make_instance_and_ctx(None)
+        result = await wc.WorldCup._get_api_key(instance, ctx)
+        self.assertIsNone(result)
+        ctx.send.assert_called_once()
+        msg = ctx.send.call_args.args[0]
+        self.assertIn("!claiconfig api_football_key", msg)
+
+    async def test_present_key_returned(self):
+        instance, ctx = self._make_instance_and_ctx("abc123")
+        result = await wc.WorldCup._get_api_key(instance, ctx)
+        self.assertEqual(result, "abc123")
+        ctx.send.assert_not_called()
+
+    async def test_empty_string_treated_as_missing(self):
+        instance, ctx = self._make_instance_and_ctx("")
+        result = await wc.WorldCup._get_api_key(instance, ctx)
+        self.assertIsNone(result)
+        ctx.send.assert_called_once()
+
+
 if __name__ == "__main__":
     unittest.main()
