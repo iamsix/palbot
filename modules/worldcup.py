@@ -8,31 +8,22 @@ from utils.time import HumanTime
 class WorldCup(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        # API-Football endpoints with hardcoded API key
+        # API-Football endpoints
         self.api_base = "https://v3.football.api-sports.io"
         self.world_cup_id = 1  # FIFA World Cup competition ID
+        
+        # Get API key from config
+        if not hasattr(self.bot.config, 'api_football_key'):
+            self.bot.logger.error("api_football_key not configured - World Cup module will not work")
+            self.api_key = None
+        else:
+            self.api_key = self.bot.config.api_football_key
+            
         self.api_headers = {
             "X-RapidAPI-Host": "v3.football.api-sports.io",
-            "X-RapidAPI-Key": "377e12bf44e50a3e919fd8ac280d7868"
-        }
-        
-    async def cog_command_error(self, ctx, error):
-        if isinstance(error, commands.errors.CheckFailure):
-            return
-        else:
-            self.bot.logger.info(error)
-            print(error)
+            "X-RapidAPI-Key": self.api_key
+        } if self.api_key else {}
 
-    async def sports_date(self, ctx, date):
-        """Helper function to handle date parsing"""
-        if not date:
-            if ctx.author_info.timezone:
-                return datetime.datetime.now(pytz.timezone(ctx.author_info.timezone))
-            else:
-                return datetime.datetime.now(pytz.timezone("US/Eastern"))
-        else:
-            return date.dt
-    
     async def worldcup_formatter(self, data, show_date=False):
         """Format World Cup games data for display"""
         out = []
@@ -67,9 +58,15 @@ class WorldCup(commands.Cog):
         return out
 
     @commands.command(aliases=['wc2026', 'wc'])
+    @commands.cooldown(3, 86400, commands.BucketType.user)  # 3 per day per user
     async def worldcup(self, ctx, *, date: HumanTime = None):
         """Show World Cup 2026 matches for today or specified date"""
-        target_date = await self.sports_date(ctx, date)
+        if not self.api_key:
+            await ctx.send("⚽ World Cup module not configured. Contact admin.")
+            return
+            
+        # Use sports.py helper for date parsing
+        target_date = await ctx.bot.get_cog('Sports').sports_date(ctx, date)
         
         # API-Football endpoint for fixtures
         url = f"{self.api_base}/fixtures"
@@ -77,11 +74,8 @@ class WorldCup(commands.Cog):
         params = {
             'league': self.world_cup_id,  # World Cup league ID
             'season': 2026,  # 2026 season
-            'date': target_date.strftime('%Y-%m-%d') if date else None
+            'date': target_date.strftime('%Y-%m-%d')  # Always include date
         }
-        
-        # Remove None values
-        params = {k: v for k, v in params.items() if v is not None}
         
         try:
             async with self.bot.session.get(url, headers=self.api_headers, params=params) as resp:
@@ -97,7 +91,8 @@ class WorldCup(commands.Cog):
                 data = await resp.json()
                 
         except Exception as e:
-            await ctx.send(f"⚽ Connection error: {str(e)}")
+            self.bot.logger.error(f"World Cup API error: {e}")
+            await ctx.send("⚽ Connection error. Please try again later.")
             return
         
         if not data.get('response'):
@@ -171,15 +166,18 @@ class WorldCup(commands.Cog):
                 description="\n".join(out),
                 color=0x326295
             )
-            if len(data['response']) == 50:  # API limit hit
-                embed.set_footer(text="Showing first 50 matches")
             await ctx.send(embed=embed)
         else:
             await ctx.send(f"No World Cup matches found for {target_date.date()}")
 
     @commands.command(aliases=['wcschedule', 'wcfixtures'])
+    @commands.cooldown(3, 86400, commands.BucketType.user)  # 3 per day per user
     async def worldcupschedule(self, ctx, days: int = 7):
         """Show upcoming World Cup matches for the next N days (default: 7)"""
+        if not self.api_key:
+            await ctx.send("⚽ World Cup module not configured. Contact admin.")
+            return
+            
         if days > 30:
             days = 30  # Limit to reasonable number
             
@@ -199,13 +197,19 @@ class WorldCup(commands.Cog):
         try:
             async with self.bot.session.get(url, headers=self.api_headers, params=params) as resp:
                 if resp.status != 200:
-                    await ctx.send(f"⚽ API error ({resp.status}). Please try again later.")
+                    if resp.status == 429:
+                        await ctx.send("⚽ API rate limit reached. Please try again later.")
+                    elif resp.status == 403:
+                        await ctx.send("⚽ API access denied. Check API key configuration.")
+                    else:
+                        await ctx.send(f"⚽ API error ({resp.status}). Please try again later.")
                     return
                     
                 data = await resp.json()
                 
         except Exception as e:
-            await ctx.send(f"⚽ Connection error: {str(e)}")
+            self.bot.logger.error(f"World Cup schedule API error: {e}")
+            await ctx.send("⚽ Connection error. Please try again later.")
             return
             
         if not data.get('response'):
@@ -245,8 +249,13 @@ class WorldCup(commands.Cog):
             await ctx.send(f"No matches scheduled for the next {days} days")
 
     @commands.command(aliases=['wcstandings', 'wctable'])
+    @commands.cooldown(3, 86400, commands.BucketType.user)  # 3 per day per user
     async def worldcupstandings(self, ctx):
         """Show World Cup group standings"""
+        if not self.api_key:
+            await ctx.send("⚽ World Cup module not configured. Contact admin.")
+            return
+            
         url = f"{self.api_base}/standings"
         
         params = {
@@ -257,13 +266,19 @@ class WorldCup(commands.Cog):
         try:
             async with self.bot.session.get(url, headers=self.api_headers, params=params) as resp:
                 if resp.status != 200:
-                    await ctx.send(f"⚽ API error ({resp.status}). Please try again later.")
+                    if resp.status == 429:
+                        await ctx.send("⚽ API rate limit reached. Please try again later.")
+                    elif resp.status == 403:
+                        await ctx.send("⚽ API access denied. Check API key configuration.")
+                    else:
+                        await ctx.send(f"⚽ API error ({resp.status}). Please try again later.")
                     return
                     
                 data = await resp.json()
                 
         except Exception as e:
-            await ctx.send(f"⚽ Connection error: {str(e)}")
+            self.bot.logger.error(f"World Cup standings API error: {e}")
+            await ctx.send("⚽ Connection error. Please try again later.")
             return
             
         if not data.get('response') or not data['response'][0].get('league', {}).get('standings'):
@@ -272,19 +287,19 @@ class WorldCup(commands.Cog):
             
         standings = data['response'][0]['league']['standings']
         
-        embeds = []
+        # Build combined view of all groups (limited to avoid Discord limits)
+        all_groups_text = ""
+        group_count = 0
+        
         for group in standings:
             if not group:
                 continue
                 
-            # Determine group name from first team's group
-            group_name = f"Group {group[0]['group']}" if group[0]['group'] else "Standings"
+            group_name = group[0]['group'] if group[0]['group'] else "?"
+            group_text = f"**Group {group_name}**\n```\n"
+            group_text += f"{'Team':<14} {'MP':<2} {'W':<2} {'D':<2} {'L':<2} {'GD':<4} {'Pts':<3}\n"
             
-            standings_text = "```\n"
-            standings_text += f"{'Team':<15} {'MP':<3} {'W':<3} {'D':<3} {'L':<3} {'GD':<4} {'Pts':<3}\n"
-            standings_text += "-" * 50 + "\n"
-            
-            for team_data in group:
+            for team_data in group[:4]:  # Top 4 teams only
                 team_name = team_data['team']['name'][:14]  # Truncate long names
                 stats = team_data['all']
                 
@@ -295,36 +310,46 @@ class WorldCup(commands.Cog):
                 gd = stats['goals']['for'] - stats['goals']['against']
                 pts = team_data['points']
                 
-                standings_text += f"{team_name:<15} {mp:<3} {w:<3} {d:<3} {l:<3} {gd:+<4} {pts:<3}\n"
+                group_text += f"{team_name:<14} {mp:<2} {w:<2} {d:<2} {l:<2} {gd:>+4} {pts:<3}\n"
             
-            standings_text += "```"
+            group_text += "```\n"
             
+            # Check if adding this group would exceed Discord limit
+            if len(all_groups_text + group_text) > 3500:  # Leave room for embed title/footer
+                break
+                
+            all_groups_text += group_text
+            group_count += 1
+            
+            if group_count >= 6:  # Limit groups to avoid spam
+                break
+        
+        if all_groups_text:
             embed = discord.Embed(
-                title=f"🏆 World Cup 2026 - {group_name}",
-                description=standings_text,
+                title="🏆 FIFA World Cup 2026 - Group Standings",
+                description=all_groups_text,
                 color=0x326295
             )
-            embeds.append(embed)
-        
-        # Send first group, could add pagination for multiple groups
-        if embeds:
-            await ctx.send(embed=embeds[0])
-            # If multiple groups, mention it
-            if len(embeds) > 1:
-                await ctx.send(f"📊 Showing {embeds[0].title}. Use !wcgroup [A-H] for specific groups.")
+            embed.set_footer(text=f"Showing {group_count} groups • Use !wcgroup [A-L] for specific groups")
+            await ctx.send(embed=embed)
         else:
             await ctx.send("No standings data available")
 
     @commands.command(aliases=['wcgroup'])
+    @commands.cooldown(3, 86400, commands.BucketType.user)  # 3 per day per user
     async def worldcupgroup(self, ctx, group: str = None):
-        """Show specific World Cup group standings (A-H)"""
+        """Show specific World Cup group standings (A-L)"""
+        if not self.api_key:
+            await ctx.send("⚽ World Cup module not configured. Contact admin.")
+            return
+            
         if not group:
-            await ctx.send("Please specify a group letter (A-H). Example: `!wcgroup A`")
+            await ctx.send("Please specify a group letter (A-L). Example: `!wcgroup A`")
             return
             
         group = group.upper()
-        if group not in 'ABCDEFGH':
-            await ctx.send("Invalid group. Please use A-H.")
+        if group not in 'ABCDEFGHIJKL':  # WC2026 has 12 groups (A-L)
+            await ctx.send("Invalid group. Please use A-L for World Cup 2026.")
             return
             
         url = f"{self.api_base}/standings"
@@ -337,13 +362,19 @@ class WorldCup(commands.Cog):
         try:
             async with self.bot.session.get(url, headers=self.api_headers, params=params) as resp:
                 if resp.status != 200:
-                    await ctx.send(f"⚽ API error ({resp.status}). Please try again later.")
+                    if resp.status == 429:
+                        await ctx.send("⚽ API rate limit reached. Please try again later.")
+                    elif resp.status == 403:
+                        await ctx.send("⚽ API access denied. Check API key configuration.")
+                    else:
+                        await ctx.send(f"⚽ API error ({resp.status}). Please try again later.")
                     return
                     
                 data = await resp.json()
                 
         except Exception as e:
-            await ctx.send(f"⚽ Connection error: {str(e)}")
+            self.bot.logger.error(f"World Cup group API error: {e}")
+            await ctx.send("⚽ Connection error. Please try again later.")
             return
             
         if not data.get('response') or not data['response'][0].get('league', {}).get('standings'):
@@ -364,12 +395,13 @@ class WorldCup(commands.Cog):
             return
             
         standings_text = "```\n"
-        standings_text += f"{'Team':<18} {'MP':<3} {'W':<3} {'D':<3} {'L':<3} {'GF':<3} {'GA':<3} {'GD':<4} {'Pts':<3}\n"
+        standings_text += f"{'Team':<16} {'MP':<3} {'W':<3} {'D':<3} {'L':<3} {'GF':<3} {'GA':<3} {'GD':<4} {'Pts':<3}\n"
         standings_text += "-" * 65 + "\n"
         
         for i, team_data in enumerate(target_group):
-            pos_icon = ["🥇", "🥈", "🥉", "4️⃣"][i] if i < 4 else f"{i+1}."
-            team_name = team_data['team']['name'][:16]  # Truncate long names
+            # Position indicators without emoji to preserve monospace
+            pos_num = f"{i+1}."
+            team_name = team_data['team']['name'][:14]  # Consistent truncation
             stats = team_data['all']
             
             mp = stats['played']
@@ -381,7 +413,7 @@ class WorldCup(commands.Cog):
             gd = gf - ga
             pts = team_data['points']
             
-            standings_text += f"{pos_icon} {team_name:<15} {mp:<3} {w:<3} {d:<3} {l:<3} {gf:<3} {ga:<3} {gd:+<4} {pts:<3}\n"
+            standings_text += f"{pos_num:<3}{team_name:<14} {mp:<3} {w:<3} {d:<3} {l:<3} {gf:<3} {ga:<3} {gd:>+4} {pts:<3}\n"
         
         standings_text += "```"
         
@@ -390,7 +422,8 @@ class WorldCup(commands.Cog):
             description=standings_text,
             color=0x326295
         )
-        embed.set_footer(text="🥇🥈 = Advance to Round of 16")
+        # Fixed footer for WC2026 format (32-team tournament with different advancement)
+        embed.set_footer(text="Top 2 teams + 8 best 3rd-place teams advance to Round of 32")
         await ctx.send(embed=embed)
 
 
