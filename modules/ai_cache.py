@@ -86,6 +86,10 @@ SETTINGS_SPEC = {
     "max_compaction_input": (120000, 50000, 200000),  # Max tokens for compaction model input
     "system_prompt":      ("", None, None),
     "brave_api_key":      ("", None, None),
+    # Read by modules/worldcup.py for API-Football auth. Lives in this
+    # central spec so it shows up in !claiconfig alongside other global
+    # keys (brave_api_key, glm_api_key).
+    "api_football_key":   ("", None, None),
     "glm_enabled":        ("on",  None, None),
     "glm_show_reasoning": ("off", None, None),
     "glm_base_url":       ("https://llm.00id.net/v1", None, None),
@@ -103,10 +107,10 @@ SETTINGS_SPEC = {
 }
 
 # Settings that are stored guild-wide (channel_id=NULL), not per-channel
-GLOBAL_SETTINGS = {"brave_api_key", "glm_api_key"}
+GLOBAL_SETTINGS = {"brave_api_key", "glm_api_key", "api_football_key"}
 
 # Settings whose values should be hidden in !claiconfig output
-SECRET_SETTINGS = {"brave_api_key", "glm_api_key"}
+SECRET_SETTINGS = {"brave_api_key", "glm_api_key", "api_football_key"}
 
 SETTINGS_HELP = {
     "enabled":            "Enable/disable !clai and !sclai in this channel (on/off)",
@@ -126,6 +130,7 @@ SETTINGS_HELP = {
     "max_compaction_input": "Maximum tokens for compaction model input",
     "system_prompt":      "Custom system prompt (replaces default when set)",
     "brave_api_key":      "Brave Search API key for !sclai (global, falls back to Google if unset)",
+    "api_football_key":   "API-Football key for !worldcup commands (global, required for World Cup data)",
     "glm_enabled":        "Enable/disable !glm command in this channel (on/off)",
     "glm_show_reasoning": "Show GLM reasoning content in output (on/off)",
     "glm_base_url":       "Base URL for GLM API (OpenAI-compatible endpoint)",

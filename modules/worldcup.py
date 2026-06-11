@@ -23,6 +23,8 @@ from discord.ext import commands
 
 from utils.time import HumanTime
 
+from modules.ai_cache import AICache
+
 
 API_BASE = "https://v3.football.api-sports.io"
 WORLD_CUP_LEAGUE_ID = 1
@@ -301,19 +303,43 @@ class WorldCup(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self._api_key = getattr(bot.config, "api_football_key", None)
-        if not self._api_key:
-            # Fail closed: log loudly. Commands will short-circuit below.
-            self.bot.logger.error(
-                "WorldCup cog loaded without api_football_key; "
-                "commands will be disabled until config is provided."
-            )
+        # The API key now lives in ai_cache settings (`api_football_key`)
+        # so admins can set it at runtime via `!claiconfig` — same
+        # pattern as brave_api_key / glm_api_key. We instantiate our own
+        # AICache handle (cheap; just a sqlite wrapper) instead of
+        # requiring the Copilot cog to be loaded, mirroring persona.py.
+        self.ai_cache = AICache()
 
-    @property
-    def _headers(self):
+    def cog_unload(self):
+        asyncio.ensure_future(self.ai_cache.close())
+
+    async def _get_api_key(self, ctx):
+        """Fetch the API-Football key from ai_cache settings.
+
+        Returns the key string or ``None``. When ``None``, the user has
+        already been notified via ``ctx.send`` with a config hint.
+        """
+        try:
+            key = await self.ai_cache.get_setting(
+                ctx.guild.id if ctx.guild else 0, None, "api_football_key"
+            )
+        except Exception as e:
+            self.bot.logger.error("WorldCup ai_cache lookup failed: %r", e)
+            await ctx.send("World Cup config lookup failed. Try again later.")
+            return None
+        if not key:
+            await ctx.send(
+                "⚙️ FIFA API key not configured. An admin can set it with "
+                "`!claiconfig api_football_key <key>`."
+            )
+            return None
+        return key
+
+    @staticmethod
+    def _headers_for(api_key: str):
         # Direct api-sports.io endpoint uses x-apisports-key, NOT the
         # RapidAPI gateway headers.
-        return {"x-apisports-key": self._api_key}
+        return {"x-apisports-key": api_key}
 
     async def cog_command_error(self, ctx, error):
         if isinstance(error, commands.errors.CheckFailure):
@@ -330,16 +356,7 @@ class WorldCup(commands.Cog):
     # Internals
     # ------------------------------------------------------------------
 
-    async def _ensure_configured(self, ctx) -> bool:
-        if not self._api_key:
-            self.bot.logger.error(
-                "WorldCup command invoked without api_football_key configured."
-            )
-            await ctx.send("World Cup commands are not configured. Ask an admin.")
-            return False
-        return True
-
-    async def _api_get(self, ctx, path: str, params: dict):
+    async def _api_get(self, ctx, api_key: str, path: str, params: dict):
         """Wrap session.get with timeout + uniform error handling.
 
         Returns the decoded JSON payload, or ``None`` if the request
@@ -348,7 +365,8 @@ class WorldCup(commands.Cog):
         url = f"{API_BASE}{path}"
         try:
             async with self.bot.session.get(
-                url, headers=self._headers, params=params, timeout=HTTP_TIMEOUT
+                url, headers=self._headers_for(api_key), params=params,
+                timeout=HTTP_TIMEOUT,
             ) as resp:
                 if resp.status != 200:
                     if resp.status == 429:
@@ -387,7 +405,8 @@ class WorldCup(commands.Cog):
     @commands.command(aliases=["wc2026", "wc"])
     async def worldcup(self, ctx, *, date: HumanTime = None):
         """Show World Cup 2026 matches for today (or a given date)."""
-        if not await self._ensure_configured(ctx):
+        api_key = await self._get_api_key(ctx)
+        if not api_key:
             return
 
         target = self._sports_date(ctx, date)
@@ -396,7 +415,7 @@ class WorldCup(commands.Cog):
             "season": WORLD_CUP_SEASON,
             "date": target.strftime("%Y-%m-%d"),
         }
-        data = await self._api_get(ctx, "/fixtures", params)
+        data = await self._api_get(ctx, api_key, "/fixtures", params)
         if data is None:
             return
 
@@ -427,7 +446,8 @@ class WorldCup(commands.Cog):
     @commands.command(aliases=["wcschedule", "wcfixtures"])
     async def worldcupschedule(self, ctx, days: int = 7):
         """Show upcoming World Cup matches for the next N days (1–30)."""
-        if not await self._ensure_configured(ctx):
+        api_key = await self._get_api_key(ctx)
+        if not api_key:
             return
 
         days = max(1, min(int(days), 30))
@@ -440,7 +460,7 @@ class WorldCup(commands.Cog):
             "to": end.strftime("%Y-%m-%d"),
             "status": "NS",
         }
-        data = await self._api_get(ctx, "/fixtures", params)
+        data = await self._api_get(ctx, api_key, "/fixtures", params)
         if data is None:
             return
 
@@ -486,11 +506,13 @@ class WorldCup(commands.Cog):
     @commands.command(aliases=["wcstandings", "wctable"])
     async def worldcupstandings(self, ctx):
         """Show World Cup group standings — one embed per group."""
-        if not await self._ensure_configured(ctx):
+        api_key = await self._get_api_key(ctx)
+        if not api_key:
             return
 
         data = await self._api_get(
             ctx,
+            api_key,
             "/standings",
             {"league": WORLD_CUP_LEAGUE_ID, "season": WORLD_CUP_SEASON},
         )
@@ -521,7 +543,8 @@ class WorldCup(commands.Cog):
     @commands.command(aliases=["wcgroup"])
     async def worldcupgroup(self, ctx, group: str = None):
         """Show one World Cup group's standings (A–L)."""
-        if not await self._ensure_configured(ctx):
+        api_key = await self._get_api_key(ctx)
+        if not api_key:
             return
 
         norm = _normalize_group(group)
@@ -533,6 +556,7 @@ class WorldCup(commands.Cog):
 
         data = await self._api_get(
             ctx,
+            api_key,
             "/standings",
             {"league": WORLD_CUP_LEAGUE_ID, "season": WORLD_CUP_SEASON},
         )
