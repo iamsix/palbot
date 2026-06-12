@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """
-Tests for modules.worldcup pure helpers.
+Tests for modules.worldcup pure helpers (ESPN backend).
 
-These tests are intentionally network-free; they exercise the helpers that
-the cog uses to parse API-Football payloads and render Discord-friendly
-output. They follow the red→green discipline: this file lands first
-without modules/worldcup.py, then the implementation lands to make it
-pass.
+The cog talks to ESPN's undocumented public scoreboard / standings
+endpoints (no auth, no key). These tests are network-free and exercise
+the helpers that parse those payloads.
+
+Sample shapes were taken from live curl responses against
+``site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard``
+and ``/apis/v2/sports/soccer/fifa.world/standings``.
 """
 import os
 import sys
@@ -19,116 +21,172 @@ from modules import worldcup as wc  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
-# Canned API payloads (trimmed to only the fields the parser touches).
+# Canned ESPN payloads (trimmed to only the fields the parser touches).
+# ESPN scoreboard envelope is: {"events": [event, ...]}.
+# Each event has `name`, `date`, `status.type.{name,state,detail,...}`
+# and `competitions[0].competitors[]` (with `homeAway`, `score` (string!),
+# `team.{displayName,abbreviation}`).
 # ---------------------------------------------------------------------------
 
-FIXTURE_SCHEDULED = {
-    "fixture": {
-        "id": 1,
-        "date": "2026-06-12T20:00:00+00:00",
-        "status": {"short": "NS", "long": "Not Started", "elapsed": None},
-        "venue": {"name": "MetLife Stadium"},
-    },
-    "teams": {
-        "home": {"name": "USA"},
-        "away": {"name": "Mexico"},
-    },
-    "goals": {"home": None, "away": None},
-}
 
-FIXTURE_LIVE_BIG_SCORE = {
-    "fixture": {
-        "id": 2,
-        "date": "2026-06-15T18:00:00+00:00",
-        "status": {"short": "2H", "long": "Second Half", "elapsed": 71},
-        "venue": {"name": "SoFi Stadium"},
-    },
-    "teams": {
-        "home": {"name": "Germany"},
-        "away": {"name": "Brazil"},
-    },
-    "goals": {"home": 10, "away": 1},
-}
+def _event(eid, name, iso_date, status_name, state, detail,
+           home_team, away_team, home_score, away_score, venue="",
+           home_winner=False, away_winner=False):
+    return {
+        "id": eid,
+        "name": name,
+        "date": iso_date,
+        "status": {
+            "type": {
+                "name": status_name,
+                "state": state,
+                "detail": detail,
+                "shortDetail": detail,
+            },
+        },
+        "competitions": [
+            {
+                "venue": {"fullName": venue} if venue else {},
+                "competitors": [
+                    {
+                        "homeAway": "home",
+                        "score": home_score,
+                        "winner": home_winner,
+                        "team": {
+                            "displayName": home_team,
+                            "abbreviation": home_team[:3].upper(),
+                        },
+                    },
+                    {
+                        "homeAway": "away",
+                        "score": away_score,
+                        "winner": away_winner,
+                        "team": {
+                            "displayName": away_team,
+                            "abbreviation": away_team[:3].upper(),
+                        },
+                    },
+                ],
+            }
+        ],
+    }
 
-FIXTURE_FINISHED_AET = {
-    "fixture": {
-        "id": 3,
-        "date": "2026-07-01T22:00:00+00:00",
-        "status": {"short": "AET", "long": "After Extra Time", "elapsed": 120},
-        "venue": {"name": "BMO Field"},
-    },
-    "teams": {
-        "home": {"name": "France"},
-        "away": {"name": "Argentina"},
-    },
-    "goals": {"home": 3, "away": 2},
-}
 
-FIXTURE_FINISHED_PEN = {
-    "fixture": {
-        "id": 4,
-        "date": "2026-07-05T22:00:00+00:00",
-        "status": {"short": "PEN", "long": "Penalty Shootout", "elapsed": 120},
-        "venue": {"name": "AT&T Stadium"},
-    },
-    "teams": {
-        "home": {"name": "Spain"},
-        "away": {"name": "Italy"},
-    },
-    "goals": {"home": 1, "away": 1},
-}
+EVENT_SCHEDULED = _event(
+    "1", "Mexico at USA", "2026-06-12T20:00Z",
+    "STATUS_SCHEDULED", "pre", "Fri, June 12th at 8:00 PM EDT",
+    "USA", "Mexico", None, None, venue="MetLife Stadium",
+)
 
-FIXTURE_CANCELLED = {
-    "fixture": {
-        "id": 5,
-        "date": "2026-06-20T20:00:00+00:00",
-        "status": {"short": "CANC", "long": "Match Cancelled", "elapsed": None},
-        "venue": {"name": "Estadio Azteca"},
-    },
-    "teams": {
-        "home": {"name": "Japan"},
-        "away": {"name": "Korea"},
-    },
-    "goals": {"home": None, "away": None},
-}
+EVENT_LIVE_BIG_SCORE = _event(
+    "2", "Brazil at Germany", "2026-06-15T18:00Z",
+    "STATUS_IN_PROGRESS", "in", "71'",
+    "Germany", "Brazil", "10", "1", venue="SoFi Stadium",
+)
 
-FIXTURE_MALFORMED = {
-    "fixture": {"id": 6},  # missing status/date/teams/goals
-}
+EVENT_HALFTIME = _event(
+    "20", "Brazil at Germany", "2026-06-15T18:00Z",
+    "STATUS_HALFTIME", "in", "HT",
+    "Germany", "Brazil", "2", "0", venue="SoFi Stadium",
+)
+
+EVENT_FINISHED_FT = _event(
+    "30", "South Africa at Mexico", "2026-06-11T19:00Z",
+    "STATUS_FULL_TIME", "post", "FT",
+    "Mexico", "South Africa", "2", "0",
+    venue="Estadio Azteca", home_winner=True,
+)
+
+EVENT_FINISHED_FINAL = _event(
+    "31", "Argentina at France", "2026-07-01T22:00Z",
+    "STATUS_FINAL", "post", "FT",
+    "France", "Argentina", "3", "2", venue="BMO Field", home_winner=True,
+)
+
+EVENT_CANCELLED = _event(
+    "40", "Korea at Japan", "2026-06-20T20:00Z",
+    "STATUS_CANCELED", "post", "Canceled",
+    "Japan", "Korea", None, None, venue="Estadio Azteca",
+)
+
+EVENT_POSTPONED = _event(
+    "41", "Italy at Spain", "2026-07-05T22:00Z",
+    "STATUS_POSTPONED", "pre", "Postponed",
+    "Spain", "Italy", None, None, venue="AT&T Stadium",
+)
+
+EVENT_MALFORMED = {"id": "x"}  # no competitions / status
+
+SCOREBOARD_PAYLOAD = {"events": [EVENT_SCHEDULED, EVENT_FINISHED_FT]}
+
+
+# ---------------------------------------------------------------------------
+# ESPN standings envelope:
+#   {"children": [
+#       {"name": "Group A",
+#        "standings": {"entries": [
+#            {"team": {"displayName": "..."},
+#             "stats": [{"name": "wins", "value": 1.0, "displayValue": "1"}, ...],
+#            }, ...
+#        ]}}
+#   ]}
+# ---------------------------------------------------------------------------
+
+
+def _stat(name, value, display=None):
+    return {"name": name, "value": value,
+            "displayValue": display if display is not None else str(value)}
+
+
+def _entry(team, gp, w, d, l_, gf, ga, gd, pts):
+    return {
+        "team": {"displayName": team, "abbreviation": team[:3].upper()},
+        "stats": [
+            _stat("gamesPlayed", gp),
+            _stat("wins", w),
+            _stat("ties", d),
+            _stat("losses", l_),
+            _stat("pointsFor", gf),
+            _stat("pointsAgainst", ga),
+            _stat("pointDifferential", gd,
+                  display=f"+{gd}" if gd > 0 else str(gd)),
+            _stat("points", pts),
+        ],
+    }
 
 
 STANDINGS_PAYLOAD = {
-    "response": [
+    "children": [
         {
-            "league": {
-                "standings": [
-                    [
-                        {
-                            "team": {"name": "USA"},
-                            "group": "Group A",
-                            "all": {
-                                "played": 3, "win": 2, "draw": 1, "lose": 0,
-                                "goals": {"for": 7, "against": 2},
-                            },
-                            "points": 7,
-                        },
-                        {
-                            "team": {"name": "Mexico"},
-                            "group": "Group A",
-                            "all": {
-                                "played": 3, "win": 1, "draw": 1, "lose": 1,
-                                "goals": {"for": 4, "against": 4},
-                            },
-                            "points": 4,
-                        },
-                    ]
-                ]
-            }
-        }
-    ]
+            "name": "Group A",
+            "standings": {
+                "entries": [
+                    _entry("USA", 3, 2, 1, 0, 7, 2, 5, 7),
+                    _entry("Mexico", 3, 1, 1, 1, 4, 4, 0, 4),
+                ],
+            },
+        },
+    ],
 }
 
-FIXTURES_PAYLOAD = {"response": [FIXTURE_SCHEDULED, FIXTURE_FINISHED_AET]}
+STANDINGS_PAYLOAD_TWO_GROUPS = {
+    "children": [
+        {
+            "name": "Group A",
+            "standings": {"entries": [
+                _entry("USA", 3, 2, 1, 0, 7, 2, 5, 7),
+                _entry("Mexico", 3, 1, 1, 1, 4, 4, 0, 4),
+            ]},
+        },
+        {
+            "name": "Group B",
+            "standings": {"entries": [
+                _entry("Germany", 3, 3, 0, 0, 9, 1, 8, 9),
+                _entry("Brazil", 3, 2, 0, 1, 6, 3, 3, 6),
+            ]},
+        },
+    ],
+}
 
 
 # ---------------------------------------------------------------------------
@@ -137,31 +195,70 @@ FIXTURES_PAYLOAD = {"response": [FIXTURE_SCHEDULED, FIXTURE_FINISHED_AET]}
 
 
 class ParseFixtureStatusTests(unittest.TestCase):
-    def test_scheduled_codes(self):
-        for code in ("TBD", "NS"):
-            self.assertEqual(wc._parse_fixture_status(code), "scheduled")
+    """ESPN exposes both a high-level state (pre/in/post) and a granular
+    type name. The bucketer must collapse both into our four buckets."""
 
-    def test_live_codes(self):
-        for code in ("1H", "2H", "HT", "ET", "P", "LIVE", "BT", "INT"):
-            self.assertEqual(wc._parse_fixture_status(code), "live")
+    def test_scheduled(self):
+        self.assertEqual(
+            wc._parse_fixture_status({"name": "STATUS_SCHEDULED", "state": "pre"}),
+            "scheduled",
+        )
 
-    def test_finished_codes(self):
-        for code in ("FT", "AET", "PEN"):
-            self.assertEqual(wc._parse_fixture_status(code), "finished")
+    def test_live_in_progress(self):
+        self.assertEqual(
+            wc._parse_fixture_status({"name": "STATUS_IN_PROGRESS", "state": "in"}),
+            "live",
+        )
 
-    def test_cancelled_codes(self):
-        for code in ("CANC", "ABD", "AWD", "WO", "SUSP", "PST"):
-            self.assertEqual(wc._parse_fixture_status(code), "cancelled")
+    def test_live_halftime(self):
+        self.assertEqual(
+            wc._parse_fixture_status({"name": "STATUS_HALFTIME", "state": "in"}),
+            "live",
+        )
 
-    def test_unknown_code(self):
-        self.assertEqual(wc._parse_fixture_status("ZZ"), "unknown")
-        self.assertEqual(wc._parse_fixture_status(""), "unknown")
+    def test_finished_full_time(self):
+        self.assertEqual(
+            wc._parse_fixture_status({"name": "STATUS_FULL_TIME", "state": "post"}),
+            "finished",
+        )
+
+    def test_finished_final(self):
+        self.assertEqual(
+            wc._parse_fixture_status({"name": "STATUS_FINAL", "state": "post"}),
+            "finished",
+        )
+
+    def test_cancelled(self):
+        self.assertEqual(
+            wc._parse_fixture_status({"name": "STATUS_CANCELED", "state": "post"}),
+            "cancelled",
+        )
+
+    def test_postponed(self):
+        self.assertEqual(
+            wc._parse_fixture_status({"name": "STATUS_POSTPONED", "state": "pre"}),
+            "cancelled",
+        )
+
+    def test_unknown(self):
+        self.assertEqual(
+            wc._parse_fixture_status({"name": "STATUS_WAT", "state": "weird"}),
+            "unknown",
+        )
+        self.assertEqual(wc._parse_fixture_status({}), "unknown")
         self.assertEqual(wc._parse_fixture_status(None), "unknown")
 
 
 class SafeHelpersTests(unittest.TestCase):
     def test_safe_score_none(self):
         self.assertEqual(wc._safe_score(None), "-")
+
+    def test_safe_score_zero_string(self):
+        # ESPN returns scores as strings — "0" must stay "0", not collapse to "-".
+        self.assertEqual(wc._safe_score("0"), "0")
+
+    def test_safe_score_zero_int(self):
+        self.assertEqual(wc._safe_score(0), "0")
 
     def test_safe_score_string(self):
         self.assertEqual(wc._safe_score("3"), "3")
@@ -175,72 +272,90 @@ class SafeHelpersTests(unittest.TestCase):
     def test_safe_int_bad(self):
         self.assertEqual(wc._safe_int("abc"), 0)
 
-    def test_safe_int_good(self):
+    def test_safe_int_string(self):
         self.assertEqual(wc._safe_int("12"), 12)
-        self.assertEqual(wc._safe_int(5), 5)
+
+    def test_safe_int_float(self):
+        # ESPN returns standings stats as floats (`"value": 3.0`).
+        self.assertEqual(wc._safe_int(3.0), 3)
 
 
 class BuildMatchDictTests(unittest.TestCase):
     def test_scheduled(self):
-        m = wc._build_match_dict(FIXTURE_SCHEDULED)
+        m = wc._build_match_dict(EVENT_SCHEDULED)
         self.assertIsNotNone(m)
         self.assertTrue(m["scheduled"])
-        self.assertEqual(m["ateam"], "Mexico")
         self.assertEqual(m["hteam"], "USA")
-        # Scheduled rows should still expose dash-renderable scores
+        self.assertEqual(m["ateam"], "Mexico")
         self.assertEqual(m["ascore"], "-")
         self.assertEqual(m["hscore"], "-")
-        # status should embed a Discord timestamp
-        self.assertIn("<t:", m["status"])
         self.assertEqual(m["state"], "scheduled")
+        # Status should embed a Discord timestamp for the kickoff.
+        self.assertIn("<t:", m["status"])
 
     def test_live_multi_digit(self):
-        m = wc._build_match_dict(FIXTURE_LIVE_BIG_SCORE)
+        m = wc._build_match_dict(EVENT_LIVE_BIG_SCORE)
         self.assertIsNotNone(m)
         self.assertFalse(m["scheduled"])
         self.assertEqual(m["state"], "live")
-        self.assertEqual(m["ascore"], "1")
+        self.assertEqual(m["hteam"], "Germany")
+        self.assertEqual(m["ateam"], "Brazil")
         self.assertEqual(m["hscore"], "10")
-        # minute should appear somewhere in status
+        self.assertEqual(m["ascore"], "1")
+        # ESPN's "71'" detail should appear in the status label.
         self.assertIn("71", m["status"])
 
-    def test_finished_aet(self):
-        m = wc._build_match_dict(FIXTURE_FINISHED_AET)
+    def test_halftime(self):
+        m = wc._build_match_dict(EVENT_HALFTIME)
+        self.assertIsNotNone(m)
+        self.assertEqual(m["state"], "live")
+        self.assertIn("HT", m["status"])
+
+    def test_finished_full_time(self):
+        m = wc._build_match_dict(EVENT_FINISHED_FT)
         self.assertIsNotNone(m)
         self.assertEqual(m["state"], "finished")
         self.assertFalse(m["scheduled"])
-        self.assertIn("AET", m["status"])
+        self.assertEqual(m["hscore"], "2")
+        self.assertEqual(m["ascore"], "0")
+        self.assertIn("FT", m["status"])
 
-    def test_finished_pen(self):
-        m = wc._build_match_dict(FIXTURE_FINISHED_PEN)
+    def test_finished_final(self):
+        m = wc._build_match_dict(EVENT_FINISHED_FINAL)
         self.assertIsNotNone(m)
         self.assertEqual(m["state"], "finished")
-        self.assertIn("Pen", m["status"])
+        self.assertEqual(m["hscore"], "3")
+        self.assertEqual(m["ascore"], "2")
 
     def test_cancelled(self):
-        m = wc._build_match_dict(FIXTURE_CANCELLED)
+        m = wc._build_match_dict(EVENT_CANCELLED)
         self.assertIsNotNone(m)
         self.assertEqual(m["state"], "cancelled")
-        self.assertTrue(m["scheduled"])  # rendered like a no-score row
+        self.assertTrue(m["scheduled"])
+        self.assertIn("Cancel", m["status"])
+
+    def test_postponed_buckets_as_cancelled(self):
+        m = wc._build_match_dict(EVENT_POSTPONED)
+        self.assertIsNotNone(m)
+        self.assertEqual(m["state"], "cancelled")
+        self.assertIn("Postpon", m["status"])
 
     def test_malformed_returns_none(self):
-        self.assertIsNone(wc._build_match_dict(FIXTURE_MALFORMED))
+        self.assertIsNone(wc._build_match_dict(EVENT_MALFORMED))
         self.assertIsNone(wc._build_match_dict({}))
         self.assertIsNone(wc._build_match_dict(None))
 
 
 class FormatMatchRowsTests(unittest.TestCase):
     def test_mixed_scheduled_and_finished_alignment(self):
-        # 10-1 score forces slen=2 so scheduled rows must reserve 2-wide columns too.
-        sched = wc._build_match_dict(FIXTURE_SCHEDULED)
-        big = wc._build_match_dict(FIXTURE_LIVE_BIG_SCORE)
+        # 10-1 score forces slen=2 so scheduled rows must reserve 2-wide columns.
+        sched = wc._build_match_dict(EVENT_SCHEDULED)
+        big = wc._build_match_dict(EVENT_LIVE_BIG_SCORE)
         rows = wc._format_match_rows([sched, big])
         self.assertEqual(len(rows), 2)
         for row in rows:
-            # All rows wrapped in monospace backticks.
             self.assertTrue(row.startswith("`"))
             self.assertTrue(row.endswith("`"))
-        # Lengths of the inner monospace content must match (proper alignment).
         inner_lengths = {len(r.strip("`").split(" | ")[0]) for r in rows}
         self.assertEqual(
             len(inner_lengths), 1,
@@ -263,10 +378,8 @@ class GroupValidationTests(unittest.TestCase):
 
 
 class PayloadEndToEndTests(unittest.TestCase):
-    def test_parse_fixtures_payload(self):
-        matches = [
-            wc._build_match_dict(m) for m in FIXTURES_PAYLOAD["response"]
-        ]
+    def test_parse_scoreboard_payload(self):
+        matches = [wc._build_match_dict(e) for e in SCOREBOARD_PAYLOAD["events"]]
         matches = [m for m in matches if m is not None]
         self.assertEqual(len(matches), 2)
         rows = wc._format_match_rows(matches)
@@ -282,68 +395,16 @@ class PayloadEndToEndTests(unittest.TestCase):
         self.assertEqual(usa["team"], "USA")
         self.assertEqual(usa["pts"], 7)
         self.assertEqual(usa["gd"], 5)
+        self.assertEqual(usa["gf"], 7)
+        self.assertEqual(usa["ga"], 2)
 
     def test_extract_standings_empty(self):
         self.assertEqual(wc._extract_standings({}), [])
-        self.assertEqual(wc._extract_standings({"response": []}), [])
-
-
-# Two-group payload — exercises the multi-group iteration in
-# _extract_standings (regression guard: previously returned [groups[0]]).
-STANDINGS_PAYLOAD_TWO_GROUPS = {
-    "response": [
-        {
-            "league": {
-                "standings": [
-                    [
-                        {
-                            "team": {"name": "USA"},
-                            "group": "Group A",
-                            "all": {
-                                "played": 3, "win": 2, "draw": 1, "lose": 0,
-                                "goals": {"for": 7, "against": 2},
-                            },
-                            "points": 7,
-                        },
-                        {
-                            "team": {"name": "Mexico"},
-                            "group": "Group A",
-                            "all": {
-                                "played": 3, "win": 1, "draw": 1, "lose": 1,
-                                "goals": {"for": 4, "against": 4},
-                            },
-                            "points": 4,
-                        },
-                    ],
-                    [
-                        {
-                            "team": {"name": "Germany"},
-                            "group": "Group B",
-                            "all": {
-                                "played": 3, "win": 3, "draw": 0, "lose": 0,
-                                "goals": {"for": 9, "against": 1},
-                            },
-                            "points": 9,
-                        },
-                        {
-                            "team": {"name": "Brazil"},
-                            "group": "Group B",
-                            "all": {
-                                "played": 3, "win": 2, "draw": 0, "lose": 1,
-                                "goals": {"for": 6, "against": 3},
-                            },
-                            "points": 6,
-                        },
-                    ],
-                ]
-            }
-        }
-    ]
-}
+        self.assertEqual(wc._extract_standings({"children": []}), [])
 
 
 class MultiGroupStandingsTests(unittest.TestCase):
-    """Regression guard for #5: every group must be parsed, not just the first."""
+    """Regression guard: every group must be parsed, not just the first."""
 
     def test_parse_two_groups(self):
         groups = wc._extract_standings(STANDINGS_PAYLOAD_TWO_GROUPS)
@@ -357,7 +418,7 @@ class MultiGroupStandingsTests(unittest.TestCase):
 
 
 class FormatStandingsTableTests(unittest.TestCase):
-    """Regression guard for #4: GD column must be signed and right-aligned."""
+    """Regression guard: GD column must be signed and right-aligned."""
 
     def _row(self, team, gd, pts=0):
         return {
@@ -369,36 +430,28 @@ class FormatStandingsTableTests(unittest.TestCase):
         rendered = wc._format_standings_table(
             [self._row("USA", 5, pts=9), self._row("Mexico", -3, pts=0)]
         )
-        # `{gd:>+4}` (correct) emits the sign+value right-aligned in a
-        # 4-wide column → "  +5" / "  -3" (two leading spaces).
-        # The buggy `{gd:+<4}` would emit "+5  " / "-3  " (sign+value
-        # then trailing spaces), with NO leading spaces.
         self.assertIn("  +5", rendered)
         self.assertIn("  -3", rendered)
 
     def test_zero_gd_still_signed(self):
         rendered = wc._format_standings_table([self._row("Tie", 0, pts=3)])
-        # `{:>+4}` formats 0 as "  +0" (sign forced, right-aligned).
         self.assertIn("  +0", rendered)
 
 
 class FormatMatchRowsWithDateTests(unittest.TestCase):
-    """Regression guard for #6/#2: date prefix must live INSIDE backticks
-    so the whole row renders as monospace and aligns."""
+    """Date prefix must live INSIDE backticks so the whole row renders
+    in monospace and the date column aligns."""
 
     def test_date_prefix_inside_backticks(self):
-        sched = wc._build_match_dict(FIXTURE_SCHEDULED)
+        sched = wc._build_match_dict(EVENT_SCHEDULED)
         sched["date"] = "06/12"
-        big = wc._build_match_dict(FIXTURE_LIVE_BIG_SCORE)
+        big = wc._build_match_dict(EVENT_LIVE_BIG_SCORE)
         big["date"] = "06/15"
         rows = wc._format_match_rows([sched, big], show_date=True)
         self.assertEqual(len(rows), 2)
         for row in rows:
-            # Every row must be a single monospace block.
             self.assertTrue(row.startswith("`"))
             self.assertTrue(row.endswith("`"))
-            # Date prefix must be INSIDE the backticks. The buggy
-            # implementation placed `06/12 - ` BEFORE the opening backtick.
             self.assertFalse(
                 row.startswith("06/"),
                 f"date leaked outside backticks: {row!r}",
@@ -407,42 +460,19 @@ class FormatMatchRowsWithDateTests(unittest.TestCase):
             self.assertIn("06/", inner)
 
 
-class HeadersForTests(unittest.TestCase):
-    def test_headers_for_uses_direct_endpoint_convention(self):
-        headers = wc.WorldCup._headers_for("test-key-123")
-        self.assertEqual(headers, {"x-apisports-key": "test-key-123"})
+class EspnDateParamTests(unittest.TestCase):
+    """ESPN's `dates=` query param uses YYYYMMDD (no dashes)."""
 
+    def test_format_single_date(self):
+        import datetime as _dt
+        d = _dt.datetime(2026, 6, 11)
+        self.assertEqual(wc._espn_date(d), "20260611")
 
-class GetApiKeyTests(unittest.IsolatedAsyncioTestCase):
-    def _make_instance_and_ctx(self, setting_value):
-        import unittest.mock as mock
-        instance = mock.MagicMock()
-        instance.ai_cache.get_setting = mock.AsyncMock(return_value=setting_value)
-        ctx = mock.MagicMock()
-        ctx.send = mock.AsyncMock()
-        ctx.guild = mock.MagicMock()
-        ctx.guild.id = 12345
-        return instance, ctx
-
-    async def test_missing_key_sends_config_hint(self):
-        instance, ctx = self._make_instance_and_ctx(None)
-        result = await wc.WorldCup._get_api_key(instance, ctx)
-        self.assertIsNone(result)
-        ctx.send.assert_called_once()
-        msg = ctx.send.call_args.args[0]
-        self.assertIn("!claiconfig api_football_key", msg)
-
-    async def test_present_key_returned(self):
-        instance, ctx = self._make_instance_and_ctx("abc123")
-        result = await wc.WorldCup._get_api_key(instance, ctx)
-        self.assertEqual(result, "abc123")
-        ctx.send.assert_not_called()
-
-    async def test_empty_string_treated_as_missing(self):
-        instance, ctx = self._make_instance_and_ctx("")
-        result = await wc.WorldCup._get_api_key(instance, ctx)
-        self.assertIsNone(result)
-        ctx.send.assert_called_once()
+    def test_format_range(self):
+        import datetime as _dt
+        start = _dt.datetime(2026, 6, 11)
+        end = _dt.datetime(2026, 6, 15)
+        self.assertEqual(wc._espn_date_range(start, end), "20260611-20260615")
 
 
 if __name__ == "__main__":
