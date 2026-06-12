@@ -1,14 +1,18 @@
-"""FIFA World Cup 2026 cog backed by API-Football.
+"""FIFA World Cup 2026 cog backed by ESPN's public scoreboard.
 
-This is an alternative implementation of #227 that fixes a hardcoded API
-key, mis-modeled status codes, mis-aligned formatters, the WC2026 group
-count (12 groups, A–L, not 8), and several other correctness issues.
+This cog calls ESPN's undocumented but publicly accessible
+``site.api.espn.com`` endpoints — the same ones that power ESPN's own
+World Cup widgets. There is no API key, no auth header, and no
+configured rate limit on the free path. The trade-off is that the
+endpoint is undocumented and could change shape without notice; the
+helpers below are intentionally defensive and any drift will surface
+as "no parseable matches" rather than a tracebacks-in-channel.
 
 Pure helpers (`_parse_fixture_status`, `_build_match_dict`,
 `_format_match_rows`, `_safe_int`, `_safe_score`, `_normalize_group`,
-`_extract_standings`) live at module scope so they can be unit-tested
-without spinning up Discord or hitting the network. See
-``tests/test_worldcup.py``.
+`_extract_standings`, `_espn_date`, `_espn_date_range`) live at module
+scope so they can be unit-tested without spinning up Discord or hitting
+the network. See ``tests/test_worldcup.py``.
 """
 from __future__ import annotations
 
@@ -23,21 +27,34 @@ from discord.ext import commands
 
 from utils.time import HumanTime
 
-from modules.ai_cache import AICache
 
-
-API_BASE = "https://v3.football.api-sports.io"
-WORLD_CUP_LEAGUE_ID = 1
-WORLD_CUP_SEASON = 2026
+# ESPN endpoint hosts (note: standings lives under apis/v2, not apis/site/v2).
+ESPN_SCOREBOARD = (
+    "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard"
+)
+ESPN_STANDINGS = (
+    "https://site.api.espn.com/apis/v2/sports/soccer/fifa.world/standings"
+)
 WC2026_GROUPS = "ABCDEFGHIJKL"  # 12 groups, 48 teams
 HTTP_TIMEOUT = aiohttp.ClientTimeout(total=10)
 NAME_WIDTH = 14  # uniform team-name truncation in monospace tables
 EMBED_DESC_LIMIT = 4000
 
-_SCHEDULED = {"TBD", "NS"}
-_LIVE = {"1H", "2H", "HT", "ET", "P", "LIVE", "BT", "INT"}
-_FINISHED = {"FT", "AET", "PEN"}
-_CANCELLED = {"CANC", "ABD", "AWD", "WO", "SUSP", "PST"}
+# ESPN's high-level state buckets (``status.type.state``) collapse most
+# of the noisy granular ``type.name`` values. We use the granular name
+# only to distinguish cancelled/postponed from other ``post``/``pre``
+# events, since both of those should suppress the score.
+_LIVE_STATES = {"in"}
+_FINISHED_STATES = {"post"}
+_SCHEDULED_STATES = {"pre"}
+_CANCELLED_NAMES = {
+    "STATUS_CANCELED",
+    "STATUS_CANCELLED",
+    "STATUS_POSTPONED",
+    "STATUS_ABANDONED",
+    "STATUS_SUSPENDED",
+    "STATUS_FORFEIT",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -45,23 +62,31 @@ _CANCELLED = {"CANC", "ABD", "AWD", "WO", "SUSP", "PST"}
 # ---------------------------------------------------------------------------
 
 
-def _parse_fixture_status(code) -> str:
-    """Bucket an API-Football short status code.
+def _parse_fixture_status(status_type) -> str:
+    """Bucket an ESPN ``status.type`` object.
+
+    ESPN exposes both a granular ``name`` (e.g. ``STATUS_FULL_TIME``)
+    and a higher-level ``state`` (``pre``/``in``/``post``). We prefer
+    the state for the broad scheduled/live/finished split, then peek at
+    the name to peel off cancelled/postponed (which ESPN can report
+    under either state).
 
     Returns one of ``"scheduled" | "live" | "finished" | "cancelled" |
-    "unknown"``. Unknown codes are surfaced rather than silently dropped
-    so the caller can render an "Unknown status: <code>" label.
+    "unknown"``. Unknown values are surfaced rather than silently
+    dropped so the caller can render an "Unknown status" label.
     """
-    if not code or not isinstance(code, str):
+    if not isinstance(status_type, dict):
         return "unknown"
-    if code in _SCHEDULED:
-        return "scheduled"
-    if code in _LIVE:
-        return "live"
-    if code in _FINISHED:
-        return "finished"
-    if code in _CANCELLED:
+    name = (status_type.get("name") or "").upper()
+    state = (status_type.get("state") or "").lower()
+    if name in _CANCELLED_NAMES:
         return "cancelled"
+    if state in _LIVE_STATES:
+        return "live"
+    if state in _FINISHED_STATES:
+        return "finished"
+    if state in _SCHEDULED_STATES:
+        return "scheduled"
     return "unknown"
 
 
@@ -72,14 +97,24 @@ def _safe_int(val) -> int:
     try:
         return int(val)
     except (TypeError, ValueError):
-        return 0
+        try:
+            return int(float(val))
+        except (TypeError, ValueError):
+            return 0
 
 
 def _safe_score(val) -> str:
-    """Display-friendly score string. ``None`` → ``"-"`` (not ``"0"``)."""
+    """Display-friendly score string. ``None`` → ``"-"`` (not ``"0"``).
+
+    ESPN reports scores as strings — including ``"0"``. We must keep
+    those as-is and only collapse a true missing value to ``"-"``.
+    """
     if val is None:
         return "-"
-    return str(val)
+    s = str(val).strip()
+    if not s:
+        return "-"
+    return s
 
 
 def _normalize_group(group) -> Optional[str]:
@@ -92,33 +127,64 @@ def _normalize_group(group) -> Optional[str]:
     return g
 
 
-def _build_match_dict(match) -> Optional[dict]:
-    """Project an API-Football match object into a flat render-ready dict.
+def _espn_date(dt: datetime.datetime) -> str:
+    """Format a datetime as ESPN's ``YYYYMMDD`` query-param shape."""
+    return dt.strftime("%Y%m%d")
+
+
+def _espn_date_range(start: datetime.datetime, end: datetime.datetime) -> str:
+    """Format a date range as ESPN's ``YYYYMMDD-YYYYMMDD`` shape."""
+    return f"{_espn_date(start)}-{_espn_date(end)}"
+
+
+def _pick_competitor(competitors, side):
+    """Return the competitor dict whose ``homeAway`` matches ``side``."""
+    for c in competitors or ():
+        if isinstance(c, dict) and c.get("homeAway") == side:
+            return c
+    return None
+
+
+def _build_match_dict(event) -> Optional[dict]:
+    """Project an ESPN scoreboard event into a flat render-ready dict.
 
     Returns ``None`` if the payload is missing required keys, so the
     caller can simply skip malformed entries.
     """
-    if not isinstance(match, dict):
+    if not isinstance(event, dict):
         return None
     try:
-        fixture = match["fixture"]
-        teams = match["teams"]
-        status = fixture["status"]
-        home_name = teams["home"]["name"]
-        away_name = teams["away"]["name"]
-        short = status["short"]
+        status_type = event["status"]["type"]
+        competitions = event["competitions"]
+        competitors = competitions[0]["competitors"]
+    except (KeyError, TypeError, IndexError):
+        return None
+
+    home = _pick_competitor(competitors, "home")
+    away = _pick_competitor(competitors, "away")
+    if not home or not away:
+        return None
+
+    try:
+        home_name = home["team"]["displayName"]
+        away_name = away["team"]["displayName"]
     except (KeyError, TypeError):
         return None
 
-    goals = match.get("goals") or {}
-    venue = (fixture.get("venue") or {}).get("name") or ""
-    state = _parse_fixture_status(short)
+    venue = ""
+    try:
+        venue = (competitions[0].get("venue") or {}).get("fullName") or ""
+    except AttributeError:
+        venue = ""
 
-    home_score_disp = _safe_score(goals.get("home"))
-    away_score_disp = _safe_score(goals.get("away"))
+    state = _parse_fixture_status(status_type)
+    detail = status_type.get("detail") or status_type.get("shortDetail") or ""
+
+    home_score_disp = _safe_score(home.get("score"))
+    away_score_disp = _safe_score(away.get("score"))
 
     if state == "scheduled":
-        status_label = _format_kickoff(fixture.get("date"), venue) or "Scheduled"
+        status_label = _format_kickoff(event.get("date"), venue) or detail or "Scheduled"
         return {
             "ateam": away_name,
             "hteam": home_name,
@@ -129,39 +195,36 @@ def _build_match_dict(match) -> Optional[dict]:
             "state": state,
         }
     if state == "live":
-        minute = _safe_int(status.get("elapsed"))
-        long_label = status.get("long") or short
+        label = detail or "Live"
         return {
             "ateam": away_name,
             "hteam": home_name,
             "ascore": away_score_disp,
             "hscore": home_score_disp,
-            "status": f"{minute}' {long_label}",
+            "status": label,
             "scheduled": False,
             "state": state,
         }
     if state == "finished":
-        suffix = ""
-        if short == "AET":
-            suffix = " AET"
-        elif short == "PEN":
-            suffix = " Pens"
         return {
             "ateam": away_name,
             "hteam": home_name,
             "ascore": away_score_disp,
             "hscore": home_score_disp,
-            "status": f"Final{suffix}",
+            "status": detail or "Final",
             "scheduled": False,
             "state": state,
         }
     if state == "cancelled":
+        # ESPN's `detail` for cancelled/postponed already reads cleanly
+        # ("Canceled" / "Postponed"); fall back to the name token if not.
+        label = detail or status_type.get("name", "Cancelled").title()
         return {
             "ateam": away_name,
             "hteam": home_name,
             "ascore": "-",
             "hscore": "-",
-            "status": status.get("long") or f"Cancelled ({short})",
+            "status": label,
             "scheduled": True,
             "state": state,
         }
@@ -171,7 +234,7 @@ def _build_match_dict(match) -> Optional[dict]:
         "hteam": home_name,
         "ascore": away_score_disp,
         "hscore": home_score_disp,
-        "status": f"Unknown status: {short}",
+        "status": f"Unknown status: {status_type.get('name') or status_type.get('state') or '?'}",
         "scheduled": True,
         "state": state,
     }
@@ -182,6 +245,8 @@ def _format_kickoff(iso_date, venue: str) -> Optional[str]:
     if not isinstance(iso_date, str):
         return None
     try:
+        # ESPN dates look like ``2026-06-12T20:00Z`` — fromisoformat in
+        # Python 3.11+ handles the trailing ``Z``, but be safe.
         kt = datetime.datetime.fromisoformat(iso_date.replace("Z", "+00:00"))
     except ValueError:
         return None
@@ -206,9 +271,7 @@ def _format_match_rows(matches, show_date: bool = False):
 
     lmax = max(len(m["ateam"]) for m in matches)
     rmax = max(len(m["hteam"]) for m in matches)
-    slen = max(
-        len(str(m.get("ascore", ""))) for m in matches
-    )
+    slen = max(len(str(m.get("ascore", ""))) for m in matches)
     slen = max(slen, max(len(str(m.get("hscore", ""))) for m in matches), 1)
 
     date_width = 0
@@ -233,36 +296,56 @@ def _format_match_rows(matches, show_date: bool = False):
     return rows
 
 
+def _pluck_stat(stats, name):
+    """Return the numeric value of an ESPN stat entry by name, or 0."""
+    if not isinstance(stats, list):
+        return 0
+    for s in stats:
+        if isinstance(s, dict) and s.get("name") == name:
+            return _safe_int(s.get("value"))
+    return 0
+
+
 def _extract_standings(payload) -> list:
-    """Normalize an API-Football standings payload into a list of groups."""
+    """Normalize an ESPN standings payload into a list of groups.
+
+    ESPN's shape: ``{"children": [{"name": "Group A", "standings":
+    {"entries": [{"team": ..., "stats": [...]}, ...]}}, ...]}``. Each
+    ``entries[].stats`` is a list of ``{"name": str, "value": float,
+    "displayValue": str}`` — we pluck by name rather than by index.
+    """
     if not isinstance(payload, dict):
         return []
-    response = payload.get("response") or []
-    if not response:
-        return []
-    league = (response[0] or {}).get("league") or {}
-    raw_groups = league.get("standings") or []
+    children = payload.get("children") or []
     out = []
-    for grp in raw_groups:
-        if not grp:
+    for grp in children:
+        if not isinstance(grp, dict):
             continue
-        name = grp[0].get("group") or "Standings"
+        name = grp.get("name") or "Standings"
+        standings = grp.get("standings") or {}
+        entries = standings.get("entries") or []
         rows = []
-        for entry in grp:
-            stats = entry.get("all") or {}
-            goals = stats.get("goals") or {}
-            gf = _safe_int(goals.get("for"))
-            ga = _safe_int(goals.get("against"))
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            stats = entry.get("stats") or []
+            gf = _pluck_stat(stats, "pointsFor")
+            ga = _pluck_stat(stats, "pointsAgainst")
+            gd_explicit = _pluck_stat(stats, "pointDifferential")
             rows.append({
-                "team": entry.get("team", {}).get("name", "?"),
-                "mp": _safe_int(stats.get("played")),
-                "w": _safe_int(stats.get("win")),
-                "d": _safe_int(stats.get("draw")),
-                "l": _safe_int(stats.get("lose")),
+                "team": (entry.get("team") or {}).get("displayName", "?"),
+                "mp": _pluck_stat(stats, "gamesPlayed"),
+                "w": _pluck_stat(stats, "wins"),
+                "d": _pluck_stat(stats, "ties"),
+                "l": _pluck_stat(stats, "losses"),
                 "gf": gf,
                 "ga": ga,
-                "gd": gf - ga,
-                "pts": _safe_int(entry.get("points")),
+                # Trust ESPN's pointDifferential if present (it can
+                # include rule-of-fair-play deductions), but fall back
+                # to the computed value if it's zero AND the sides
+                # disagree — keeps the formatter regression-safe.
+                "gd": gd_explicit if gd_explicit or gf == ga else gf - ga,
+                "pts": _pluck_stat(stats, "points"),
             })
         out.append({"name": name, "rows": rows})
     return out
@@ -299,47 +382,14 @@ def _format_standings_table(rows, *, show_gf_ga: bool = False) -> str:
 
 
 class WorldCup(commands.Cog):
-    """Commands for FIFA World Cup 2026 fixtures and standings."""
+    """Commands for FIFA World Cup 2026 fixtures and standings.
+
+    Backed by ESPN's public scoreboard — no API key, no admin config
+    required. Works out of the box.
+    """
 
     def __init__(self, bot):
         self.bot = bot
-        # The API key now lives in ai_cache settings (`api_football_key`)
-        # so admins can set it at runtime via `!claiconfig` — same
-        # pattern as brave_api_key / glm_api_key. We instantiate our own
-        # AICache handle (cheap; just a sqlite wrapper) instead of
-        # requiring the Copilot cog to be loaded, mirroring persona.py.
-        self.ai_cache = AICache()
-
-    def cog_unload(self):
-        asyncio.ensure_future(self.ai_cache.close())
-
-    async def _get_api_key(self, ctx):
-        """Fetch the API-Football key from ai_cache settings.
-
-        Returns the key string or ``None``. When ``None``, the user has
-        already been notified via ``ctx.send`` with a config hint.
-        """
-        try:
-            key = await self.ai_cache.get_setting(
-                ctx.guild.id if ctx.guild else 0, None, "api_football_key"
-            )
-        except Exception as e:
-            self.bot.logger.error("WorldCup ai_cache lookup failed: %r", e)
-            await ctx.send("World Cup config lookup failed. Try again later.")
-            return None
-        if not key:
-            await ctx.send(
-                "⚙️ FIFA API key not configured. An admin can set it with "
-                "`!claiconfig api_football_key <key>`."
-            )
-            return None
-        return key
-
-    @staticmethod
-    def _headers_for(api_key: str):
-        # Direct api-sports.io endpoint uses x-apisports-key, NOT the
-        # RapidAPI gateway headers.
-        return {"x-apisports-key": api_key}
 
     async def cog_command_error(self, ctx, error):
         if isinstance(error, commands.errors.CheckFailure):
@@ -356,32 +406,25 @@ class WorldCup(commands.Cog):
     # Internals
     # ------------------------------------------------------------------
 
-    async def _api_get(self, ctx, api_key: str, path: str, params: dict):
+    async def _api_get(self, ctx, url: str, params: Optional[dict] = None):
         """Wrap session.get with timeout + uniform error handling.
 
         Returns the decoded JSON payload, or ``None`` if the request
         failed (the user has already been notified in that case).
         """
-        url = f"{API_BASE}{path}"
         try:
             async with self.bot.session.get(
-                url, headers=self._headers_for(api_key), params=params,
-                timeout=HTTP_TIMEOUT,
+                url, params=params or {}, timeout=HTTP_TIMEOUT,
             ) as resp:
                 if resp.status != 200:
                     if resp.status == 429:
-                        await ctx.send("API rate limit reached, try again later.")
-                    elif resp.status in (401, 403):
-                        self.bot.logger.error(
-                            "API-Football auth failure (%s)", resp.status
-                        )
-                        await ctx.send("API auth failure — check configuration.")
+                        await ctx.send("Rate limit hit, try again later.")
                     else:
                         await ctx.send("Connection error, try again later.")
                     return None
                 return await resp.json()
         except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-            self.bot.logger.info("WorldCup API error: %r", e)
+            self.bot.logger.info("WorldCup ESPN error: %r", e)
             await ctx.send("Connection error, try again later.")
             return None
 
@@ -405,26 +448,18 @@ class WorldCup(commands.Cog):
     @commands.command(aliases=["wc2026", "wc"])
     async def worldcup(self, ctx, *, date: HumanTime = None):
         """Show World Cup 2026 matches for today (or a given date)."""
-        api_key = await self._get_api_key(ctx)
-        if not api_key:
-            return
-
         target = self._sports_date(ctx, date)
-        params = {
-            "league": WORLD_CUP_LEAGUE_ID,
-            "season": WORLD_CUP_SEASON,
-            "date": target.strftime("%Y-%m-%d"),
-        }
-        data = await self._api_get(ctx, api_key, "/fixtures", params)
+        params = {"dates": _espn_date(target)}
+        data = await self._api_get(ctx, ESPN_SCOREBOARD, params)
         if data is None:
             return
 
-        response = data.get("response") or []
-        if not response:
+        events = data.get("events") or []
+        if not events:
             await ctx.send(f"No World Cup matches found for {target.date()}.")
             return
 
-        matches = [_build_match_dict(m) for m in response]
+        matches = [_build_match_dict(e) for e in events]
         matches = [m for m in matches if m is not None]
         if not matches:
             await ctx.send(f"No parseable World Cup matches for {target.date()}.")
@@ -446,35 +481,29 @@ class WorldCup(commands.Cog):
     @commands.command(aliases=["wcschedule", "wcfixtures"])
     async def worldcupschedule(self, ctx, days: int = 7):
         """Show upcoming World Cup matches for the next N days (1–30)."""
-        api_key = await self._get_api_key(ctx)
-        if not api_key:
-            return
-
         days = max(1, min(int(days), 30))
         start = datetime.datetime.now(pytz.UTC)
         end = start + datetime.timedelta(days=days)
-        params = {
-            "league": WORLD_CUP_LEAGUE_ID,
-            "season": WORLD_CUP_SEASON,
-            "from": start.strftime("%Y-%m-%d"),
-            "to": end.strftime("%Y-%m-%d"),
-            "status": "NS",
-        }
-        data = await self._api_get(ctx, api_key, "/fixtures", params)
+        params = {"dates": _espn_date_range(start, end)}
+        data = await self._api_get(ctx, ESPN_SCOREBOARD, params)
         if data is None:
             return
 
-        response = data.get("response") or []
-        if not response:
+        events = data.get("events") or []
+        if not events:
             await ctx.send(f"No matches scheduled for the next {days} days.")
             return
 
         matches = []
-        for raw in response:
+        for raw in events:
             m = _build_match_dict(raw)
             if m is None:
                 continue
-            iso = (raw.get("fixture") or {}).get("date")
+            # Skip already-finished matches in the schedule view; the
+            # user asked for upcoming.
+            if m.get("state") == "finished":
+                continue
+            iso = raw.get("date")
             try:
                 if isinstance(iso, str):
                     kt = datetime.datetime.fromisoformat(iso.replace("Z", "+00:00"))
@@ -506,16 +535,7 @@ class WorldCup(commands.Cog):
     @commands.command(aliases=["wcstandings", "wctable"])
     async def worldcupstandings(self, ctx):
         """Show World Cup group standings — one embed per group."""
-        api_key = await self._get_api_key(ctx)
-        if not api_key:
-            return
-
-        data = await self._api_get(
-            ctx,
-            api_key,
-            "/standings",
-            {"league": WORLD_CUP_LEAGUE_ID, "season": WORLD_CUP_SEASON},
-        )
+        data = await self._api_get(ctx, ESPN_STANDINGS)
         if data is None:
             return
 
@@ -527,8 +547,6 @@ class WorldCup(commands.Cog):
         for grp in groups:
             description = _format_standings_table(grp["rows"])
             if len(description) > EMBED_DESC_LIMIT:
-                # Mirror the trim pattern used by the other commands so
-                # we don't chop mid-line and strand the closing ``` fence.
                 description = description[:EMBED_DESC_LIMIT].rsplit("\n", 1)[0]
                 description += "\n_… truncated_"
             embed = discord.Embed(
@@ -543,10 +561,6 @@ class WorldCup(commands.Cog):
     @commands.command(aliases=["wcgroup"])
     async def worldcupgroup(self, ctx, group: str = None):
         """Show one World Cup group's standings (A–L)."""
-        api_key = await self._get_api_key(ctx)
-        if not api_key:
-            return
-
         norm = _normalize_group(group)
         if norm is None:
             await ctx.send(
@@ -554,23 +568,16 @@ class WorldCup(commands.Cog):
             )
             return
 
-        data = await self._api_get(
-            ctx,
-            api_key,
-            "/standings",
-            {"league": WORLD_CUP_LEAGUE_ID, "season": WORLD_CUP_SEASON},
-        )
+        data = await self._api_get(ctx, ESPN_STANDINGS)
         if data is None:
             return
 
         groups = _extract_standings(data)
         target = None
         for grp in groups:
-            # API exposes the group label as e.g. "Group A" or just "A".
-            # If _extract_standings emitted the "Standings" fallback (when
-            # upstream omits the group field), it can't be matched to a
-            # single A–L letter — skip it from the per-group lookup
-            # rather than silently matching nothing.
+            # ESPN labels groups as "Group A".  If the raw name is the
+            # "Standings" fallback (unexpected for fifa.world but cheap
+            # to defend against), skip rather than silently matching.
             raw_name = (grp.get("name") or "").strip()
             tokens = raw_name.split()
             if not tokens:
