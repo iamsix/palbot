@@ -104,6 +104,7 @@ class Internets(commands.Cog):
         text = t.handle(str(pg)).strip()
 
         text = text.replace('](/wiki', f'](https://{url.host}/wiki')
+        text = text.replace('](//', f'](https://')
         text = text.replace('\\(', '(').replace('\\)', ')')
         text = re.sub(r'\[\d*?\]', '', text)
         e = discord.Embed()
