@@ -290,9 +290,14 @@ def _format_match_rows(matches, show_date: bool = False):
             prefix = f"{date_str} - " if date_width else ""
         else:
             prefix = ""
-        rows.append(
-            f"`{prefix}{ateam} {ascore} - {hscore} {hteam} | {m['status']}`"
-        )
+        if m['scheduled']:
+            rows.append(
+                f"`{prefix}{ateam} {ascore} - {hscore} {hteam} |`{m['status']}"
+            )
+        else:
+            rows.append(
+                f"`{prefix}{ateam} {ascore} - {hscore} {hteam} | {m['status']}`"
+            )
     return rows
 
 
@@ -445,7 +450,7 @@ class WorldCup(commands.Cog):
     # ------------------------------------------------------------------
 
     @commands.cooldown(rate=3, per=60, type=commands.BucketType.user)
-    @commands.command(aliases=["wc2026", "wc"])
+    @commands.command(aliases=["wc2026"])
     async def worldcup(self, ctx, *, date: HumanTime = None):
         """Show World Cup 2026 matches for today (or a given date)."""
         target = self._sports_date(ctx, date)
