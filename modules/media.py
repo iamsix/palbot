@@ -134,7 +134,13 @@ class Media(commands.Cog):
             await ctx.send(f"Couldn't find a movie named `{movie_name}` on IMDb")
             return
         
-        headers = {'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:147.0) Gecko/20100101 Firefox/147.0"}
+        headers = {'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:155.0) Gecko/20100101 Firefox/155.0",
+                   "Referer": "https://www.imdb.com/",
+                    "Origin": "https://www.imdb.com",
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    "x-imdb-client-name": "imdb-web-next",
+                    }
 
         imdbid = re.search(r"tt\d+", urls[0]).group(0)
         url = f"https://imdb.com/title/{imdbid}/"
