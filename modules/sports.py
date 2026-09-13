@@ -40,7 +40,7 @@ class Sports(commands.Cog):
              return True
         if ctx.invoked_with == "help":
             return True
-        if ctx.channel.guild != 124572142485504002:
+        if ctx.channel.guild.id != 124572142485504002:
             return True
         if ctx.channel.id == 1243723119567310858:
             return True
