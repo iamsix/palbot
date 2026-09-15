@@ -1367,13 +1367,17 @@ RULES:
             "`!clai <question>` — Ask Claude (with channel context)\n"
             "`!sclai <question>` — Ask Claude with web search\n"
             "`!glm <question>` — Ask GLM local model (with context)\n"
-            "`!sglm <question>` — Ask GLM with web search"
+            "`!sglm <question>` — Ask GLM with web search\n"
+            "`!ai <question>` — Ask Gemini (with channel context)\n"
+            "`!sai <question>` — Ask Gemini with web search\n"
+            "`!newchat [instructions]` — Start a Gemini chat thread"
         ), inline=False)
         embed.add_field(name="Config (Admin)", value=(
             "`!claiconfig` — Show all settings\n"
             "`!claiconfig <key> <value>` — Change a setting\n"
             "`!claiconfig help` — List all setting keys\n"
-            "`!glmconfig` — Show/change GLM-specific settings"
+            "`!glmconfig` — Show/change GLM-specific settings\n"
+            "`!aiconfig` — Show/change Gemini settings"
         ), inline=False)
         embed.add_field(name="User Prompts (Admin)", value=(
             "`!claiuserprompt @user <prompt>` — Set per-user instructions\n"
@@ -1398,6 +1402,11 @@ RULES:
             "`!claireset all` — Rebuild all channels\n"
             "`!claisummary [#channel]` — Show current compaction summary\n"
             "`!claistatus [#channel]` — Usage stats and costs"
+        ), inline=False)
+        embed.add_field(name="Auth (Admin)", value=(
+            "`!copilot-auth` — Authenticate GitHub Copilot via device code\n"
+            "`!copilot-auth-status` — Check auth status and token info\n"
+            "`!copilot-deauth` — Clear Copilot credentials"
         ), inline=False)
         await ctx.reply(embed=embed)
 
