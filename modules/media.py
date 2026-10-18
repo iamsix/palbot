@@ -88,66 +88,78 @@ class Media(commands.Cog):
         return e
 
 
-    @commands.command(name='imdb')
-    async def imdb(self, ctx, *, movie_name: str):
-        """Search for a movie or TV show on IMDB to return some info"""
-
-        query = gql("""query GetMedia($id: ID!) {
-                    title(id: $id) {
-                        titleText {
-                        text
-                    }
-                    titleType {
-                        text
-                    }
-                    releaseYear {
-                        year
-                    }
-                    plot {
-                        plotText {
-                            plainText
-                        }
-                    }
-                    ratingsSummary {
-                        aggregateRating
-                        voteCount
-                    }
-                    titleGenres {
-                        genres {
-                            genre {
-                                text
-                            }
-                        }
-                    }
-                    primaryImage {
-                        url
-                        width
-                        height
-                        }
-                    }
-                }""")
-        urls = await self.bot.utils.google_for_urls(self.bot,
-                "site:imdb.com inurl:com/title " + movie_name,
-                url_regex="imdb.com/title/tt\\d+/")
-
-        if not urls:
-            await ctx.send(f"Couldn't find a movie named `{movie_name}` on IMDb")
-            return
-        
-        headers = {'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:155.0) Gecko/20100101 Firefox/155.0",
+    IMDB_HEADERS = {'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:155.0) Gecko/20100101 Firefox/155.0",
                    "Referer": "https://www.imdb.com/",
                     "Origin": "https://www.imdb.com",
                     "Content-Type": "application/json",
                     "Accept": "application/json",
                     "x-imdb-client-name": "imdb-web-next",
                     }
+    @commands.command(name='imdb')
+    async def imdb(self, ctx, *, movie_name: str):
+        """Search for a movie or TV show on IMDB to return some info"""  
+       
 
-        imdbid = re.search(r"tt\d+", urls[0]).group(0)
+        slug = movie_name.strip().lower().replace(" ", "_")
+        first_char = slug[0] if slug else "a"
+        url = f"https://v3.sg.media-imdb.com/suggestion/{first_char}/{slug}.json"
+
+        async with self.bot.session.get(url, headers=self.IMDB_HEADERS) as resp:
+            movies = await resp.json()
+            if 'd' not in movies:
+                await ctx.send(f"Couldn't find a movie named `{movie_name}` on IMDb")
+                return
+
+            data = []
+            for movie in movies['d']:
+                if 'id' in movie and movie['id'].startswith("tt"):
+                    data.append(movie)
+
+            pages = Paginator(ctx, data, self.imdb_callback)
+            await pages.start()
+
+
+    async def imdb_callback(self, data, pg_number):
+        query = gql("""query GetMedia($id: ID!) {
+                            title(id: $id) {
+                                titleText {
+                                text
+                            }
+                            titleType {
+                                text
+                            }
+                            releaseYear {
+                                year
+                            }
+                            plot {
+                                plotText {
+                                    plainText
+                                }
+                            }
+                            ratingsSummary {
+                                aggregateRating
+                                voteCount
+                            }
+                            titleGenres {
+                                genres {
+                                    genre {
+                                        text
+                                    }
+                                }
+                            }
+                            primaryImage {
+                                url
+                                width
+                                height
+                                }
+                            }
+                        }""")
+        imdbid = data[pg_number]['id']
         url = f"https://imdb.com/title/{imdbid}/"
         
         query.variable_values = {"id": imdbid}
         
-        transport = AIOHTTPTransport(url="https://api.graphql.imdb.com/", headers=headers)
+        transport = AIOHTTPTransport(url="https://api.graphql.imdb.com/", headers=self.IMDB_HEADERS)
         client = Client(transport=transport)
 
         # page = await self.bot.utils.bs_from_url(self.bot, url, headers=headers)
@@ -172,7 +184,7 @@ class Media(commands.Cog):
             if str(v).strip():
                 e.add_field(name=k, value=str(v))
 
-        await ctx.send(embed=e)
+        return None, e
 
     @commands.command()
     async def rttv(self, ctx, *, title: str):
