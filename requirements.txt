@@ -14,7 +14,7 @@ audioop-lts==0.2.2
 backoff==2.2.1
 beautifulsoup4==4.14.3
 bs4==0.0.2
-certifi==2026.1.4
+certifi==2026.10.19
 cffi==2.0.0
 charset-normalizer==3.4.4
 curl_cffi==0.15.0
