@@ -69,11 +69,15 @@ SAFETY = [
 ]
 
 class Gemini(commands.Cog):
+    SAI_COOLDOWN = commands.CooldownMapping.from_cooldown(
+        3, 900, commands.BucketType.user
+    )
 
     def __init__(self, bot):
         self.bot = bot
         self.chats = {}
         self.listeners = []
+        self.sai_cooldown_pending = {}
         # for testing for now...
         # self.listeners.remove(1337293879153791036)
         self.last_stats = {}
@@ -197,31 +201,63 @@ class Gemini(commands.Cog):
         """Ask "smart" gemini a question. It uses google and is better for current event questions."""
         if ctx.guild and not await self._is_enabled(ctx.guild.id, ctx.channel.id):
             return
-        async with ctx.channel.typing():
-            ask = self.resolve_mentions(ctx, ask)
-            try:
-                client = genai.Client(api_key=next(self.keys))
-                grounding_tool = Tool(
-                    google_search=GoogleSearch()
+        bucket = self.SAI_COOLDOWN.get_bucket(ctx.message)
+        user_id = ctx.author.id
+        pending = self.sai_cooldown_pending.get(user_id, 0)
+        if bucket.get_tokens() <= pending:
+            retry_after = bucket.get_retry_after()
+            if retry_after:
+                message = (
+                    "You can use this command 3 times per 15 minutes. "
+                    f"Try again in about {int(retry_after) + 1} seconds."
                 )
-                instr = "Give very curt brief answers under 1 paragraph. " 
-                response = await client.aio.models.generate_content(
-                    model="gemini-2.5-flash",
-                    contents=ask,
-                    config=GenerateContentConfig(
-                        tools=[grounding_tool],
-                        system_instruction=instr,
-                    ),
+            else:
+                message = (
+                    "All 3 request slots are currently in use. "
+                    "Try again shortly."
                 )
+            await ctx.send(message)
+            return
 
-                candidate = response.candidates[0]
-                if candidate.finish_reason != "STOP":
-                    await ctx.send(f"Warning: Model finished with reason: {candidate.finish_reason}")
-                await ctx.send(response.text[:1980])
-            except Exception as e:
-                error_msg = str(e)                    
-                await ctx.send(f"❌ API error: {error_msg[:100]}")
-                self.bot.logger.error(f"!sai error: {e}")
+        self.sai_cooldown_pending[user_id] = pending + 1
+        succeeded = False
+        try:
+            async with ctx.channel.typing():
+                ask = self.resolve_mentions(ctx, ask)
+                try:
+                    client = genai.Client(api_key=next(self.keys))
+                    grounding_tool = Tool(
+                        google_search=GoogleSearch()
+                    )
+                    instr = "Give very curt brief answers under 1 paragraph. "
+                    response = await client.aio.models.generate_content(
+                        model="gemini-2.5-flash",
+                        contents=ask,
+                        config=GenerateContentConfig(
+                            tools=[grounding_tool],
+                            system_instruction=instr,
+                        ),
+                    )
+
+                    candidate = response.candidates[0]
+                    if candidate.finish_reason != "STOP":
+                        await ctx.send(
+                            f"Warning: Model finished with reason: {candidate.finish_reason}"
+                        )
+                    await ctx.send(response.text[:1980])
+                    succeeded = True
+                except Exception as e:
+                    error_msg = str(e)
+                    await ctx.send(f"❌ API error: {error_msg[:100]}")
+                    self.bot.logger.error(f"!sai error: {e}")
+        finally:
+            pending = self.sai_cooldown_pending[user_id] - 1
+            if pending:
+                self.sai_cooldown_pending[user_id] = pending
+            else:
+                del self.sai_cooldown_pending[user_id]
+            if succeeded:
+                bucket.update_rate_limit()
 
 
     @commands.command()
