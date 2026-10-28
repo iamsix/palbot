@@ -229,7 +229,11 @@ class Gemini(commands.Cog):
                     grounding_tool = Tool(
                         google_search=GoogleSearch()
                     )
-                    instr = "Give very curt brief answers under 1 paragraph. "
+                    instr = (
+                        "You are a curt, direct assistant. "
+                        "Answer the user's question in 1 or 2 short sentences maximum. "
+                        "Never write a full paragraph or list details."
+                    )
                     response = await client.aio.models.generate_content(
                         model="gemini-2.5-flash",
                         contents=ask,
