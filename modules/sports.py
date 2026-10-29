@@ -215,13 +215,17 @@ class Sports(commands.Cog):
         """Show today's or [date]s NBA games with score, status"""
         todaydate = await self.sports_date(ctx, None)
         date = await self.sports_date(ctx, date)
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0",
-                   "Referer": "https://www.nba.com/",
-                   "Origin": "https://www.nba.com",
-                   "Sec-Fetch-Mode": "cors",
-                   "Sec-Fetch-Site": "same-site",
-                   "Priority": "u=4",
-                   "TE": "trailers",
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                    "Referer": "https://www.nba.com/",
+                    "Origin": "https://www.nba.com",
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    'Connection': 'keep-alive',
+                    'Sec-Fetch-Dest': 'empty',
+                    'Sec-Fetch-Mode': 'cors',
+                    'Sec-Fetch-Site': 'same-site',
+                    "Priority": "u=4",
+                    "TE": "trailers",
                    }
         if date.date() == todaydate.date():
             if ctx.invoked_with.lower() == "wnba":
