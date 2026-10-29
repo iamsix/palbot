@@ -23,6 +23,13 @@ from itertools import cycle
 
 # change these to a bot config probably. Will need to change the chat_channel check for that.
 BOT_ADMIN_ROLE = "Bot Admin"
+DEFAULT_SAI_COOLDOWN_LIMIT = 3
+DEFAULT_SAI_COOLDOWN_TIME = 900
+DEFAULT_SYSTEM_INSTRUCTION = (
+    "You are a curt, direct assistant. "
+    "Answer the user's question in 1 or 2 short sentences maximum. "
+    "Never write a full paragraph or list details. Do not repeat yourself."
+)
 
 def is_bot_admin():
     """Check: bot owner OR has the Bot Admin role."""
@@ -69,15 +76,12 @@ SAFETY = [
 ]
 
 class Gemini(commands.Cog):
-    SAI_COOLDOWN = commands.CooldownMapping.from_cooldown(
-        3, 900, commands.BucketType.user
-    )
-
     def __init__(self, bot):
         self.bot = bot
         self.chats = {}
         self.listeners = []
         self.sai_cooldown_pending = {}
+        self.sai_cooldowns = {}
         # for testing for now...
         # self.listeners.remove(1337293879153791036)
         self.last_stats = {}
@@ -99,25 +103,68 @@ class Gemini(commands.Cog):
         if self._settings_db is not None:
             return
         self._settings_db = await aiosqlite.connect("data/gemini_settings.sqlite")
+        instruction_default = DEFAULT_SYSTEM_INSTRUCTION.replace("'", "''")
         await self._settings_db.execute(
             "CREATE TABLE IF NOT EXISTS settings ("
             "  guild_id INTEGER NOT NULL,"
             "  channel_id INTEGER NOT NULL,"
             "  enabled TEXT NOT NULL DEFAULT 'on',"
+            f"  cooldown_limit INTEGER NOT NULL DEFAULT {DEFAULT_SAI_COOLDOWN_LIMIT},"
+            f"  cooldown_time INTEGER NOT NULL DEFAULT {DEFAULT_SAI_COOLDOWN_TIME},"
+            f"  system_instruction TEXT NOT NULL DEFAULT '{instruction_default}',"
             "  PRIMARY KEY (guild_id, channel_id)"
             ")"
         )
+        async with self._settings_db.execute("PRAGMA table_info(settings)") as cursor:
+            columns = {row[1] for row in await cursor.fetchall()}
+        migrations = (
+            (
+                "cooldown_limit",
+                f"INTEGER NOT NULL DEFAULT {DEFAULT_SAI_COOLDOWN_LIMIT}",
+            ),
+            (
+                "cooldown_time",
+                f"INTEGER NOT NULL DEFAULT {DEFAULT_SAI_COOLDOWN_TIME}",
+            ),
+            (
+                "system_instruction",
+                f"TEXT NOT NULL DEFAULT '{instruction_default}'",
+            ),
+        )
+        for column, definition in migrations:
+            if column not in columns:
+                await self._settings_db.execute(
+                    f"ALTER TABLE settings ADD COLUMN {column} {definition}"
+                )
         await self._settings_db.commit()
 
-    async def _is_enabled(self, guild_id: int, channel_id: int) -> bool:
-        """Check if !ai/!sai are enabled in a channel."""
+    async def _get_channel_settings(self, guild_id: int, channel_id: int):
+        """Get channel settings, applying defaults when no row exists."""
         await self._ensure_settings_db()
         async with self._settings_db.execute(
-            "SELECT enabled FROM settings WHERE guild_id = ? AND channel_id = ?",
+            "SELECT enabled, cooldown_limit, cooldown_time, system_instruction "
+            "FROM settings WHERE guild_id = ? AND channel_id = ?",
             (guild_id, channel_id),
         ) as cursor:
             row = await cursor.fetchone()
-        return row[0] != "off" if row else True
+        if row is None:
+            return {
+                "enabled": True,
+                "cooldown_limit": DEFAULT_SAI_COOLDOWN_LIMIT,
+                "cooldown_time": DEFAULT_SAI_COOLDOWN_TIME,
+                "system_instruction": DEFAULT_SYSTEM_INSTRUCTION,
+            }
+        return {
+            "enabled": row[0] != "off",
+            "cooldown_limit": row[1],
+            "cooldown_time": row[2],
+            "system_instruction": row[3] or DEFAULT_SYSTEM_INSTRUCTION,
+        }
+
+    async def _is_enabled(self, guild_id: int, channel_id: int) -> bool:
+        """Check if !ai/!sai are enabled in a channel."""
+        settings = await self._get_channel_settings(guild_id, channel_id)
+        return settings["enabled"]
 
     async def _set_enabled(self, guild_id: int, channel_id: int, value: str):
         """Set the enabled state for a channel."""
@@ -128,6 +175,40 @@ class Gemini(commands.Cog):
             (guild_id, channel_id, value),
         )
         await self._settings_db.commit()
+
+    async def _set_config_value(
+        self, guild_id: int, channel_id: int, key: str, value: int | str
+    ):
+        """Persist a validated channel setting."""
+        columns = {
+            "cooldown_limit",
+            "cooldown_time",
+            "system_instruction",
+        }
+        if key not in columns:
+            raise ValueError(f"Unsupported AI setting: {key}")
+        await self._ensure_settings_db()
+        await self._settings_db.execute(
+            f"INSERT INTO settings (guild_id, channel_id, {key}) VALUES (?, ?, ?)"
+            f" ON CONFLICT(guild_id, channel_id) DO UPDATE SET {key} = excluded.{key}",
+            (guild_id, channel_id, value),
+        )
+        await self._settings_db.commit()
+
+    @staticmethod
+    def _format_cooldown_time(seconds: int) -> str:
+        if seconds % 3600 == 0:
+            hours = seconds // 3600
+            return f"{hours} hour{'s' if hours != 1 else ''}"
+        if seconds % 60 == 0:
+            minutes = seconds // 60
+            return f"{minutes} minute{'s' if minutes != 1 else ''}"
+        return f"{seconds} second{'s' if seconds != 1 else ''}"
+
+    @staticmethod
+    async def _send_long_text(ctx, text: str):
+        for start in range(0, len(text), 1900):
+            await ctx.send(text[start:start + 1900])
 
     def save_chat(self, channel: int):
         # I can't pickle the entire chat[channel] object due to an active connection
@@ -199,27 +280,49 @@ class Gemini(commands.Cog):
     @commands.command()
     async def sai(self, ctx, *, ask: str):
         """Ask "smart" gemini a question. It uses google and is better for current event questions."""
-        if ctx.guild and not await self._is_enabled(ctx.guild.id, ctx.channel.id):
+        settings = (
+            await self._get_channel_settings(ctx.guild.id, ctx.channel.id)
+            if ctx.guild
+            else {
+                "enabled": True,
+                "cooldown_limit": DEFAULT_SAI_COOLDOWN_LIMIT,
+                "cooldown_time": DEFAULT_SAI_COOLDOWN_TIME,
+                "system_instruction": DEFAULT_SYSTEM_INSTRUCTION,
+            }
+        )
+        if not settings["enabled"]:
             return
-        bucket = self.SAI_COOLDOWN.get_bucket(ctx.message)
+        channel_id = ctx.channel.id
+        limit = settings["cooldown_limit"]
+        cooldown_time = settings["cooldown_time"]
+        cooldown = self.sai_cooldowns.get(channel_id)
+        if cooldown is None or cooldown[:2] != (limit, cooldown_time):
+            mapping = commands.CooldownMapping.from_cooldown(
+                limit, cooldown_time, commands.BucketType.user
+            )
+            cooldown = (limit, cooldown_time, mapping)
+            self.sai_cooldowns[channel_id] = cooldown
+        bucket = cooldown[2].get_bucket(ctx.message)
         user_id = ctx.author.id
-        pending = self.sai_cooldown_pending.get(user_id, 0)
+        pending_key = (channel_id, user_id)
+        pending = self.sai_cooldown_pending.get(pending_key, 0)
         if bucket.get_tokens() <= pending:
             retry_after = bucket.get_retry_after()
             if retry_after:
                 message = (
-                    "You can use this command 3 times per 15 minutes. "
+                    f"You can use this command {limit} times per "
+                    f"{self._format_cooldown_time(cooldown_time)}. "
                     f"Try again in about {int(retry_after) + 1} seconds."
                 )
             else:
                 message = (
-                    "All 3 request slots are currently in use. "
+                    f"All {limit} request slots are currently in use. "
                     "Try again shortly."
                 )
             await ctx.send(message)
             return
 
-        self.sai_cooldown_pending[user_id] = pending + 1
+        self.sai_cooldown_pending[pending_key] = pending + 1
         succeeded = False
         try:
             async with ctx.channel.typing():
@@ -229,17 +332,12 @@ class Gemini(commands.Cog):
                     grounding_tool = Tool(
                         google_search=GoogleSearch()
                     )
-                    instr = (
-                        "You are a curt, direct assistant. "
-                        "Answer the user's question in 1 or 2 short sentences maximum. "
-                        "Never write a full paragraph or list details."
-                    )
                     response = await client.aio.models.generate_content(
                         model="gemini-2.5-flash",
                         contents=ask,
                         config=GenerateContentConfig(
                             tools=[grounding_tool],
-                            system_instruction=instr,
+                            system_instruction=settings["system_instruction"],
                         ),
                     )
 
@@ -255,11 +353,11 @@ class Gemini(commands.Cog):
                     await ctx.send(f"❌ API error: {error_msg[:100]}")
                     self.bot.logger.error(f"!sai error: {e}")
         finally:
-            pending = self.sai_cooldown_pending[user_id] - 1
+            pending = self.sai_cooldown_pending[pending_key] - 1
             if pending:
-                self.sai_cooldown_pending[user_id] = pending
+                self.sai_cooldown_pending[pending_key] = pending
             else:
-                del self.sai_cooldown_pending[user_id]
+                del self.sai_cooldown_pending[pending_key]
             if succeeded:
                 bucket.update_rate_limit()
 
@@ -383,11 +481,15 @@ class Gemini(commands.Cog):
     @commands.command()
     @is_bot_admin()
     async def aiconfig(self, ctx, key: str = None, *, value: str = None):
-        """Enable or disable !ai and !sai per-channel (Bot Admin only).
+        """Configure !ai and !sai per-channel (Bot Admin only).
 
         !aiconfig              — show current setting for this channel
         !aiconfig enabled on   — enable !ai and !sai in this channel
         !aiconfig enabled off  — disable !ai and !sai in this channel
+        !aiconfig cooldown_limit 5 — set the allowed requests per cooldown
+        !aiconfig cooldown_time 600 — set the cooldown duration in seconds
+        !aiconfig system_instruction <text> — set the system instruction
+        Use `!aiconfig system_instruction default` to restore the default.
         """
         if not ctx.guild:
             await ctx.send("This command can only be used in a server.")
@@ -397,33 +499,85 @@ class Gemini(commands.Cog):
         channel_id = ctx.channel.id
 
         if key is None:
-            enabled = await self._is_enabled(guild_id, channel_id)
-            status = "on" if enabled else "off"
+            settings = await self._get_channel_settings(guild_id, channel_id)
+            status = "on" if settings["enabled"] else "off"
+            instruction = settings["system_instruction"].replace("\n", " ")
+            if len(instruction) > 120:
+                instruction = instruction[:117] + "..."
             await ctx.send(
                 f"⚙️ **AI Settings** — <#{channel_id}>\n"
                 f"  `enabled`: **{status}**\n\n"
-                f"Use `!aiconfig enabled on/off` to change."
+                f"  `cooldown_limit`: **{settings['cooldown_limit']}**\n"
+                f"  `cooldown_time`: **{settings['cooldown_time']} seconds**\n"
+                f"  `system_instruction`: {instruction}\n\n"
+                f"Use `!aiconfig <key> <value>` to change a setting."
             )
             return
 
-        if key != "enabled":
-            await ctx.send(f"❌ Unknown setting `{key}`. Only `enabled` is available.")
+        if key not in {
+            "enabled",
+            "cooldown_limit",
+            "cooldown_time",
+            "system_instruction",
+        }:
+            await ctx.send(
+                f"❌ Unknown setting `{key}`. Available settings: `enabled`, "
+                "`cooldown_limit`, `cooldown_time`, `system_instruction`."
+            )
             return
 
         if value is None:
-            enabled = await self._is_enabled(guild_id, channel_id)
-            status = "on" if enabled else "off"
-            await ctx.send(f"`enabled` is currently **{status}** for <#{channel_id}>.\n"
-                           f"Use `!aiconfig enabled on` or `!aiconfig enabled off` to change.")
+            settings = await self._get_channel_settings(guild_id, channel_id)
+            if key == "enabled":
+                status = "on" if settings["enabled"] else "off"
+                await ctx.send(
+                    f"`enabled` is currently **{status}** for <#{channel_id}>.\n"
+                    "Use `!aiconfig enabled on` or `!aiconfig enabled off` to change."
+                )
+            elif key == "system_instruction":
+                await self._send_long_text(
+                    ctx,
+                    f"`system_instruction` for <#{channel_id}>:\n"
+                    f"{settings['system_instruction']}"
+                )
+            else:
+                await ctx.send(
+                    f"`{key}` is currently **{settings[key]}** for <#{channel_id}>."
+                )
             return
 
-        value = value.strip().lower()
-        if value not in ("on", "off"):
-            await ctx.send("❌ Value must be `on` or `off`.")
+        if key == "enabled":
+            value = value.strip().lower()
+            if value not in ("on", "off"):
+                await ctx.send("❌ Value must be `on` or `off`.")
+                return
+            await self._set_enabled(guild_id, channel_id, value)
+            await ctx.send(f"✅ `enabled` set to **{value}** for <#{channel_id}>")
             return
 
-        await self._set_enabled(guild_id, channel_id, value)
-        await ctx.send(f"✅ `enabled` set to **{value}** for <#{channel_id}>")
+        if key in {"cooldown_limit", "cooldown_time"}:
+            try:
+                numeric_value = int(value.strip())
+            except ValueError:
+                await ctx.send(f"❌ `{key}` must be a positive whole number.")
+                return
+            if numeric_value < 1:
+                await ctx.send(f"❌ `{key}` must be at least 1.")
+                return
+            value = numeric_value
+        else:
+            value = value.strip()
+            if value.lower() == "default":
+                value = DEFAULT_SYSTEM_INSTRUCTION
+            elif not value:
+                await ctx.send(
+                    "❌ `system_instruction` cannot be empty. "
+                    "Use `default` to restore the default instruction."
+                )
+                return
+
+        await self._set_config_value(guild_id, channel_id, key, value)
+        await ctx.send(f"✅ `{key}` updated for <#{channel_id}>.")
 
     # unused for now
     def parse_stats(self, response):
