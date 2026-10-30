@@ -215,7 +215,7 @@ class Sports(commands.Cog):
         """Show today's or [date]s NBA games with score, status"""
         todaydate = await self.sports_date(ctx, None)
         date = await self.sports_date(ctx, date)
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:159.0) Gecko/20100101 Firefox/159.0",
                     "Referer": "https://www.nba.com/",
                     "Origin": "https://www.nba.com",
                     "Content-Type": "application/json",
