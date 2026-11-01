@@ -18,7 +18,7 @@ certifi==2026.10.19
 cffi==2.0.0
 charset-normalizer==3.4.4
 curl_cffi==0.15.0
-dateparser==1.2.2
+dateparser==1.4.3
 davey==0.1.5
 discord.py==2.7.1
 discord==2.3.2
@@ -45,7 +45,7 @@ pycparser==3.0
 pydantic==2.12.5
 pydantic_core==2.41.5
 python-dateutil==2.9.0.post0
-pytz==2025.2
+pytz==2026.6
 regex==2026.1.15
 requests==2.33.0
 rsa==4.9.1
