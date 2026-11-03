@@ -168,7 +168,7 @@ class Copilot(commands.Cog):
     async def _collect_recent_images(self, ctx, lookback: int) -> list:
         """Scan the last `lookback` messages for image attachments and embeds.
 
-        Returns list of {"url": data_uri, "sender": name, "filename": name}
+        Returns list of {"url": data_uri, "sender": name, "filename": name, "tokens": estimate}
         dicts, oldest first.  Skips images that fail to download.
         """
         if lookback <= 0:
@@ -187,12 +187,14 @@ class Copilot(commands.Cog):
                         img_bytes = await att.read()
                         mime = ContextGatherer._sniff_mime(img_bytes) or ct.split(";")[0].strip()
                         img_bytes, mime = self._process_image_bytes(img_bytes, mime)
-                        self._img_tokens += self.context_gatherer._estimate_image_tokens(img_bytes)
+                        image_tokens = self.context_gatherer._estimate_image_tokens(img_bytes)
+                        self._img_tokens += image_tokens
                         b64 = base64.b64encode(img_bytes).decode("ascii")
                         images.append({
                             "url": f"data:{mime};base64,{b64}",
                             "sender": msg.author.display_name,
                             "filename": att.filename,
+                            "tokens": image_tokens,
                         })
                     except Exception:
                         continue
@@ -212,12 +214,14 @@ class Copilot(commands.Cog):
                         img_bytes, mime = await self._download_url(img_url)
                         if img_bytes and mime:
                             img_bytes, mime = self._process_image_bytes(img_bytes, mime)
-                            self._img_tokens += self.context_gatherer._estimate_image_tokens(img_bytes)
+                            image_tokens = self.context_gatherer._estimate_image_tokens(img_bytes)
+                            self._img_tokens += image_tokens
                             b64 = base64.b64encode(img_bytes).decode("ascii")
                             images.append({
                                 "url": f"data:{mime};base64,{b64}",
                                 "sender": msg.author.display_name,
                                 "filename": (img_obj.url or img_url).split("/")[-1].split("?")[0] or "embed",
+                                "tokens": image_tokens,
                             })
                             # Track both URLs so we don't re-download from text
                             if img_obj.url:
@@ -245,12 +249,14 @@ class Copilot(commands.Cog):
                         if img_bytes and mime:
                             self._img_diag.append(f"url:ok({url_label},{len(img_bytes)}B)")
                             img_bytes, mime = self._process_image_bytes(img_bytes, mime)
-                            self._img_tokens += self.context_gatherer._estimate_image_tokens(img_bytes)
+                            image_tokens = self.context_gatherer._estimate_image_tokens(img_bytes)
+                            self._img_tokens += image_tokens
                             b64 = base64.b64encode(img_bytes).decode("ascii")
                             images.append({
                                 "url": f"data:{mime};base64,{b64}",
                                 "sender": msg.author.display_name,
                                 "filename": raw_url.split("/")[-1].split("?")[0] or "url",
+                                "tokens": image_tokens,
                             })
                         else:
                             self._img_diag.append(f"url:skip({url_label})")
@@ -258,7 +264,10 @@ class Copilot(commands.Cog):
                         self._img_diag.append(f"url:err({url_label},{type(e).__name__})")
                         continue
 
-        async for msg in ctx.channel.history(limit=lookback, before=ctx.message):
+        # Select the latest N with Discord's default newest-first ordering,
+        # then process chronologically without changing attachment order.
+        recent_messages = [msg async for msg in ctx.channel.history(limit=lookback, before=ctx.message)]
+        for msg in reversed(recent_messages):
             await _add_from_message(msg)
 
         # Also check the trigger message itself
@@ -283,6 +292,32 @@ class Copilot(commands.Cog):
             })
         parts.append({"type": "text", "text": ask})
         return parts
+
+    async def _build_glm_user_content(self, ctx, ask: str, system_prompt: str, settings: dict,
+                                      debug_parts: list, show_debug: bool) -> tuple[str | list, str, int]:
+        """Reuse chat images while keeping their heuristic cost within the context cap."""
+        lookback = settings.get("image_lookback", 10) if settings.get("context", "on") != "off" else 0
+        images = await self._collect_recent_images(ctx, lookback)
+        if not images:
+            return ask, system_prompt, 0
+        context_limit = (getattr(self.glm_provider, "max_context_tokens", None)
+                         or settings.get("max_context_tokens", 20000))
+        text_tokens = self.glm_provider.estimate_tokens(ask)
+        system_tokens = self.glm_provider.estimate_tokens(system_prompt + _IMAGE_HINT)
+        available = max(0, context_limit - text_tokens - system_tokens)
+        total = sum(image["tokens"] for image in images)
+        dropped = 0
+        # Trigger-message images are collected last, so prioritize them.
+        while images and total > available:
+            total -= images.pop(0)["tokens"]
+            dropped += 1
+        if images:
+            system_prompt += _IMAGE_HINT
+            if show_debug:
+                debug_parts.append(f"imgs={len(images)}(~{total}tok)")
+        if dropped and show_debug:
+            debug_parts.append(f"imgs_dropped={dropped}(context_limit)")
+        return self._build_user_content(ask, images), system_prompt, total
 
     @commands.command()
     async def clai(self, ctx, *, ask: str):
@@ -705,7 +740,7 @@ RULES:
 
     @commands.command()
     async def glm(self, ctx, *, ask: str):
-        """Ask using GLM via OpenAI-compatible API with context"""
+        """Ask GLM with chat context and images (controlled by context/image_lookback)"""
         # Bot admins and ACL-listed users can always use AI commands regardless of other settings
         if not await _check_bot_admin(ctx):
             if not await self.ai_cache.acl_is_allowed(ctx.guild.id, ctx.author.id):
@@ -757,11 +792,13 @@ RULES:
 
                 # Build payload
                 max_output = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_max_output_tokens") or 2000
+                user_content, system_prompt, image_tokens = await self._build_glm_user_content(
+                    ctx, ask, system_prompt, settings, debug_parts, show_debug)
                 payload = {
                     "model": model,
                     "messages": [
                         {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": ask}
+                        {"role": "user", "content": user_content}
                     ],
                     "max_tokens": max_output,
                 }
@@ -775,7 +812,7 @@ RULES:
 
                 # Log usage (even if response is empty — tokens were consumed)
                 usage = data.get("usage", {})
-                in_tok = usage.get("prompt_tokens", self.glm_provider.estimate_tokens(ask))
+                in_tok = usage.get("prompt_tokens", self.glm_provider.estimate_tokens(ask) + image_tokens)
                 out_tok = usage.get("completion_tokens", self.glm_provider.estimate_tokens(response_text))
                 elapsed = time.monotonic() - t0
                 cost = self.glm_provider.calculate_cost(model, in_tok, out_tok, 0)
@@ -823,7 +860,7 @@ RULES:
 
     @commands.command()
     async def sglm(self, ctx, *, ask: str):
-        """Ask GLM with web search + channel context"""
+        """Ask GLM with web search, chat context and images (context/image_lookback)"""
         # Bot admins and ACL-listed users can always use AI commands regardless of other settings
         if not await _check_bot_admin(ctx):
             if not await self.ai_cache.acl_is_allowed(ctx.guild.id, ctx.author.id):
@@ -888,11 +925,13 @@ RULES:
                 if web_context:
                     system_prompt += "\n\nYou have web search results as context. Prioritize them for factual/current info. Cite sources briefly when relevant."
 
+                user_content, system_prompt, image_tokens = await self._build_glm_user_content(
+                    ctx, ask, system_prompt, settings, debug_parts, show_debug)
                 payload = {
                     "model": model,
                     "messages": [
                         {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": ask}
+                        {"role": "user", "content": user_content}
                     ],
                     "max_tokens": max_output,
                 }
@@ -904,7 +943,7 @@ RULES:
                 reasoning_text = message.get("reasoning_content") or ""
 
                 usage = data.get("usage", {})
-                in_tok = usage.get("prompt_tokens", self.glm_provider.estimate_tokens(ask))
+                in_tok = usage.get("prompt_tokens", self.glm_provider.estimate_tokens(ask) + image_tokens)
                 out_tok = usage.get("completion_tokens", self.glm_provider.estimate_tokens(response_text))
                 elapsed = time.monotonic() - t0
                 cost = self.glm_provider.calculate_cost(model, in_tok, out_tok, 0)

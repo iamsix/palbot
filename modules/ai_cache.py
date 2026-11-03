@@ -118,7 +118,7 @@ SETTINGS_HELP = {
     "recompact_raw_tokens":"Overflow token threshold before re-compaction triggers",
     "search_max_tokens":  "Max tokens for web search results (!sclai)",
     "max_output_tokens":  "Max tokens the bot can generate per response",
-    "image_lookback":     "Number of recent messages to scan for images (0 to disable)",
+    "image_lookback":     "For clai/sclai/glm/sglm: scan this many prior messages plus the command message for images; 0 or context off disables all images",
     "debug":              "Show token debug info to bot admins (on/off)",
     "answer_model":       "Model used for answering questions",
     "compact_model":      "Model used for compaction/summarization",
