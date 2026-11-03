@@ -76,8 +76,30 @@ class GLMImageTests(unittest.IsolatedAsyncioTestCase):
         return self.settings[key]
 
     async def iter_history(self, *, limit, before):
+        # Match Discord's default newest-first iteration over the latest N messages.
         for message in self.history_messages[:limit]:
             yield message
+
+    def chronological_image_fixture(self):
+        def distinct_attachment(label):
+            att = attachment(f"{label}.png")
+            data = IMAGE_BYTES + label.encode("ascii")
+            att.read.return_value = data
+            uri = "data:image/png;base64," + base64.b64encode(data).decode("ascii")
+            return att, uri
+
+        labels = ("excluded", "oldest-a", "oldest-b", "middle", "newest", "trigger-a", "trigger-b")
+        fixtures = {label: distinct_attachment(label) for label in labels}
+        self.history_messages = [
+            SimpleNamespace(
+                author=self.author, content="", embeds=[],
+                attachments=[fixtures[label][0] for label in message_labels],
+            )
+            for message_labels in (("newest",), ("middle",), ("oldest-a", "oldest-b"), ("excluded",))
+        ]
+        self.message.attachments = [fixtures[label][0] for label in ("trigger-a", "trigger-b")]
+        self.settings["image_lookback"] = 3
+        return fixtures
 
     async def run_command(self, name):
         await getattr(Copilot, name).callback(self.cog, self.ctx, ask="describe <@4>")
@@ -275,6 +297,56 @@ class GLMImageTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.cog._img_tokens, 100)
         self.assertIn(_IMAGE_HINT, payload["messages"][0]["content"])
         self.cog.context_gatherer._estimate_image_tokens.assert_called_once_with(IMAGE_BYTES)
+
+    async def test_collection_selects_latest_n_then_orders_messages_chronologically(self):
+        fixtures = self.chronological_image_fixture()
+        images = await self.cog._collect_recent_images(self.ctx, 3)
+        labels = ("oldest-a", "oldest-b", "middle", "newest", "trigger-a", "trigger-b")
+        self.assertEqual([image["url"] for image in images], [fixtures[label][1] for label in labels])
+        self.assertEqual([image["filename"] for image in images], [f"{label}.png" for label in labels])
+        self.history.assert_called_once_with(limit=3, before=self.message)
+        fixtures["excluded"][0].read.assert_not_awaited()
+        for label in labels:
+            fixtures[label][0].read.assert_awaited_once()
+
+    async def test_glm_commands_evict_oldest_history_first_and_keep_trigger_images(self):
+        for name in ("glm", "sglm"):
+            for available, labels in (
+                (400, ("middle", "newest", "trigger-a", "trigger-b")),
+                (300, ("newest", "trigger-a", "trigger-b")),
+            ):
+                with self.subTest(command=name, image_budget=available):
+                    self.reset_calls()
+                    fixtures = self.chronological_image_fixture()
+                    self.settings["max_context_tokens"] = 5000
+                    self.cog.glm_provider.estimate_tokens = Mock(return_value=(5000 - available) // 2)
+                    payload = await self.run_command(name)
+                    content = payload["messages"][1]["content"]
+                    self.assertEqual(
+                        [part["image_url"]["url"] for part in content[:-1]],
+                        [fixtures[label][1] for label in labels],
+                    )
+                    self.assertEqual(content[-1]["type"], "text")
+                    self.history.assert_called_once_with(limit=3, before=self.message)
+                    fixtures["excluded"][0].read.assert_not_awaited()
+                    output = self.ctx.send.call_args.args[0]
+                    self.assertIn(f"imgs={len(labels)}(~{available}tok)", output)
+                    self.assertIn(f"imgs_dropped={6 - len(labels)}(context_limit)", output)
+
+    async def test_clai_sends_selected_history_images_in_chronological_order(self):
+        fixtures = self.chronological_image_fixture()
+        self.cog.provider = self.cog.glm_provider
+        self.cog.get_provider_auth = AsyncMock(return_value=("offline", "https://example.invalid"))
+        await Copilot.clai.callback(self.cog, self.ctx, ask="describe <@4>")
+        content = self.cog.provider.chat.call_args.args[0]["messages"][1]["content"]
+        labels = ("oldest-a", "oldest-b", "middle", "newest", "trigger-a", "trigger-b")
+        self.assertEqual(
+            [part["image_url"]["url"] for part in content[:-1]],
+            [fixtures[label][1] for label in labels],
+        )
+        self.assertEqual(content[-1]["type"], "text")
+        self.history.assert_called_once_with(limit=3, before=self.message)
+        fixtures["excluded"][0].read.assert_not_awaited()
 
 
 if __name__ == "__main__":

@@ -264,7 +264,10 @@ class Copilot(commands.Cog):
                         self._img_diag.append(f"url:err({url_label},{type(e).__name__})")
                         continue
 
-        async for msg in ctx.channel.history(limit=lookback, before=ctx.message):
+        # Select the latest N with Discord's default newest-first ordering,
+        # then process chronologically without changing attachment order.
+        recent_messages = [msg async for msg in ctx.channel.history(limit=lookback, before=ctx.message)]
+        for msg in reversed(recent_messages):
             await _add_from_message(msg)
 
         # Also check the trigger message itself
