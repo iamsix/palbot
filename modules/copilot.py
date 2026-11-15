@@ -786,8 +786,13 @@ RULES:
                 # system prompt, so the cached prefix is user-independent)
                 combined_context = self.context_gatherer.wrap_context(channel_context, user_context, ctx.author.display_name)
 
+                # Per-user instructions ride the user content ahead of the question
+                # wrapper (keeping them out of the highest-salience slot) while
+                # leaving the cached system prefix identical for every user.
+                instructions = context_data.get("user_instructions", "")
+
                 if combined_context:
-                    ask = f"""{combined_context}
+                    ask = f"""{combined_context + instructions if instructions else combined_context}
 
 <user_question>
 {ask}
@@ -795,11 +800,6 @@ RULES:
 
                 # Build payload
                 max_output = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_max_output_tokens") or 2000
-                # Per-user instructions ride the user content so the cached system
-                # prefix stays identical for every user.
-                instructions = context_data.get("user_instructions", "")
-                if instructions:
-                    ask += instructions
 
                 user_content, system_prompt, image_tokens = await self._build_glm_user_content(
                     ctx, ask, system_prompt, settings, debug_parts, show_debug)
@@ -922,9 +922,14 @@ RULES:
                 if web_context:
                     sections.append(web_context)
 
+                # Per-user instructions ride the user content ahead of the question
+                # wrapper (keeping them out of the highest-salience slot) while
+                # leaving the cached system prefix identical for every user.
+                instructions = context_data.get("user_instructions", "")
+
                 if sections:
                     combined = "\n\n".join(sections)
-                    ask = f"""{combined}
+                    ask = f"""{combined + instructions if instructions else combined}
 
 <user_question>
 {ask}
@@ -934,12 +939,6 @@ RULES:
                 # regardless of whether search results are attached; a conditional
                 # append here would bust the whole cached prefix.
                 system_prompt += "\n\nIf web search results are included in the context, prioritize them for factual/current info and cite sources briefly when relevant."
-
-                # Per-user instructions ride the user content so the cached system
-                # prefix stays identical for every user.
-                instructions = context_data.get("user_instructions", "")
-                if instructions:
-                    ask += instructions
 
                 user_content, system_prompt, image_tokens = await self._build_glm_user_content(
                     ctx, ask, system_prompt, settings, debug_parts, show_debug)

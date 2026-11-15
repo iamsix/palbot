@@ -406,7 +406,7 @@ Be detailed — this summary replaces the original messages and is the only reco
                         summary, compact_model)
 
                     recent_text = self._format_messages(recent_msgs, bot_user_id)
-                    parts = [f"[Conversation summary]\n{summary}"]
+                    parts = [f"[Conversation summary — last {compact_days} days]\n{summary}"]
                     if recent_text:
                         parts.append(f"Recent channel conversation:\n{recent_text}")
                     return "\n\n".join(parts)
@@ -415,7 +415,7 @@ Be detailed — this summary replaces the original messages and is the only reco
                     # Keep old cache, skip re-compaction this round
                     self.bot.logger.error(f"Re-compaction failed for #{ctx.channel.name}: {e}")
                     summary = cache["summary_text"]
-                    parts = [f"[Conversation summary]\n{summary}"]
+                    parts = [f"[Conversation summary — last {compact_days} days]\n{summary}"]
                     if raw_text:
                         parts.append(f"Recent channel conversation:\n{raw_text}")
                     return "\n\n".join(parts)
@@ -424,7 +424,7 @@ Be detailed — this summary replaces the original messages and is the only reco
                 # Warm cache, no re-compaction needed
                 summary = cache["summary_text"]
 
-                parts = [f"[Conversation summary]\n{summary}"]
+                parts = [f"[Conversation summary — last {compact_days} days]\n{summary}"]
                 if raw_text:
                     parts.append(f"Recent channel conversation:\n{raw_text}")
                 return "\n\n".join(parts)
@@ -481,7 +481,7 @@ Be detailed — this summary replaces the original messages and is the only reco
                     summary, compact_model)
 
                 recent_text = self._format_messages(recent_msgs, bot_user_id)
-                parts = [f"[Conversation summary]\n{summary}"]
+                parts = [f"[Conversation summary — last {compact_days} days]\n{summary}"]
                 if recent_text:
                     parts.append(f"Recent channel conversation:\n{recent_text}")
                 return "\n\n".join(parts)

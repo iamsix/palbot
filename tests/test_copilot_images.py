@@ -158,10 +158,10 @@ class GLMImageTests(unittest.IsolatedAsyncioTestCase):
                     "Recent channel conversation: history", "Bob's context", "Alice")
                 if name == "sglm":
                     context += "\n\n<web_search_results>offline search</web_search_results>"
-                # Per-user instructions ride the user content for GLM commands
-                # (they can no longer be appended to the cached system prefix).
-                expected = f"{context}\n\n<user_question>\ndescribe Bob\n</user_question>"
-                expected += "\n\n[Per-user instructions for Alice]\nUse friendly language"
+                # Per-user instructions ride the user content ahead of the
+                # question wrapper for GLM commands.
+                expected = (f"{context}\n\n[Per-user instructions for Alice]\nUse friendly language"
+                             f"\n\n<user_question>\ndescribe Bob\n</user_question>")
                 self.assertEqual(payload["messages"][1]["content"], expected)
 
     async def test_context_off_and_zero_lookback_disable_current_and_history_images(self):
@@ -395,6 +395,8 @@ class GLMImageTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("[Per-user instructions", system["content"])
         self.assertEqual(user["content"][0]["type"], "text")
         self.assertIn("Use friendly language", user["content"][0]["text"])
+        text = user["content"][0]["text"]
+        self.assertLess(text.find("[Per-user instructions"), text.find("<user_question>"))
 
     async def test_sglm_search_line_system_prompt_stable(self):
         self.reset_calls()
