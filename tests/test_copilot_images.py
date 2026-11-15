@@ -122,6 +122,7 @@ class GLMImageTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(payload["model"], self.settings["glm_model"])
                 self.assertEqual(payload["max_tokens"], self.settings["glm_max_output_tokens"])
                 self.assertEqual(payload["reasoning_budget"], self.settings["glm_max_thinking_tokens"])
+                self.assertEqual(payload["reasoning_budget_tokens"], self.settings["glm_max_thinking_tokens"])
                 system, user = payload["messages"]
                 self.assertIn("Custom GLM prompt", system["content"])
                 self.assertNotIn("[Per-user instructions", system["content"])
@@ -400,15 +401,19 @@ class GLMImageTests(unittest.IsolatedAsyncioTestCase):
         self.assertLess(text.find("[Per-user instructions"), text.find("<user_question>"))
 
     async def test_glm_thinking_budget_setting_reaches_payload(self):
-        # 0 is a valid budget and must survive settings lookup (falsy-trap guard)
+        # 0 disables thinking via reasoning_effort, not the budget key (Strata: 0 = no budget)
         self.reset_calls()
         self.settings["glm_max_thinking_tokens"] = 0
         payload = await self.run_command("glm")
         self.assertEqual(payload["reasoning_budget"], 0)
+        self.assertEqual(payload["reasoning_effort"], "none")
+        self.assertNotIn("reasoning_budget_tokens", payload)
         self.reset_calls()
         self.settings["glm_max_thinking_tokens"] = 250
         payload = await self.run_command("sglm")
+        self.assertEqual(payload["reasoning_budget_tokens"], 250)
         self.assertEqual(payload["reasoning_budget"], 250)
+        self.assertNotIn("reasoning_effort", payload)
 
     async def test_sglm_search_line_system_prompt_stable(self):
         self.reset_calls()

@@ -815,6 +815,10 @@ RULES:
                     "max_tokens": max_output,
                     "reasoning_budget": max_thinking,
                 }
+                if max_thinking > 0:
+                    payload["reasoning_budget_tokens"] = max_thinking
+                else:
+                    payload["reasoning_effort"] = "none"
 
                 data = await self.glm_provider.chat(payload)
 
@@ -956,6 +960,10 @@ RULES:
                     "max_tokens": max_output,
                     "reasoning_budget": max_thinking,
                 }
+                if max_thinking > 0:
+                    payload["reasoning_budget_tokens"] = max_thinking
+                else:
+                    payload["reasoning_effort"] = "none"
 
                 data = await self.glm_provider.chat(payload)
 
