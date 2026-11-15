@@ -110,6 +110,9 @@ GLOBAL_SETTINGS = {"brave_api_key", "glm_api_key"}
 # Settings whose values should be hidden in !claiconfig output
 SECRET_SETTINGS = {"brave_api_key", "glm_api_key"}
 
+# Settings with a fixed set of allowed values; validated and normalized (strip/lower) on store
+ENUM_SETTINGS = {"glm_thinking_backend": ("off", "strata")}
+
 SETTINGS_HELP = {
     "enabled":            "Enable/disable !clai and !sclai in this channel (on/off)",
     "context":            "Include channel conversation history as context (on/off)",
@@ -336,8 +339,12 @@ class AICache:
             if value < min_val or value > max_val:
                 return False, f"`{key}` must be between {min_val} and {max_val}."
         else:
-            # String setting — just store it
+            # String setting; enum settings are validated and normalized
             value = str(value)
+            if key in ENUM_SETTINGS:
+                value = value.strip().lower()
+                if value not in ENUM_SETTINGS[key]:
+                    return False, f"`{key}` must be one of: {', '.join(ENUM_SETTINGS[key])}."
 
         db = await self.get_db()
         # DELETE + INSERT instead of INSERT OR REPLACE because
