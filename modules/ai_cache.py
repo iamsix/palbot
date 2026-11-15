@@ -93,6 +93,7 @@ SETTINGS_SPEC = {
     "glm_compact_model":  ("GLM-4.7-Flash-Q5_K_M.gguf", None, None),  # Optional: GLM model to use for compaction
     "glm_api_key":       ("", None, None),
     "glm_max_output_tokens": (2000, 100, 8000),
+    "glm_max_thinking_tokens": (8000, 0, 32000),
     "glm_raw_max_tokens":    (10000, 500, 50000),
     "glm_compact_max_tokens": (4000, 500, 20000),
     "glm_raw_hours":         (6, 1, 168),
@@ -133,6 +134,7 @@ SETTINGS_HELP = {
     "glm_compact_model":  "Model name to use for GLM compaction/summarization",
     "glm_api_key":        "GLM API key for !glm command (global, required for GLM)",
     "glm_max_output_tokens": "Max tokens GLM can generate per response (default 2000)",
+    "glm_max_thinking_tokens": "Max thinking/reasoning tokens GLM may emit per response (default 8000; 0 disables thinking)",
     "glm_raw_max_tokens":    "Max tokens for raw (recent) messages in GLM context (default 10000)",
     "glm_compact_max_tokens": "Max tokens for compacted summary in GLM context (default 4000)",
     "glm_raw_hours":         "Hours of recent messages to keep raw for GLM (default 6)",

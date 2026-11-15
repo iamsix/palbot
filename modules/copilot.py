@@ -800,6 +800,9 @@ RULES:
 
                 # Build payload
                 max_output = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_max_output_tokens") or 2000
+                max_thinking = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_max_thinking_tokens")
+                if max_thinking is None:
+                    max_thinking = 8000
 
                 user_content, system_prompt, image_tokens = await self._build_glm_user_content(
                     ctx, ask, system_prompt, settings, debug_parts, show_debug)
@@ -810,6 +813,7 @@ RULES:
                         {"role": "user", "content": user_content}
                     ],
                     "max_tokens": max_output,
+                    "reasoning_budget": max_thinking,
                 }
 
                 data = await self.glm_provider.chat(payload)
@@ -892,6 +896,7 @@ RULES:
                 api_key = await self.ai_cache.get_setting(ctx.guild.id, None, "glm_api_key") or await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_api_key")
                 model = settings.get("glm_model", "GLM-4.7-Flash-Q5_K_M.gguf")
                 max_output = settings.get("glm_max_output_tokens", 2000)
+                max_thinking = settings.get("glm_max_thinking_tokens", 8000)
                 search_max_tokens = settings.get("search_max_tokens", 5000)
 
                 self.glm_provider.base_url = base_url
@@ -949,6 +954,7 @@ RULES:
                         {"role": "user", "content": user_content}
                     ],
                     "max_tokens": max_output,
+                    "reasoning_budget": max_thinking,
                 }
 
                 data = await self.glm_provider.chat(payload)
