@@ -123,13 +123,15 @@ class GLMImageTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(payload["max_tokens"], self.settings["glm_max_output_tokens"])
                 system, user = payload["messages"]
                 self.assertIn("Custom GLM prompt", system["content"])
-                self.assertIn("Use friendly language", system["content"])
-                self.assertIn(_IMAGE_HINT, system["content"])
-                self.assertEqual(user["content"][0], {
+                self.assertNotIn("[Per-user instructions", system["content"])
+                self.assertNotIn(_IMAGE_HINT, system["content"])
+                text = user["content"][0]
+                self.assertEqual(text["type"], "text")
+                self.assertIn("Use friendly language", text["text"])
+                self.assertEqual(user["content"][1], {
                     "type": "image_url", "image_url": {"url": IMAGE_URI},
                 })
-                text = user["content"][1]
-                self.assertEqual(text["type"], "text")
+                self.assertEqual(user["content"][-1], {"type": "text", "text": _IMAGE_HINT})
                 self.assertIn("<user_question>\ndescribe Bob\n</user_question>", text["text"])
                 self.assertIn('type="discord_history"', text["text"])
                 self.assertIn('type="mentioned_users"', text["text"])
@@ -153,11 +155,14 @@ class GLMImageTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIsInstance(payload["messages"][1]["content"], str)
                 self.assertNotIn(_IMAGE_HINT, payload["messages"][0]["content"])
                 context = self.cog.context_gatherer.wrap_context(
-                    "Recent channel conversation: history", "Bob's context")
+                    "Recent channel conversation: history", "Bob's context", "Alice")
                 if name == "sglm":
                     context += "\n\n<web_search_results>offline search</web_search_results>"
-                self.assertEqual(payload["messages"][1]["content"],
-                                 f"{context}\n\n<user_question>\ndescribe Bob\n</user_question>")
+                # Per-user instructions ride the user content ahead of the
+                # question wrapper for GLM commands.
+                expected = (f"{context}\n\n[Per-user instructions for Alice]\nUse friendly language"
+                             f"\n\n<user_question>\ndescribe Bob\n</user_question>")
+                self.assertEqual(payload["messages"][1]["content"], expected)
 
     async def test_context_off_and_zero_lookback_disable_current_and_history_images(self):
         for name in ("glm", "sglm"):
@@ -194,7 +199,7 @@ class GLMImageTests(unittest.IsolatedAsyncioTestCase):
                 ]
                 payload = await self.run_command(name)
                 self.assertEqual([part["type"] for part in payload["messages"][1]["content"]],
-                                 ["image_url", "image_url", "text"])
+                                 ["text", "image_url", "image_url", "text"])
                 self.history.assert_called_once_with(limit=1, before=self.message)
                 included.read.assert_awaited_once()
                 excluded.read.assert_not_awaited()
@@ -214,7 +219,7 @@ class GLMImageTests(unittest.IsolatedAsyncioTestCase):
                 )]
                 self.message.content = "https://example.invalid/embed.png https://example.invalid/raw.png"
                 payload = await self.run_command(name)
-                self.assertEqual(len(payload["messages"][1]["content"]), 3)
+                self.assertEqual(len(payload["messages"][1]["content"]), 4)
                 self.assertEqual(self.cog._download_url.await_count, 2)
                 self.cog._download_url.assert_any_await("https://example.invalid/proxy.png")
                 self.cog._download_url.assert_any_await("https://example.invalid/raw.png", probe=True)
@@ -240,9 +245,11 @@ class GLMImageTests(unittest.IsolatedAsyncioTestCase):
         debug = []
         content, system, tokens = await self.cog._build_glm_user_content(
             self.ctx, "question", "system", self.settings, debug, True)
-        self.assertEqual(content[0]["image_url"]["url"], IMAGE_URI)
+        self.assertEqual(content[0]["type"], "text")
+        self.assertEqual(content[1]["image_url"]["url"], IMAGE_URI)
+        self.assertEqual(content[-1], {"type": "text", "text": _IMAGE_HINT})
         self.assertEqual(tokens, 100)
-        self.assertIn(_IMAGE_HINT, system)
+        self.assertNotIn(_IMAGE_HINT, system)
         self.assertIn("imgs_dropped=1(context_limit)", debug)
         self.cog._collect_recent_images.return_value = [{"url": IMAGE_URI, "tokens": 100}]
         self.cog.glm_provider.estimate_tokens.return_value = 2451
@@ -251,6 +258,22 @@ class GLMImageTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(content, "question")
         self.assertEqual(system, "system")
         self.assertEqual(tokens, 0)
+
+    async def test_default_glm_system_prompt_static_across_users(self):
+        self.settings["glm_system_prompt"] = ""
+        gatherer = self.cog.context_gatherer
+        first = await gatherer.build_full_context(
+            self.ctx, self.settings, "key", "https://example.invalid",
+            compact_model="GLM-test-model", user_prompt=None)
+        self.ctx.author = SimpleNamespace(id=9, display_name="Zed", roles=[])
+        second = await gatherer.build_full_context(
+            self.ctx, self.settings, "key", "https://example.invalid",
+            compact_model="GLM-test-model", user_prompt=None)
+        self.assertEqual(first["system_prompt"], second["system_prompt"])
+        self.assertNotIn("Alice", first["system_prompt"])
+        self.assertNotIn("Zed", first["system_prompt"])
+        wrapped = gatherer.wrap_context("c", "u", "Alice")
+        self.assertTrue(wrapped.endswith('<context type="requesting_user" usage="identity">Alice</context>'))
 
     async def test_failed_download_keeps_text_request(self):
         self.message.attachments = [attachment()]
@@ -291,11 +314,12 @@ class GLMImageTests(unittest.IsolatedAsyncioTestCase):
         self.cog.get_provider_auth = AsyncMock(return_value=("offline", "https://example.invalid"))
         await Copilot.clai.callback(self.cog, self.ctx, ask="describe <@4>")
         payload = self.cog.provider.chat.call_args.args[0]
-        self.assertEqual(payload["messages"][1]["content"][0], {
+        self.assertEqual(payload["messages"][1]["content"][-2], {
             "type": "image_url", "image_url": {"url": IMAGE_URI},
         })
+        self.assertEqual(payload["messages"][1]["content"][-1], {"type": "text", "text": _IMAGE_HINT})
         self.assertEqual(self.cog._img_tokens, 100)
-        self.assertIn(_IMAGE_HINT, payload["messages"][0]["content"])
+        self.assertNotIn(_IMAGE_HINT, payload["messages"][0]["content"])
         self.cog.context_gatherer._estimate_image_tokens.assert_called_once_with(IMAGE_BYTES)
 
     async def test_collection_selects_latest_n_then_orders_messages_chronologically(self):
@@ -322,8 +346,9 @@ class GLMImageTests(unittest.IsolatedAsyncioTestCase):
                     self.cog.glm_provider.estimate_tokens = Mock(return_value=(5000 - available) // 2)
                     payload = await self.run_command(name)
                     content = payload["messages"][1]["content"]
+                    self.assertEqual(content[0]["type"], "text")
                     self.assertEqual(
-                        [part["image_url"]["url"] for part in content[:-1]],
+                        [part["image_url"]["url"] for part in content[1:-1]],
                         [fixtures[label][1] for label in labels],
                     )
                     self.assertEqual(content[-1]["type"], "text")
@@ -341,12 +366,61 @@ class GLMImageTests(unittest.IsolatedAsyncioTestCase):
         content = self.cog.provider.chat.call_args.args[0]["messages"][1]["content"]
         labels = ("oldest-a", "oldest-b", "middle", "newest", "trigger-a", "trigger-b")
         self.assertEqual(
-            [part["image_url"]["url"] for part in content[:-1]],
+            [part["image_url"]["url"] for part in content[1:-1]],
             [fixtures[label][1] for label in labels],
         )
-        self.assertEqual(content[-1]["type"], "text")
+        self.assertEqual(content[0]["type"], "text")
+        self.assertEqual(content[-1], {"type": "text", "text": _IMAGE_HINT})
         self.history.assert_called_once_with(limit=3, before=self.message)
         fixtures["excluded"][0].read.assert_not_awaited()
+
+    async def test_glm_per_user_instructions_ride_user_content(self):
+        self.settings["glm_system_prompt"] = ""
+        gatherer = self.cog.context_gatherer
+        with_prompt = await gatherer.build_full_context(
+            self.ctx, self.settings, "key", "https://example.invalid",
+            compact_model="GLM-test-model", user_prompt="Prefs A")
+        without_prompt = await gatherer.build_full_context(
+            self.ctx, self.settings, "key", "https://example.invalid",
+            compact_model="GLM-test-model", user_prompt=None)
+        self.assertEqual(with_prompt["system_prompt"], without_prompt["system_prompt"])
+        self.assertIn("Prefs A", with_prompt["user_instructions"])
+        self.assertIn("[Per-user instructions for Alice]", with_prompt["user_instructions"])
+        self.assertNotIn("Prefs A", with_prompt["system_prompt"])
+
+        self.reset_calls()
+        self.message.attachments = [attachment()]
+        payload = await self.run_command("glm")
+        system, user = payload["messages"]
+        self.assertNotIn("[Per-user instructions", system["content"])
+        self.assertEqual(user["content"][0]["type"], "text")
+        self.assertIn("Use friendly language", user["content"][0]["text"])
+        text = user["content"][0]["text"]
+        self.assertLess(text.find("[Per-user instructions"), text.find("<user_question>"))
+
+    async def test_sglm_search_line_system_prompt_stable(self):
+        self.reset_calls()
+        with_search = await self.run_command("sglm")
+        self.assertIn("If web search results are included", with_search["messages"][0]["content"])
+
+        self.reset_calls()
+        glm_payload = await self.run_command("glm")
+        self.assertNotIn("If web search results are included", glm_payload["messages"][0]["content"])
+
+        self.cog._web_search = AsyncMock(return_value="")
+        self.reset_calls()
+        without_search = await self.run_command("sglm")
+        self.assertEqual(without_search["messages"][0]["content"], with_search["messages"][0]["content"])
+
+    async def test_sclai_image_hint_rides_user_content(self):
+        self.message.attachments = [attachment()]
+        self.cog.provider = self.cog.glm_provider
+        self.cog.get_provider_auth = AsyncMock(return_value=("offline", "https://example.invalid"))
+        await Copilot.sclai.callback(self.cog, self.ctx, ask="describe <@4>")
+        payload = self.cog.provider.chat.call_args.args[0]
+        system, user = payload["messages"]
+        self.assertNotIn(_IMAGE_HINT, system["content"])
+        self.assertEqual(user["content"][-1], {"type": "text", "text": _IMAGE_HINT})
 
 
 if __name__ == "__main__":

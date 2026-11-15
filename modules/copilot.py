@@ -275,22 +275,25 @@ class Copilot(commands.Cog):
 
         return images  # oldest first from history, trigger msg last
 
-    def _build_user_content(self, ask: str, images: list) -> str | list:
+    def _build_user_content(self, ask: str, images: list, trailing_hint: str | None = None) -> str | list:
         """Build user message content — plain string or multimodal array.
 
         If images are present, returns a list of content parts (OpenAI vision
-        format).  Otherwise returns the plain ask string.
+        format).  Otherwise returns the plain ask string.  Text goes first and
+        images last so the chat-context prefix stays byte-stable for prompt-prefix
+        caching; image churn can no longer evict the cached history prefix.
         """
         if not images:
             return ask
 
-        parts = []
+        parts = [{"type": "text", "text": ask}]
         for img in images:
             parts.append({
                 "type": "image_url",
                 "image_url": {"url": img["url"]},
             })
-        parts.append({"type": "text", "text": ask})
+        if trailing_hint:
+            parts.append({"type": "text", "text": trailing_hint})
         return parts
 
     async def _build_glm_user_content(self, ctx, ask: str, system_prompt: str, settings: dict,
@@ -312,12 +315,13 @@ class Copilot(commands.Cog):
             total -= images.pop(0)["tokens"]
             dropped += 1
         if images:
-            system_prompt += _IMAGE_HINT
             if show_debug:
                 debug_parts.append(f"imgs={len(images)}(~{total}tok)")
         if dropped and show_debug:
             debug_parts.append(f"imgs_dropped={dropped}(context_limit)")
-        return self._build_user_content(ask, images), system_prompt, total
+        # Hint rides at the end of the user content instead of the system prompt,
+        # so toggling images on/off can't invalidate the cached prompt prefix.
+        return self._build_user_content(ask, images, trailing_hint=_IMAGE_HINT if images else None), system_prompt, total
 
     @commands.command()
     async def clai(self, ctx, *, ask: str):
@@ -368,7 +372,6 @@ class Copilot(commands.Cog):
             image_lookback = settings.get("image_lookback", 10) if use_context else 0
             images = await self._collect_recent_images(ctx, image_lookback)
             if images:
-                system_prompt += _IMAGE_HINT
                 if show_debug:
                     img_tok = getattr(self, '_img_tokens', 0)
                     debug_parts.append(f"imgs={len(images)}(~{img_tok}tok)")
@@ -386,7 +389,7 @@ class Copilot(commands.Cog):
             stable_prefix_tokens += self.provider.estimate_tokens(system_prompt)
 
             max_output = settings.get("max_output_tokens", 500)
-            user_content = self._build_user_content(ask, images)
+            user_content = self._build_user_content(ask, images, trailing_hint=_IMAGE_HINT if images else None)
             payload = {
                 "model": answer_model,
                 "messages": [
@@ -615,7 +618,6 @@ class Copilot(commands.Cog):
             image_lookback = settings.get("image_lookback", 10) if use_context else 0
             images = await self._collect_recent_images(ctx, image_lookback)
             if images:
-                system_prompt += _IMAGE_HINT
                 if show_debug:
                     img_tok = getattr(self, '_img_tokens', 0)
                     debug_parts.append(f"imgs={len(images)}(~{img_tok}tok)")
@@ -662,7 +664,7 @@ RULES:
 
             stable_prefix_tokens += self.provider.estimate_tokens(system_prompt)
 
-            user_content = self._build_user_content(ask, images)
+            user_content = self._build_user_content(ask, images, trailing_hint=_IMAGE_HINT if images else None)
             payload = {
                 "model": answer_model,
                 "messages": [
@@ -780,11 +782,17 @@ RULES:
                 system_prompt = context_data["system_prompt"]
                 debug_parts.extend(context_data["debug_parts"])
 
-                # Wrap context in XML tags
-                combined_context = self.context_gatherer.wrap_context(channel_context, user_context)
+                # Wrap context in XML tags (requesting user named here, not in the
+                # system prompt, so the cached prefix is user-independent)
+                combined_context = self.context_gatherer.wrap_context(channel_context, user_context, ctx.author.display_name)
+
+                # Per-user instructions ride the user content ahead of the question
+                # wrapper (keeping them out of the highest-salience slot) while
+                # leaving the cached system prefix identical for every user.
+                instructions = context_data.get("user_instructions", "")
 
                 if combined_context:
-                    ask = f"""{combined_context}
+                    ask = f"""{combined_context + instructions if instructions else combined_context}
 
 <user_question>
 {ask}
@@ -792,6 +800,7 @@ RULES:
 
                 # Build payload
                 max_output = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_max_output_tokens") or 2000
+
                 user_content, system_prompt, image_tokens = await self._build_glm_user_content(
                     ctx, ask, system_prompt, settings, debug_parts, show_debug)
                 payload = {
@@ -906,24 +915,30 @@ RULES:
                 debug_parts.extend(context_data["debug_parts"])
 
                 # Build prompt with stable context first, then volatile search
-                stable_context = self.context_gatherer.wrap_context(channel_context, user_context)
+                stable_context = self.context_gatherer.wrap_context(channel_context, user_context, ctx.author.display_name)
                 sections = []
                 if stable_context:
                     sections.append(stable_context)
                 if web_context:
                     sections.append(web_context)
 
+                # Per-user instructions ride the user content ahead of the question
+                # wrapper (keeping them out of the highest-salience slot) while
+                # leaving the cached system prefix identical for every user.
+                instructions = context_data.get("user_instructions", "")
+
                 if sections:
                     combined = "\n\n".join(sections)
-                    ask = f"""{combined}
+                    ask = f"""{combined + instructions if instructions else combined}
 
 <user_question>
 {ask}
 </user_question>"""
 
-                # Inject search awareness into system prompt
-                if web_context:
-                    system_prompt += "\n\nYou have web search results as context. Prioritize them for factual/current info. Cite sources briefly when relevant."
+                # Appended unconditionally so the system prompt stays byte-stable
+                # regardless of whether search results are attached; a conditional
+                # append here would bust the whole cached prefix.
+                system_prompt += "\n\nIf web search results are included in the context, prioritize them for factual/current info and cite sources briefly when relevant."
 
                 user_content, system_prompt, image_tokens = await self._build_glm_user_content(
                     ctx, ask, system_prompt, settings, debug_parts, show_debug)
