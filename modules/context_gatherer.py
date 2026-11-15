@@ -537,7 +537,7 @@ Be detailed — this summary replaces the original messages and is the only reco
             else:
                 bot_name = self.bot.user.display_name
                 bot_id = self.bot.user.id
-                system_prompt = f"""You are {bot_name}, a Discord bot. User: {ctx.author.display_name}.
+                system_prompt = f"""You are {bot_name}, a Discord bot.
 
 RESPOND DIRECTLY to what the user asked. Be concise — 1-3 sentences max.
 
@@ -603,12 +603,14 @@ RULES:
             "stable_prefix_tokens": stable_prefix_tokens,
         }
 
-    def wrap_context(self, channel_context: str, user_context: str) -> str:
+    def wrap_context(self, channel_context: str, user_context: str, requesting_user: str = None) -> str:
         """Wrap context sections in XML tags for AI commands.
 
         Args:
             channel_context: The compacted channel history
             user_context: The user mention context
+            requesting_user: Display name of the user being asked; placed last
+                so the cached history prefix stays identical across users
 
         Returns:
             str: Combined wrapped context string
@@ -618,6 +620,8 @@ RULES:
             sections.append(f'<context type="discord_history" usage="internal_reference_only">\n{channel_context}\n</context>')
         if user_context:
             sections.append(f'<context type="mentioned_users" usage="internal_reference_only">\n{user_context}\n</context>')
+        if requesting_user:
+            sections.append(f'<requesting_user name="{requesting_user}" usage="identity"/>')
         return "\n\n".join(sections) if sections else ""
 
 # Dummy setup since it's not a cog but an extra module used by one
