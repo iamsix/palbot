@@ -406,7 +406,7 @@ Be detailed — this summary replaces the original messages and is the only reco
                         summary, compact_model)
 
                     recent_text = self._format_messages(recent_msgs, bot_user_id)
-                    parts = [f"[Conversation summary — last {compact_days} days]\n{summary}"]
+                    parts = [f"[Conversation summary]\n{summary}"]
                     if recent_text:
                         parts.append(f"Recent channel conversation:\n{recent_text}")
                     return "\n\n".join(parts)
@@ -481,7 +481,7 @@ Be detailed — this summary replaces the original messages and is the only reco
                     summary, compact_model)
 
                 recent_text = self._format_messages(recent_msgs, bot_user_id)
-                parts = [f"[Conversation summary — last {compact_days} days]\n{summary}"]
+                parts = [f"[Conversation summary]\n{summary}"]
                 if recent_text:
                     parts.append(f"Recent channel conversation:\n{recent_text}")
                 return "\n\n".join(parts)
@@ -502,6 +502,9 @@ Be detailed — this summary replaces the original messages and is the only reco
             system_prompt: str - the system prompt to use
             debug_parts: list[str] - debug info for the 🔧 line
             stable_prefix_tokens: int - estimated cacheable prefix tokens
+            user_instructions: str - per-user instruction block for GLM commands
+                (empty string when unset or on the clai/sclai path, where the block
+                is already appended to system_prompt)
         """
         use_context = settings.get("context", "on") != "off"
         debug_parts = []
@@ -591,9 +594,16 @@ RULES:
         if user_context:
             debug_parts.append(f"users={self.provider.estimate_tokens(user_context)}tok")
 
-        # Append per-user custom prompt if set
+        # Append per-user custom prompt if set.
+        # For the GLM path the block must NOT touch the system prompt: it is
+        # user-specific and would invalidate the cached prompt prefix, so it is
+        # returned separately and commands append it to the user content instead.
+        user_instructions = ""
         if user_prompt:
-            system_prompt += f"\n\n[Per-user instructions for {ctx.author.display_name}]\n{user_prompt}"
+            if compact_model:
+                user_instructions = f"\n\n[Per-user instructions for {ctx.author.display_name}]\n{user_prompt}"
+            else:
+                system_prompt += f"\n\n[Per-user instructions for {ctx.author.display_name}]\n{user_prompt}"
 
         return {
             "channel_context": channel_context,
@@ -601,6 +611,7 @@ RULES:
             "system_prompt": system_prompt,
             "debug_parts": debug_parts,
             "stable_prefix_tokens": stable_prefix_tokens,
+            "user_instructions": user_instructions,
         }
 
     def wrap_context(self, channel_context: str, user_context: str, requesting_user: str = None) -> str:
@@ -609,8 +620,8 @@ RULES:
         Args:
             channel_context: The compacted channel history
             user_context: The user mention context
-            requesting_user: Display name of the user being asked; placed last
-                so the cached history prefix stays identical across users
+            requesting_user: Display name of the command author; appended after
+                the history sections so the cached prefix is identical across users
 
         Returns:
             str: Combined wrapped context string
@@ -621,7 +632,7 @@ RULES:
         if user_context:
             sections.append(f'<context type="mentioned_users" usage="internal_reference_only">\n{user_context}\n</context>')
         if requesting_user:
-            sections.append(f'<requesting_user name="{requesting_user}" usage="identity"/>')
+            sections.append(f'<context type="requesting_user" usage="identity">{requesting_user}</context>')
         return "\n\n".join(sections) if sections else ""
 
 # Dummy setup since it's not a cog but an extra module used by one

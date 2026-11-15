@@ -372,7 +372,6 @@ class Copilot(commands.Cog):
             image_lookback = settings.get("image_lookback", 10) if use_context else 0
             images = await self._collect_recent_images(ctx, image_lookback)
             if images:
-                system_prompt += _IMAGE_HINT
                 if show_debug:
                     img_tok = getattr(self, '_img_tokens', 0)
                     debug_parts.append(f"imgs={len(images)}(~{img_tok}tok)")
@@ -390,7 +389,7 @@ class Copilot(commands.Cog):
             stable_prefix_tokens += self.provider.estimate_tokens(system_prompt)
 
             max_output = settings.get("max_output_tokens", 500)
-            user_content = self._build_user_content(ask, images)
+            user_content = self._build_user_content(ask, images, trailing_hint=_IMAGE_HINT if images else None)
             payload = {
                 "model": answer_model,
                 "messages": [
@@ -619,7 +618,6 @@ class Copilot(commands.Cog):
             image_lookback = settings.get("image_lookback", 10) if use_context else 0
             images = await self._collect_recent_images(ctx, image_lookback)
             if images:
-                system_prompt += _IMAGE_HINT
                 if show_debug:
                     img_tok = getattr(self, '_img_tokens', 0)
                     debug_parts.append(f"imgs={len(images)}(~{img_tok}tok)")
@@ -666,7 +664,7 @@ RULES:
 
             stable_prefix_tokens += self.provider.estimate_tokens(system_prompt)
 
-            user_content = self._build_user_content(ask, images)
+            user_content = self._build_user_content(ask, images, trailing_hint=_IMAGE_HINT if images else None)
             payload = {
                 "model": answer_model,
                 "messages": [
@@ -797,6 +795,12 @@ RULES:
 
                 # Build payload
                 max_output = await self.ai_cache.get_setting(ctx.guild.id, ctx.channel.id, "glm_max_output_tokens") or 2000
+                # Per-user instructions ride the user content so the cached system
+                # prefix stays identical for every user.
+                instructions = context_data.get("user_instructions", "")
+                if instructions:
+                    ask += instructions
+
                 user_content, system_prompt, image_tokens = await self._build_glm_user_content(
                     ctx, ask, system_prompt, settings, debug_parts, show_debug)
                 payload = {
@@ -930,6 +934,12 @@ RULES:
                 # regardless of whether search results are attached; a conditional
                 # append here would bust the whole cached prefix.
                 system_prompt += "\n\nIf web search results are included in the context, prioritize them for factual/current info and cite sources briefly when relevant."
+
+                # Per-user instructions ride the user content so the cached system
+                # prefix stays identical for every user.
+                instructions = context_data.get("user_instructions", "")
+                if instructions:
+                    ask += instructions
 
                 user_content, system_prompt, image_tokens = await self._build_glm_user_content(
                     ctx, ask, system_prompt, settings, debug_parts, show_debug)
