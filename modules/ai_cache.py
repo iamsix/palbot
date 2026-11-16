@@ -93,6 +93,8 @@ SETTINGS_SPEC = {
     "glm_compact_model":  ("GLM-4.7-Flash-Q5_K_M.gguf", None, None),  # Optional: GLM model to use for compaction
     "glm_api_key":       ("", None, None),
     "glm_max_output_tokens": (2000, 100, 8000),
+    "glm_max_thinking_tokens": (8000, 0, 32000),
+    "glm_thinking_backend": ("off", None, None),
     "glm_raw_max_tokens":    (10000, 500, 50000),
     "glm_compact_max_tokens": (4000, 500, 20000),
     "glm_raw_hours":         (6, 1, 168),
@@ -107,6 +109,9 @@ GLOBAL_SETTINGS = {"brave_api_key", "glm_api_key"}
 
 # Settings whose values should be hidden in !claiconfig output
 SECRET_SETTINGS = {"brave_api_key", "glm_api_key"}
+
+# Settings with a fixed set of allowed values; validated and normalized (strip/lower) on store
+ENUM_SETTINGS = {"glm_thinking_backend": ("off", "strata")}
 
 SETTINGS_HELP = {
     "enabled":            "Enable/disable !clai and !sclai in this channel (on/off)",
@@ -132,7 +137,9 @@ SETTINGS_HELP = {
     "glm_model":          "Model name to use for GLM responses",
     "glm_compact_model":  "Model name to use for GLM compaction/summarization",
     "glm_api_key":        "GLM API key for !glm command (global, required for GLM)",
-    "glm_max_output_tokens": "Max tokens GLM can generate per response (default 2000)",
+    "glm_max_output_tokens": "Desired answer allowance per GLM response (default 2000)",
+    "glm_max_thinking_tokens": "Thinking allowance per GLM response when glm_thinking_backend is strata (default 8000; 0 disables thinking)",
+    "glm_thinking_backend": "Engine extension for thinking controls: off (plain OpenAI-compat, no reasoning fields) or strata (verified thinking-budget support)",
     "glm_raw_max_tokens":    "Max tokens for raw (recent) messages in GLM context (default 10000)",
     "glm_compact_max_tokens": "Max tokens for compacted summary in GLM context (default 4000)",
     "glm_raw_hours":         "Hours of recent messages to keep raw for GLM (default 6)",
@@ -332,8 +339,12 @@ class AICache:
             if value < min_val or value > max_val:
                 return False, f"`{key}` must be between {min_val} and {max_val}."
         else:
-            # String setting — just store it
+            # String setting; enum settings are validated and normalized
             value = str(value)
+            if key in ENUM_SETTINGS:
+                value = value.strip().lower()
+                if value not in ENUM_SETTINGS[key]:
+                    return False, f"`{key}` must be one of: {', '.join(ENUM_SETTINGS[key])}."
 
         db = await self.get_db()
         # DELETE + INSERT instead of INSERT OR REPLACE because
