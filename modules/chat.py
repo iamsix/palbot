@@ -215,7 +215,7 @@ class Chat(commands.Cog):
         params = {'client': 'gtx', 'sl': sl, 'tl': tl, 'dt': 't', "q": phrase}
         async with AsyncSession(impersonate="firefox", verify=True) as session:
             resp = await session.get(url, params=params)
-            result = await resp.json()
+            result = resp.json()
             await ctx.send("{} ({}): {}".format(result[0][0][1], result[2], result[0][0][0]))
 
 
