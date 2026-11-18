@@ -7,6 +7,8 @@ import re
 import aiosqlite
 from datetime import timedelta, datetime, timezone
 import base64
+from curl_cffi.requests import AsyncSession
+
 
 FACES = [" ͡° ͜ʖ ͡°", " ͡° ʖ̯ ͡°", " ͠° ͟ʖ ͡°", " ͡ᵔ ͜ʖ ͡ᵔ", " . •́ _ʖ •̀ .", " ఠ ͟ʖ ఠ", " ͡ಠ ʖ̯ ͡ಠ",
          " ಠ ʖ̯ ಠ", " ಠ ͜ʖ ಠ", " ͡• ͜ʖ ͡• ", " ･ิ ͜ʖ ･ิ", " ͡ ͜ʖ ͡ ", "≖ ͜ʖ≖", "ʘ ʖ̯ ʘ", "ʘ ͟ʖ ʘ",
@@ -211,9 +213,8 @@ class Chat(commands.Cog):
 
         url = "https://translate.googleapis.com/translate_a/single"
         params = {'client': 'gtx', 'sl': sl, 'tl': tl, 'dt': 't', "q": phrase}
-        ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:160.0) Gecko/20100101 Firefox/160.0"
-        headers = {'User-Agent': ua}
-        async with self.bot.session.get(url, headers=headers, params=params) as resp:
+        async with AsyncSession(impersonate="firefox", verify=True) as session:
+            resp = await session.get(url, params=params)
             result = await resp.json()
             await ctx.send("{} ({}): {}".format(result[0][0][1], result[2], result[0][0][0]))
 
